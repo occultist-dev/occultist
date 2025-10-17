@@ -7,7 +7,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { JSONObject, TypeDef } from "../jsonld.ts";
 
 
-export type HandlerMeta = Map<symbol | string, string | string[]>;
+export type HandlerMeta = Record<symbol | string, unknown>;
 
 export type HandlerFn<
   State extends ContextState = ContextState,

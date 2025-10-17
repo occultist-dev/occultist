@@ -1,7 +1,7 @@
 import type { JSONLDContext, TypeDef } from "../jsonld.ts";
 import { makeTypeDef, makeTypeDefs } from "../makeTypeDefs.ts";
-import type { ActionSpec, PropertySpec } from "../types.ts";
 import { contextBuilder } from "./contextBuilder.ts";
+import type { ActionSpec, PropertySpec } from '../actions/spec.ts';
 
 const defaultTypeDefs = makeTypeDefs([
   makeTypeDef({ schema: 'https://schema.org/', term: 'Entrypoint' }),
@@ -26,7 +26,7 @@ export function getActionContext({
   vocab?: string;
   aliases?: Record<string, string>;
   // deno-lint-ignore no-explicit-any
-  spec: ActionSpec<any>;
+  spec: ActionSpec
 }): JSONLDContext {
   const typeDefs: TypeDef[] = Object.values(defaultTypeDefs);
 

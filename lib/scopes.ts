@@ -144,6 +144,7 @@ export class Scope implements Callable {
         this.#registry.http.get('scope-action', joinPaths(this.url(), action.name))
           .public()
           .handle('application/ld+json', async (ctx) => {
+            console.log('GETTING JSON LD');
             ctx.body = JSON.stringify(await action.jsonld());
           });
       } else {

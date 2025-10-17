@@ -10,6 +10,7 @@ import type { JSONLDContext, JSONObject, TypeDef } from "../jsonld.ts";
 import { joinPaths } from "../action.ts";
 import { getPropertyValueSpecifications } from "../utils/getPropertyValueSpecifications.ts";
 import { getActionContext } from "../utils/getActionContext.ts";
+import { HandleArgs } from "../types.ts";
 
 export type DefineArgs<
   Term extends string = string,
@@ -60,14 +61,16 @@ export class FinalizedAction<
   #handlers: Map<string, Handler<State, Spec, ImplementedAction<State, Spec>>>;
 
   constructor(
+    typeDef: TypeDef | undefined,
     spec: Spec,
     meta: ActionMeta<State, Spec>,
     handlerArgs: HandlerArgs<State, Spec>,
   ) {
+    this.#typeDef = typeDef;
     this.#spec = spec;
     this.#meta = meta;
 
-    this.#meta.action = this;
+    this.#meta.action = this as unknown as ImplementedAction<State, Spec>;
 
     const handlers: Map<string, Handler<State, Spec, ImplementedAction<State, Spec>>> = new Map();
 
@@ -75,7 +78,7 @@ export class FinalizedAction<
       handlers.set(handlerArgs.contentType, {
         contentType: handlerArgs.contentType,
         handler: handlerArgs.handler,
-        meta: new Map(Object.entries(handlerArgs.meta ?? new Map())),
+        meta: handlerArgs.meta ?? {},
         name: this.#meta.name,
         action: this as unknown as ImplementedAction<State, Spec>,
         registry: this.#meta.registry,
@@ -86,7 +89,7 @@ export class FinalizedAction<
           contentType: item,
           handler: handlerArgs.handler,
           name: this.#meta.name,
-          meta: new Map(Object.entries(handlerArgs.meta ?? new Map())),
+          meta: handlerArgs.meta ?? {},
           action: this as unknown as ImplementedAction<State, Spec>,
           registry: this.#meta.registry,
         });
@@ -100,6 +103,7 @@ export class FinalizedAction<
     State extends ContextState = ContextState,
     Spec extends ActionSpec = ActionSpec,
   >(
+    typeDef: TypeDef | undefined,
     spec: Spec,
     meta: ActionMeta<State, Spec>,
     contextType: string | string[],
@@ -110,6 +114,7 @@ export class FinalizedAction<
     State extends ContextState = ContextState,
     Spec extends ActionSpec = ActionSpec,
   >(
+    typeDef: TypeDef | undefined,
     spec: Spec,
     meta: ActionMeta<State, Spec>,
     handlerArgs: HandlerArgs<State, Spec>,
@@ -119,6 +124,7 @@ export class FinalizedAction<
     State extends ContextState = ContextState,
     Spec extends ActionSpec = ActionSpec,
   >(
+    typeDef: TypeDef | undefined,
     spec: Spec,
     meta: ActionMeta<State, Spec>,
     arg3: string | string[] | HandlerArgs<State, Spec>,
@@ -126,13 +132,37 @@ export class FinalizedAction<
   ): FinalizedAction<State, Spec> {
     if (Array.isArray(arg3) || typeof arg3 === 'string') {
       return new FinalizedAction<State, Spec>(
+        typeDef,
         spec,
         meta,
         { contentType: arg3, handler: arg4 as HandlerFn<State, Spec> },
       );
     }
 
-    return new FinalizedAction(spec, meta, arg3);
+    return new FinalizedAction(typeDef, spec, meta, arg3);
+  }
+
+  static async toJSONLD(
+    action: ImplementedAction,
+    scope: Scope,
+  ): Promise<JSONObject | null> {
+    if (scope == null || action.typeDef == null) {
+      return null;
+    }
+    const apiSpec = await getPropertyValueSpecifications(action.spec);
+
+    return {
+      '@context': action.context,
+      '@id': joinPaths(action.registry.rootIRI, scope.path, this.name),
+      '@type': action.term,
+      target: {
+        '@type': 'https://schema.org/EntryPoint',
+        httpMethod: action.method,
+        urlTemplate: action.template,
+        contentType: 'application/ld+json',
+      },
+      ...apiSpec,
+    };
   }
 
   get method(): string {
@@ -184,25 +214,24 @@ export class FinalizedAction<
   }
 
   get context(): JSONObject {
-    return {};
+    return getActionContext({
+      spec: this.#spec,
+      //vocab: this.#vocab,
+      //aliases: this.#aliases,
+    });
   }
  
   url(): string {
-    return '';
+    return joinPaths(this.#meta.registry.rootIRI, this.#meta.path.normalized);
   }
 
-  jsonld(): JSONObject | null {
+  jsonld(): Promise<JSONObject | null> {
     const scope = this.#meta.scope;
-    const typeDef = this.#typeDef;
 
-    if (scope == null || typeDef == null) {
-      return null;
-    }
-    
-    return {
-      '@type': typeDef.type,
-      '@id': joinPaths(scope.url(), this.#meta.name),
-    };
+    return FinalizedAction.toJSONLD(
+      this as unknown as ImplementedAction,
+      scope
+    );
   }
 
   jsonldPartial(): { '@type': string, '@id': string } | null {
@@ -244,6 +273,12 @@ export class FinalizedAction<
       contentType = arg1.contentType;
       handler = arg1.handler;
       meta = new Map(Object.entries(arg1.meta ?? {}));
+
+      if (arg1.meta != null) {
+        for (const sym of Object.getOwnPropertySymbols(arg1.meta)) {
+          meta.set(sym, arg1.meta[sym])
+        }
+      }
     }
 
     if (!Array.isArray(contentType)) {
@@ -319,9 +354,9 @@ export class DefinedAction<
   #typeDef?: TypeDef;
 
   constructor(
+    typeDef: TypeDef | undefined,
     spec: Spec,
     meta: ActionMeta<State, Spec>,
-    typeDef: TypeDef,
   ) {
     this.#spec = spec;
     this.#meta = meta;
@@ -386,27 +421,13 @@ export class DefinedAction<
     });
   }
 
-  async jsonld(): Promise<JSONObject | null> {
+  jsonld(): Promise<JSONObject | null> {
     const scope = this.#meta.scope;
-    const typeDef = this.#typeDef;
 
-    if (scope == null || typeDef == null) {
-      return null;
-    }
-    const apiSpec = await getPropertyValueSpecifications(this.#spec);
-
-    return {
-      '@context': this.context,
-      '@id': joinPaths(this.#meta.rootIRI, scope.path, this.name),
-      '@type': this.term,
-      target: {
-        '@type': 'https://schema.org/EntryPoint',
-        httpMethod: this.method,
-        urlTemplate: this.#meta.path.template,
-        contentType: 'application/ld+json',
-      },
-      ...apiSpec,
-    };
+    return FinalizedAction.toJSONLD(
+      this as unknown as ImplementedAction,
+      scope
+    );
   }
 
   jsonldPartial(): { '@type': string, '@id': string } | null {
@@ -441,6 +462,7 @@ export class DefinedAction<
     arg2?: HandlerFn<State, Spec>,
   ): FinalizedAction<State, Spec> {
     return FinalizedAction.fromHandlers(
+      this.#typeDef,
       this.#spec,
       this.#meta,
       arg1 as string,
@@ -536,9 +558,9 @@ export class Action<
     Spec extends ActionSpec = ActionSpec,
   >(args: DefineArgs<Term, Spec>): DefinedAction<State, Term, Spec> {
     return new DefinedAction<State, Term, Spec>(
+      args.typeDef,
       args.spec,
       this.#meta as unknown as ActionMeta<State, Spec>,
-      args.typeDef,
     );
   }
 
@@ -547,6 +569,7 @@ export class Action<
     arg2?: HandlerFn<State>,
   ): FinalizedAction<State> {
     return FinalizedAction.fromHandlers(
+      undefined,
       this.#spec,
       this.#meta,
       arg1 as string,
@@ -584,9 +607,9 @@ export class PreAction<
     Spec extends ActionSpec = ActionSpec,
   >(args: DefineArgs<Term, Spec>): DefinedAction<State, Term, Spec> {
     return new DefinedAction<State, Term, Spec>(
+      args.typeDef,
       args.spec,
       this.#meta as unknown as ActionMeta<State, Spec>,
-      args.typeDef,
     );
   }
 
@@ -595,6 +618,7 @@ export class PreAction<
     arg2?: HandlerFn<State>,
   ): FinalizedAction<State> {
     return FinalizedAction.fromHandlers(
+      undefined,
       {},
       this.#meta,
       arg1 as string,
@@ -663,9 +687,9 @@ export class Endpoint<
     Spec extends ActionSpec = ActionSpec,
   >(args: DefineArgs<Term, Spec>): DefinedAction<State, Term, Spec> {
     return new DefinedAction<State, Term, Spec>(
+      args.typeDef,
       args.spec,
       this.#meta as ActionMeta<State, Spec>,
-      args.typeDef,
     );
   }
 
@@ -674,6 +698,7 @@ export class Endpoint<
     arg2?: HandlerFn<State>,
   ): FinalizedAction<State> {
     return FinalizedAction.fromHandlers(
+      undefined,
       {},
       this.#meta,
       arg1 as string,
