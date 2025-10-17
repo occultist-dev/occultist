@@ -280,7 +280,7 @@ export class Registry implements Callable {
       });
     }
 
-    throw new Error('Not implemented');
+    throw new Error(`Handler not implemented for ${req.method}: ${url}`);
   }
 
   addEventListener(type: RegistryEvents, callback: EventListener) {

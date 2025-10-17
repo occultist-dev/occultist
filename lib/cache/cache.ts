@@ -7,7 +7,7 @@ export type CacheArgs<
   StorageKey extends string = string,
 > =
   & {
-    cache: Cache;
+    cache?: Cache;
   }
   & (
     | CacheHTTPArgs

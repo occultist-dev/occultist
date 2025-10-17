@@ -2,8 +2,9 @@ import type { JSONPrimitive, JSONValue, OrArray, RecursiveDigit, RecursiveIncrem
 import type { Action } from "../types.ts";
 import type { Context } from './context.ts';
 
-// deno-lint-ignore no-explicit-any
-export type ContextState = Map<string, any>;
+export type EmptyState = Map<string, never>;
+export type EmptySpec = Map<PropertyKey, never>;
+export type ContextState = Map<string, unknown>;
 
 export type EntryPoint = {
   contentType?: string;
