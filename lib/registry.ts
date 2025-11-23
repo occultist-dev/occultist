@@ -6,49 +6,55 @@ import type { Handler, ImplementedAction } from "./actions/types.ts";
 import { FetchResponseWriter } from "./actions/writer.ts";
 import { Scope } from './scopes.ts';
 import { IncomingMessage, type ServerResponse } from "node:http";
+import type { Merge } from "./actions/spec.ts";
+import type { ContextState, Middleware } from "./actions/spec.ts";
 
 
-export interface Callable {
-  method(method: string, name: string, path: string): ActionAuth;
+export interface Callable<
+  State extends ContextState = ContextState,
+> {
+  method(method: string, name: string, path: string): ActionAuth<State>;
 }
 
-export class HTTP {
+export class HTTP<
+  State extends ContextState = ContextState,
+> {
 
-  #callable: Callable;
+  #callable: Callable<State>;
 
-  constructor(callable: Callable) {
+  constructor(callable: Callable<State>) {
     this.#callable = callable;
   }
 
-  trace(name: string, path: string): ActionAuth {
+  trace(name: string, path: string): ActionAuth<State> {
     return this.#callable.method('trace', name, path);
   }
 
-  options(name: string, path: string): ActionAuth {
+  options(name: string, path: string): ActionAuth<State> {
     return this.#callable.method('options', name, path);
   }
 
-  head(name: string, path: string): ActionAuth {
+  head(name: string, path: string): ActionAuth<State> {
     return this.#callable.method('head', name, path);
   }
 
-  get(name: string, path: string): ActionAuth {
+  get(name: string, path: string): ActionAuth<State> {
     return this.#callable.method('get', name, path);
   }
 
-  put(name: string, path: string): ActionAuth {
+  put(name: string, path: string): ActionAuth<State> {
     return this.#callable.method('put', name, path);
   }
 
-  patch(name: string, path: string): ActionAuth {
+  patch(name: string, path: string): ActionAuth<State> {
     return this.#callable.method('patch', name, path);
   }
 
-  post(name: string, path: string): ActionAuth {
+  post(name: string, path: string): ActionAuth<State> {
     return this.#callable.method('post', name, path);
   }
 
-  delete(name: string, path: string): ActionAuth {
+  delete(name: string, path: string): ActionAuth<State> {
     return this.#callable.method('delete', name, path);
   }
 
@@ -90,27 +96,30 @@ export type RegistryArgs = {
   rootIRI: string;
 };
 
-export class Registry implements Callable {
+export class Registry<
+  State extends ContextState = ContextState,
+> implements Callable<State> {
 
   #path: string;
   #rootIRI: string;
-  #http: HTTP;
+  #http: HTTP<State>;
   #scopes: Scope[] = [];
   #children: ActionMeta[] = [];
   #index?: IndexEntry;
   #writer = new FetchResponseWriter();
   #eventTarget = new EventTarget();
+  #middleware: Middleware[] = [];
 
   constructor(args: RegistryArgs) {
     const url = new URL(args.rootIRI);
 
     this.#rootIRI = args.rootIRI;
     this.#path = url.pathname
-    this.#http = new HTTP(this);
+    this.#http = new HTTP<State>(this);
   }
 
-  scope(path: string) {
-    const scope = new Scope(
+  scope(path: string): Scope<State> {
+    const scope = new Scope<State>(
       path,
       this,
       this.#writer,
@@ -130,7 +139,7 @@ export class Registry implements Callable {
     return this.#path;
   }
 
-  get http(): HTTP {
+  get http(): HTTP<State> {
     return this.#http;
   }
 
@@ -173,7 +182,7 @@ export class Registry implements Callable {
    * @param name   Name for the action being produced.
    * @param path   Path the action responds to.
    */
-  method(method: string, name: string, path: string): ActionAuth {
+  public method(method: string, name: string, path: string): ActionAuth<State> {
     const meta = new ActionMeta(
       this.#rootIRI,
       method.toUpperCase(),
@@ -185,7 +194,17 @@ export class Registry implements Callable {
 
     this.#children.push(meta);
     
-    return new ActionAuth(meta);
+    return new ActionAuth<State>(meta);
+  }
+
+  public use<
+    const MiddlewareState extends ContextState = ContextState,
+  >(
+    middleware: Middleware<MiddlewareState>,
+  ): Registry<Merge<State, MiddlewareState>> {
+    this.#middleware.push(middleware);
+
+    return this as unknown as Registry<Merge<State, MiddlewareState>>;
   }
 
   finalize() {
@@ -256,7 +275,10 @@ export class Registry implements Callable {
     const accept = Accept.from(req);
     // hack, until a better way to normalize the url is sorted
     const reqURL = new URL(req.url);
-    const url = new URL(this.#rootIRI + reqURL.pathname)
+    const url = new URL(this.#rootIRI + reqURL.pathname);
+    
+    url.search = reqURL.search;
+
     const match = this.#index?.match(
       req.method ?? 'GET',
       url.toString(),
@@ -265,6 +287,7 @@ export class Registry implements Callable {
 
     if (match?.type === 'match' && req instanceof Request) {
       return match.action.handleRequest({
+        url,
         type: 'request',
         contentType: match.contentType,
         req,
@@ -272,6 +295,7 @@ export class Registry implements Callable {
       });
     } else if (match?.type === 'match' && req instanceof IncomingMessage) {
       return match.action.handleRequest({
+        url,
         type: 'node-http',
         contentType: match.contentType,
         req,
@@ -279,8 +303,6 @@ export class Registry implements Callable {
         writer: new FetchResponseWriter(res),
       });
     }
-
-    throw new Error(`Handler not implemented for ${req.method}: ${url}`);
   }
 
   addEventListener(type: RegistryEvents, callback: EventListener) {

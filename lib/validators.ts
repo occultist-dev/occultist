@@ -1,10 +1,9 @@
 import {
   ArraySpec,
-  FileInput,
   ObjectArraySpec,
   ObjectSpec,
   PropertySpec,
-} from './types.ts';
+} from './actions/spec.ts';
 import { isObject } from './utils/isObject.ts';
 import { isGeneratorFunction, isGeneratorObject } from 'node:util/types';
 import { preferredMediaTypes } from './utils/preferredMediaTypes.ts';
@@ -13,7 +12,7 @@ import { JSONValue } from "./jsonld.ts";
 
 
 // deno-lint-ignore no-explicit-any
-export function isFileData(value: any): value is FileInput {
+export function isFileData(value: any): value is File {
   if (typeof value === 'string' && value.startsWith('data:')) {
     return true;
   } else if (isObject(value) && (isGeneratorFunction(value.iterable) || isGeneratorObject(value.iterable))) {
@@ -43,7 +42,7 @@ export function failsRequiredRequirement(
 }
 
 export function failsTypeRequirement(
-  value: JSONValue | FileInput,
+  value: JSONValue | File,
   specValue: PropertySpec,
 ) {
   const dataType = specValue.dataType;
@@ -71,7 +70,7 @@ export function failsTypeRequirement(
 
 
 export function failsContentTypeRequirement(
-  value: JSONValue | FileInput,
+  value: JSONValue | File,
   specValue: PropertySpec
 ) {
   if (specValue.type !== 'file') {
@@ -87,7 +86,7 @@ export function failsContentTypeRequirement(
   if (typeof value === 'string') {
     contentType = value.replace(/^data\:/, '').split(';')[0];
   } else {
-    contentType = value.type;
+    contentType = (value as File).type;
   }
 
   if (!contentType) {
@@ -174,7 +173,7 @@ export function failValueMaxLength(value: JSONValue, specValue: PropertySpec) {
 }
 
 export function failsValidator(
-  value: JSONValue | FileInput,
+  value: JSONValue | File,
   specValue: PropertySpec,
 ) {
   if (typeof specValue.validator !== 'function') {
@@ -182,7 +181,7 @@ export function failsValidator(
   }
 
   const validator = specValue.validator as (
-    value: JSONValue | FileInput,
+    value: JSONValue | File,
   ) => boolean;
 
   return !validator(value);

@@ -53,7 +53,7 @@ export function getRequestIRIValues<
     .filter((specItem) => typeof specItem.valueName === 'string')
     .map((specItem) => specItem.valueName);
 
-  if (action.strict) {
+  //if (action.strict) {
     for (const valueName of searchParams.keys()) {
       if (!valueNames.includes(valueName)) {
         throw new ProblemDetailsError(STATUS_CODE.BadRequest, {
@@ -61,7 +61,7 @@ export function getRequestIRIValues<
         });
       }
     }
-  }
+  //}
 
   for (
     const [term, specItem] of Object.entries(

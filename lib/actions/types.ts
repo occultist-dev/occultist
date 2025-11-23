@@ -14,6 +14,8 @@ export type HandlerFn<
   Spec extends ActionSpec = ActionSpec,
 > = (ctx: Context<State, Spec>) => void;
 
+export type HandlerText = string;
+
 export interface Handler<
   State extends ContextState = ContextState,
   Spec extends ActionSpec = ActionSpec,
@@ -24,7 +26,7 @@ export interface Handler<
   readonly meta: HandlerMeta;
   readonly action: Action;
   readonly registry: Registry;
-  readonly handler: HandlerFn<State, Spec>;
+  readonly handler: HandlerFn<State, Spec> | HandlerText;
 }
 
 export type HintLink = {
@@ -47,6 +49,7 @@ export type HandleFetchRequestArgs = {
   contentType?: string;
   language?: string;
   encoding?: string;
+  url: URL;
   req: Request;
   writer: HTTPWriter;
 };
@@ -56,6 +59,7 @@ export type HandleNodeHTTPRequestArgs = {
   contentType?: string;
   language?: string;
   encoding?: string;
+  url: URL;
   req: IncomingMessage;
   res: ServerResponse;
   writer: HTTPWriter;

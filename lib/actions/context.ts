@@ -18,11 +18,13 @@ export type ContextArgs<
   payload?: ActionPayload<Spec>;
 };
 
+/**
+ * Request context object.
+ */
 export class Context<
   State extends ContextState = ContextState,
   Spec extends ActionSpec = ActionSpec,
 > {
-
   status?: number;
   statusText?: string;
   headers = new Headers();
@@ -31,12 +33,12 @@ export class Context<
   #url: string;
   #public: boolean = false
   #authKey?: string;
-  #state: State = new Map() as State;
+  #state: State = {} as State;
   #action: ImplementedAction<State, Spec>;
   #registry: Registry;
   #params?: ParsedIRIValues;
   #query?: ParsedIRIValues;
-  #payload?: ActionPayload<Spec>;
+  #payload: ActionPayload<Spec>;
 
   constructor(args: ContextArgs<State, Spec>) {
     this.#url = args.url;
@@ -73,8 +75,16 @@ export class Context<
     return this.#registry;
   }
 
-  get payload(): ActionPayload<Spec> | undefined {
+  get payload(): ActionPayload<Spec> {
     return this.#payload;
+  }
+
+  get params(): ParsedIRIValues {
+    return this.#params ?? {};
+  }
+
+  get query(): ParsedIRIValues {
+    return this.#query ?? {};
   }
 
 }

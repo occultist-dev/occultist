@@ -1,12 +1,15 @@
-import { joinPaths } from "./action.ts";
+import { joinPaths } from "./utils/joinPaths.ts";
 import { ActionAuth } from "./actions/actions.ts";
 import { ActionMeta } from "./actions/meta.ts";
+import type { ContextState } from "./actions/spec.ts";
 import type { Handler, ImplementedAction } from "./actions/types.ts";
 import type { HTTPWriter } from "./actions/writer.ts";
 import { type Callable, HTTP, type Registry } from './registry.ts';
 
 
-export class Scope implements Callable {
+export class Scope<
+  State extends ContextState = ContextState,
+> implements Callable<State> {
   #path: string;
   #registry: Registry;
   #writer: HTTPWriter;
@@ -24,7 +27,7 @@ export class Scope implements Callable {
     this.#path = path;
     this.#registry = registry;
     this.#writer = writer;
-    this.#http = new HTTP(this);
+    this.#http = new HTTP<State>(this);
     this.#propergateMeta = propergateMeta;
   }
 
@@ -36,7 +39,7 @@ export class Scope implements Callable {
     return this.#registry;
   }
 
-  get http(): HTTP {
+  get http(): HTTP<State> {
     return this.#http;
   }
 
@@ -56,13 +59,13 @@ export class Scope implements Callable {
     return this.actions.flatMap((action) => action.handlers);
   }
 
-  public(): Scope {
+  public(): Scope<State> {
     this.#public = true;
 
     return this;
   }
 
-  private(): Scope {
+  private(): Scope<State> {
     this.#public = false;
 
     return this;
@@ -75,7 +78,7 @@ export class Scope implements Callable {
    * @param name   Name for the action being produced.
    * @param path   Path the action responds to.
    */
-  method(method: string, name: string, path: string): ActionAuth {
+  method(method: string, name: string, path: string): ActionAuth<State> {
     const meta = new ActionMeta(
       this.#registry.rootIRI,
       method.toUpperCase(),
@@ -89,7 +92,7 @@ export class Scope implements Callable {
     this.#children.push(meta);
     this.#propergateMeta(meta);
     
-    return new ActionAuth(meta);
+    return new ActionAuth<State>(meta);
   }
   
   url(): string {
@@ -144,7 +147,6 @@ export class Scope implements Callable {
         this.#registry.http.get('scope-action', joinPaths(this.url(), action.name))
           .public()
           .handle('application/ld+json', async (ctx) => {
-            console.log('GETTING JSON LD');
             ctx.body = JSON.stringify(await action.jsonld());
           });
       } else {
