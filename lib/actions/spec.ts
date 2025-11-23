@@ -2,9 +2,9 @@ import type { JSONPrimitive, JSONValue, OrArray, RecursiveDigit, RecursiveIncrem
 import type { Action } from "../types.ts";
 import type { Context } from './context.ts';
 
-export type EmptyState = Map<string, never>;
+export type EmptyState = Record<string, unknown>;
 export type EmptySpec = Map<PropertyKey, never>;
-export type ContextState = Map<string, unknown>;
+export type ContextState = Record<string, unknown>;
 
 export type EntryPoint = {
   contentType?: string;
@@ -37,6 +37,8 @@ export type FileValue = FileData | string;
 
 export type ParsedIRIValues = Record<string, JSONPrimitive | JSONPrimitive[]>;
 
+export type HandlerMetadata = Record<string | symbol, unknown>;
+
 export type HandleArgs<
   State extends ContextState = ContextState,
 > = {
@@ -50,8 +52,7 @@ export type ParameterizedHandleArgs<
   Spec extends ActionSpec<State> = ActionSpec<State>,
 > = {
   contentType: string | string[];
-  // deno-lint-ignore no-explicit-any
-  metadata?: Record<string, any>;
+  metadata?: HandlerMetadata;
   handler: ParameterizedMiddleware<State, Spec>
 };
 
@@ -62,9 +63,6 @@ export type AnyHandleArgs<
   | HandleArgs<State>
   | ParameterizedHandleArgs<State, Spec>
 ;
-
-// deno-lint-ignore no-explicit-any
-export type HandlerMetadata = Record<string | symbol, any>;
 
 export type ParameterizedContext<
   State extends ContextState = ContextState,
@@ -228,8 +226,7 @@ export type NumberMultiSpec<
 
 export type StringSingleSpec<
   Value extends string = string,
-  // deno-lint-ignore no-explicit-any
-  TransformTo extends any = any,
+  TransformTo extends unknown = unknown,
   ActionState extends ContextState = ContextState,
 > = {
   dataType: 'string';
@@ -242,8 +239,7 @@ export type StringSingleSpec<
 
 export type StringMultiSpec<
   Value extends string = string,
-  // deno-lint-ignore no-explicit-any
-  TransformTo extends any = any,
+  TransformTo extends unknown = unknown,
   ActionState extends ContextState = ContextState,
 > = {
   dataType: 'string';
@@ -525,8 +521,7 @@ export type PropertySpecResult<PropertySpecItem extends PropertySpec> =
     : JSONValue;
 
 export type ActionPayload<
-  // deno-lint-ignore no-explicit-any
-  Spec extends ActionSpec<any> = ActionSpec<any>,
+  Spec extends ActionSpec<ContextState> = ActionSpec<ContextState>,
 > = {
   [
     Term in keyof Spec as Spec[Term] extends { internalTerm: string }

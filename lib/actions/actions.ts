@@ -1,16 +1,15 @@
-import type { Handler, HandleRequestArgs, HandlerFn, HandlerMeta, HintArgs, ImplementedAction } from './types.ts';
+import type { Handler, HandleRequestArgs, HandlerFn, HandlerMeta, HandlerText, HintArgs, ImplementedAction } from './types.ts';
 import type { Registry } from '../registry.ts';
 import type { Scope } from "../scopes.ts";
 import type { CacheArgs } from '../cache/cache.ts';
 import type { ContextState, ActionSpec } from "./spec.ts";
-import type { ActionMeta, TransformerFn } from "./meta.ts";
+import type { ActionMeta } from "./meta.ts";
 import { Context } from './context.ts';
 import { processAction } from "../processAction.ts";
 import type { JSONLDContext, JSONObject, TypeDef } from "../jsonld.ts";
-import { joinPaths } from "../action.ts";
+import { joinPaths } from "../utils/joinPaths.ts";
 import { getPropertyValueSpecifications } from "../utils/getPropertyValueSpecifications.ts";
 import { getActionContext } from "../utils/getActionContext.ts";
-import { HandleArgs } from "../types.ts";
 
 export type DefineArgs<
   Term extends string = string,
@@ -25,7 +24,7 @@ export type HandlerArgs<
   Spec extends ActionSpec = ActionSpec,
 > = {
   contentType: string | string[];
-  handler: HandlerFn<State, Spec>;
+  handler: HandlerFn<State, Spec> | HandlerText;
   meta?: Record<symbol | string, unknown>;
 };
 
@@ -40,7 +39,7 @@ export interface Handleable<
 > {
   handle(
     contentType: string | string[],
-    handler: HandlerFn<State, Spec>,
+    handler: HandlerFn<State, Spec> | HandlerText,
   ): FinalizedAction<State, Spec>;
 
   handle(
@@ -107,7 +106,7 @@ export class FinalizedAction<
     spec: Spec,
     meta: ActionMeta<State, Spec>,
     contextType: string | string[],
-    handler: HandlerFn<State, Spec>,
+    handler: HandlerFn<State, Spec> | HandlerText,
   ): FinalizedAction<State, Spec>;
 
   static fromHandlers<
@@ -135,7 +134,7 @@ export class FinalizedAction<
         typeDef,
         spec,
         meta,
-        { contentType: arg3, handler: arg4 as HandlerFn<State, Spec> },
+        { contentType: arg3, handler: arg4 as HandlerFn<State, Spec> | HandlerText },
       );
     }
 
@@ -153,7 +152,7 @@ export class FinalizedAction<
 
     return {
       '@context': action.context,
-      '@id': joinPaths(action.registry.rootIRI, scope.path, this.name),
+      '@id': joinPaths(action.registry.rootIRI, scope.path, action.name),
       '@type': action.term,
       target: {
         '@type': 'https://schema.org/EntryPoint',
@@ -250,7 +249,7 @@ export class FinalizedAction<
 
   handle(
     contentType: string | string[],
-    handler: HandlerFn<State, Spec>,
+    handler: HandlerFn<State, Spec> | HandlerText,
   ): FinalizedAction<State, Spec>;
 
   handle(
@@ -262,21 +261,21 @@ export class FinalizedAction<
     arg2?: HandlerFn<State, Spec>,
   ): FinalizedAction<State, Spec> {
     let contentType: string | string[];
-    let handler: HandlerFn<State, Spec>;
+    let handler: HandlerFn<State, Spec> | HandlerText;
     let meta: HandlerMeta;
 
     if (Array.isArray(arg1) || typeof arg1 === 'string') {
       contentType = arg1;
-      handler = arg2 as HandlerFn<State, Spec>;
-      meta = new Map();
+      handler = arg2 as HandlerFn<State, Spec> | HandlerText;
+      meta = Object.create(null);
     } else {
       contentType = arg1.contentType;
       handler = arg1.handler;
-      meta = new Map(Object.entries(arg1.meta ?? {}));
+      meta = Object.assign(Object.create(null), arg1.meta);
 
       if (arg1.meta != null) {
         for (const sym of Object.getOwnPropertySymbols(arg1.meta)) {
-          meta.set(sym, arg1.meta[sym])
+          meta[sym] = arg1.meta[sym];
         }
       }
     }
@@ -309,7 +308,7 @@ export class FinalizedAction<
   async handleRequest(args: HandleRequestArgs) {
     const handler = this.#handlers.get(args.contentType as string) as Handler<State, Spec>;
     const { params, query, payload } = await processAction<State, Spec>({
-      iri: args.req.url,
+      iri: args.url.toString(),
       req: args.req,
       spec: this.#spec,
       state: {} as State,
@@ -317,7 +316,7 @@ export class FinalizedAction<
     });
 
     const context = new Context({
-      url: args.req.url,
+      url: args.url.toString(),
       public: this.#meta.allowsPublicAccess,
       handler,
       params,
@@ -326,7 +325,11 @@ export class FinalizedAction<
     });
 
     context.headers.set('Content-Type', args.contentType);
-    await handler.handler(context);
+    if (typeof handler.handler === 'string') {
+      context.body = handler.handler;
+    } else {
+      await handler.handler(context);
+    }
     context.headers.set('Content-Type', args.contentType);
 
     args.writer.writeHead(context.status ?? 200, context.headers);
@@ -450,7 +453,7 @@ export class DefinedAction<
 
   handle(
     contentType: string | string[],
-    handler: HandlerFn<State, Spec>,
+    handler: HandlerFn<State, Spec> | HandlerText,
   ): FinalizedAction<State, Spec>;
 
   handle(
@@ -647,20 +650,20 @@ export class Endpoint<
     return this;
   }
 
-  transform(
-    contentType: string | string[],
-    transformer: TransformerFn,
-  ) {
-    if (!Array.isArray(contentType)) {
-      this.#meta.transformers.set(contentType, transformer);
-    } else {
-      for (const item of contentType) {
-        this.#meta.transformers.set(item, transformer);
-      }
-    }
+  //transform(
+  //  contentType: string | string[],
+  //  transformer: TransformerFn,
+  //) {
+  //  if (!Array.isArray(contentType)) {
+  //    this.#meta.transformers.set(contentType, transformer);
+  //  } else {
+  //    for (const item of contentType) {
+  //      this.#meta.transformers.set(item, transformer);
+  //    }
+  //  }
 
-    return this;
-  }
+  //  return this;
+  //}
 
   compress(): Endpoint<State> {
     return this;
@@ -668,7 +671,7 @@ export class Endpoint<
   
   cache<
     StorageKey extends string = string,
-  >(args: CacheArgs<StorageKey>) {
+  >(_args: CacheArgs<StorageKey>) {
     return this;
   }
 
@@ -707,22 +710,23 @@ export class Endpoint<
   }
 }
 
-export class ActionAuth {
+export class ActionAuth<
+  State extends ContextState = ContextState,
+> {
   #meta: ActionMeta;
 
   constructor(meta: ActionMeta) {
     this.#meta = meta;
   }
 
-  public(): Endpoint {
+  public(): Endpoint<State> {
     this.#meta.allowsPublicAccess = true;
     
     return new Endpoint(this.#meta);
   }
 
-  private(): Endpoint {
+  private(): Endpoint<State> {
     return new Endpoint(this.#meta);
   }
-
 }
 

@@ -4,6 +4,7 @@ import type { ContextState, ActionSpec, TransformerFn } from './spec.ts';
 import type { Scope } from "../scopes.ts";
 import { Path } from "./path.ts";
 import type { HTTPWriter } from "./writer.ts";
+import {joinPaths} from '../mod';
 
 export class ActionMeta<
   State extends ContextState = ContextState,
@@ -35,7 +36,7 @@ export class ActionMeta<
     this.rootIRI = rootIRI;
     this.method = method;
     this.name = name;
-    this.uriTemplate = uriTemplate;
+    this.uriTemplate = joinPaths(rootIRI, uriTemplate);
     this.registry = registry;
     this.writer = writer;
     this.scope = scope;

@@ -10,4 +10,4 @@ export * from './actions/actionSets.ts';
 export * from './registry.ts';
 export * from './makeTypeDefs.ts';
 export * from './utils/contextBuilder.ts';
-export { joinPaths } from './action.ts';
+export * from './utils/joinPaths.ts';

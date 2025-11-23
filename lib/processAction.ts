@@ -88,7 +88,7 @@ export async function processAction<
     }
 
     for (const specValue of Object.values(specObject)) {
-      if (specValue.valueRequired) {
+      if (specValue.valueRequired && specValue.valueName == null) {
         return true;
       }
     }

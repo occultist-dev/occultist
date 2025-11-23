@@ -98,6 +98,10 @@ export class Accept {
     );
   }
 
+  debug() {
+    return this.#accept.join(' ');
+  }
+
   /**
    * Negotiates against the cached set of content type options.
    *
