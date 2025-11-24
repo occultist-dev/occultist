@@ -8,6 +8,7 @@ import { Scope } from './scopes.ts';
 import { IncomingMessage, type ServerResponse } from "node:http";
 import type { Merge } from "./actions/spec.ts";
 import type { ContextState, Middleware } from "./actions/spec.ts";
+import {ProblemDetailsError} from "./errors";
 
 
 export interface Callable<
@@ -268,7 +269,7 @@ export class Registry<
     res: ServerResponse,
   ): Promise<ServerResponse>;
 
-  handleRequest(
+  async handleRequest(
     req: Request | IncomingMessage,
     res?: ServerResponse,
   ): Promise<Response | ServerResponse> {
@@ -285,23 +286,52 @@ export class Registry<
       accept,
     );
 
-    if (match?.type === 'match' && req instanceof Request) {
-      return match.action.handleRequest({
-        url,
-        type: 'request',
-        contentType: match.contentType,
-        req,
-        writer: new FetchResponseWriter(),
+    let err: ProblemDetailsError;
+
+    try {
+      if (match?.type === 'match' && req instanceof Request) {
+        return await match.action.handleRequest({
+          url,
+          type: 'request',
+          contentType: match.contentType,
+          req,
+          writer: new FetchResponseWriter(),
+        });
+      } else if (match?.type === 'match' && req instanceof IncomingMessage) {
+        return await match.action.handleRequest({
+          url,
+          type: 'node-http',
+          contentType: match.contentType,
+          req,
+          res: res as ServerResponse,
+          writer: new FetchResponseWriter(res),
+        });
+      }
+    } catch (err2) {
+      if (err2 instanceof ProblemDetailsError) {
+        err = err2;
+      } else {
+        console.error('Unexpected error', err2);
+      }
+    }
+
+    if (err == null) {
+      err = new ProblemDetailsError(500, 'Unexpected error');
+    }
+      
+    if (err instanceof ProblemDetailsError && req instanceof Request) {
+      return new Response(err.toContent('application/problem+json'), {
+        status: err.status,
+        headers: {
+          'Content-Type': 'application/problem+json',
+        },
       });
-    } else if (match?.type === 'match' && req instanceof IncomingMessage) {
-      return match.action.handleRequest({
-        url,
-        type: 'node-http',
-        contentType: match.contentType,
-        req,
-        res: res as ServerResponse,
-        writer: new FetchResponseWriter(res),
+    } else if (err instanceof ProblemDetailsError && res != null) {
+      res.writeHead(err.status, {
+        'Content-Type': 'application/problem+json',
       });
+      res.end(err.toContent('application/problem+json'));
+      return res;
     }
   }
 

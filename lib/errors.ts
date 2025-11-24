@@ -1,7 +1,19 @@
 
 import { STATUS_CODE } from '@std/http/status';
-import type { ProblemDetails } from "./types.ts";
 import { stringify } from '@libs/xml';
+
+export type ProblemDetails = {
+  status?: number;
+  type?: string;
+  instance?: string;
+  title?: string;
+  detail?: string;
+  reason?: string;
+  errors?: Array<{
+    name: string;
+    reason: string;
+  }>;
+};
 
 // https://datatracker.ietf.org/doc/html/rfc9457
 export class ProblemDetailsError extends Error {
@@ -70,7 +82,7 @@ export class ProblemDetailsError extends Error {
       });
     }
 
-    return this.problemDetails;
+    return JSON.stringify(this.problemDetails);
   }
 }
 
