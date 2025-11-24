@@ -307,6 +307,7 @@ export class FinalizedAction<
 
   async handleRequest(args: HandleRequestArgs) {
     const handler = this.#handlers.get(args.contentType as string) as Handler<State, Spec>;
+    console.log('WILL PROCESS ACTION');
     const { params, query, payload } = await processAction<State, Spec>({
       iri: args.url.toString(),
       req: args.req,
@@ -314,6 +315,10 @@ export class FinalizedAction<
       state: {} as State,
       action: this as unknown as ImplementedAction<State, Spec>,
     });
+    console.log('DID PROCESS ACTION');
+    console.log('PARAMS', params);
+    console.log('QUERY', query);
+    console.log('PAYLOAD', payload);
 
     const context = new Context({
       url: args.url.toString(),
@@ -325,11 +330,14 @@ export class FinalizedAction<
     });
 
     context.headers.set('Content-Type', args.contentType);
+
     if (typeof handler.handler === 'string') {
       context.body = handler.handler;
     } else {
+      console.log('HANDLING HANDLER');
       await handler.handler(context);
     }
+
     context.headers.set('Content-Type', args.contentType);
 
     args.writer.writeHead(context.status ?? 200, context.headers);

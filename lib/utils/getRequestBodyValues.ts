@@ -2,7 +2,6 @@ import { STATUS_CODE } from "@std/http/status";
 import { ProblemDetailsError } from "../errors.ts";
 import type { JSONValue, ContextDefinition, JSONObject } from "../jsonld.ts";
 import type { ContextState, ActionSpec, PropertySpec } from "../actions/spec.ts";
-import { streamParts } from '@sv2dev/multipart-stream';
 import jsonld from 'jsonld';
 import type { ImplementedAction } from "../actions/types.ts";
 
@@ -34,6 +33,10 @@ export async function getRequestBodyValues<
     .reduce((acc, [term, propertySpec]) => {
       return {
         ...acc,
+        [propertySpec.typeDef.term]: {
+          term,
+          propertySpec,
+        },
         [propertySpec.type || propertySpec.typeDef?.type]: {
           term,
           propertySpec,
@@ -46,9 +49,10 @@ export async function getRequestBodyValues<
     // into the compact terms for each type.
     // otherwise json requests would need to also need to use
     // expanded terms.
+    const formData = await req.formData();
 
-    for await (const part of streamParts(req)) {
-      if (typeof part.name !== 'string') {
+    for (const [name, part] of formData.entries()) {
+      if (typeof name !== 'string') {
         throw new ProblemDetailsError(STATUS_CODE.BadRequest, {
           title: 'Unnamed parameter in request multipart body',
         });
@@ -57,9 +61,9 @@ export async function getRequestBodyValues<
       let term: string | undefined;
       let propertySpec: PropertySpec | undefined;
 
-      if (part.type && !part.type.startsWith('text/plain')) {
-        term = mappedTypes[part.name].term;
-        propertySpec = mappedTypes[part.name].propertySpec;
+      if (typeof part !== 'string' && (part.type && !part.type.startsWith('text/plain'))) {
+        term = mappedTypes[name].term;
+        propertySpec = mappedTypes[name].propertySpec;
 
         if (!term || !propertySpec) {
           continue;
@@ -67,7 +71,7 @@ export async function getRequestBodyValues<
 
         if (propertySpec.dataType !== 'file') {
           throw new ProblemDetailsError(STATUS_CODE.BadRequest, {
-            title: `Unexpected content '${part.name}' in request multipart body`,
+            title: `Unexpected content '${name}' in request multipart body`,
           });
         }
 
@@ -76,15 +80,15 @@ export async function getRequestBodyValues<
         continue;
       }
 
-      if (part.type === 'text/plain' || !part.type) {
-        term = mappedTypes[part.name].term;
-        propertySpec = mappedTypes[part.name].propertySpec;
-      } else if (part.filename) {
-        term = mappedTypes[part.name].term;
-        propertySpec = mappedTypes[part.name].propertySpec;
+      if (typeof part === 'string' || part.type === 'text/plain' || part.type == null) {
+        term = mappedTypes[name].term;
+        propertySpec = mappedTypes[name].propertySpec;
+      } else if (part.name) {
+        term = mappedTypes[name].term;
+        propertySpec = mappedTypes[name].propertySpec;
       } else {
         throw new ProblemDetailsError(STATUS_CODE.BadRequest, {
-          title: `Unexpected content '${part.name}' in request multipart body`,
+          title: `Unexpected content '${name}' in request multipart body`,
         });
       }
 
@@ -92,7 +96,7 @@ export async function getRequestBodyValues<
         continue;
       }
 
-      const textValue = await part.text();
+      const textValue = typeof part === 'string' ? part : await part.text();
 
       if (!textValue) {
         continue;
