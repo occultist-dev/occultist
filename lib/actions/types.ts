@@ -62,31 +62,14 @@ export type HintArgs =
   | HintFn
 ;
 
-export type HandleFetchRequestArgs = {
-  type: 'request';
+export type HandleRequestArgs = {
   contentType?: string;
   language?: string;
   encoding?: string;
-  url: URL;
+  url: string;
   req: Request;
   writer: HTTPWriter;
 };
-
-export type HandleNodeHTTPRequestArgs = {
-  type: 'node-http';
-  contentType?: string;
-  language?: string;
-  encoding?: string;
-  url: URL;
-  req: IncomingMessage;
-  res: ServerResponse;
-  writer: HTTPWriter;
-};
-
-export type HandleRequestArgs =
-  | HandleFetchRequestArgs
-  | HandleNodeHTTPRequestArgs
-;
 
 export interface ImplementedAction<
   State extends ContextState = ContextState,

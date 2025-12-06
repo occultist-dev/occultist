@@ -3,6 +3,7 @@ import type { HintLink, HintArgs, HintObj } from './types.js';
 import {Context} from './context.js';
 import {ContextState} from './spec.js';
 import {ReadStream} from 'node:fs';
+import {Readable} from 'node:stream';
 
 
 function isHintLink(hint: HintObj | HintLink): hint is HintLink {
@@ -19,7 +20,7 @@ export type ResponseBody =
   | string
   | Blob
   | Uint8Array
-  | ReadStream
+  | ReadableStream
 ;
 
 export interface HTTPWriter {
@@ -123,8 +124,11 @@ export class FetchResponseWriter implements HTTPWriter {
       
       return this.#res;
     }
+    
+    if (this.#body instanceof Uint8Array) {
+    }
 
-    return new Response(this.#body, {
+    return new Response(this.#body as BodyInit, {
       status: this.#status,
       statusText: this.#statusText,
       headers: this.#headers,

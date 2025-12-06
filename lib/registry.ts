@@ -9,6 +9,7 @@ import { IncomingMessage, type ServerResponse } from "node:http";
 import type { Merge } from "./actions/spec.js";
 import type { ContextState, Middleware } from "./actions/spec.js";
 import {ProblemDetailsError} from "./errors.js"
+import {NodeRequest} from "./request.js";
 
 
 export interface Callable<
@@ -291,19 +292,18 @@ export class Registry<
     try {
       if (match?.type === 'match' && req instanceof Request) {
         return await match.action.handleRequest({
-          url,
-          type: 'request',
+          url: req.url,
           contentType: match.contentType,
           req,
           writer: new FetchResponseWriter(),
         });
       } else if (match?.type === 'match' && req instanceof IncomingMessage) {
+        const nodeRequest = new NodeRequest(this.#rootIRI, req) as Request;
+
         return await match.action.handleRequest({
-          url,
-          type: 'node-http',
+          url: nodeRequest.url,
           contentType: match.contentType,
-          req,
-          res: res as ServerResponse,
+          req: nodeRequest,
           writer: new FetchResponseWriter(res),
         });
       }
