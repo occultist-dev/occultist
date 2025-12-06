@@ -1,14 +1,13 @@
-import {Action} from "../actions/actions.js";
 import {ImplementedAction} from "../actions/types.js";
 
+
 export type CacheContext = {
-  status: number;
+  hit: boolean;
   headers: Headers;
   authKey?: string;
   req: Request;
-  bodyStream: ReadableStream;
-  // deno-lint-ignore no-explicit-any
-  payload: any;
+  status?: number;
+  bodyStream?: ReadableStream;
 };
 
 export type CacheStrategyType =
@@ -17,19 +16,10 @@ export type CacheStrategyType =
   | 'store'
 ;
 
-export type CacheArgs =
-  | CacheHTTPArgs
-  | CacheETagArgs
-  | CacheStoreArgs
-;
-
-export interface CacheEntryDescriptor<
-  Args extends CacheArgs = CacheArgs,
-> {
-  type: CacheStrategyType;
+export interface CacheEntryDescriptor {
   action: ImplementedAction;
   request: Request;
-  args: Args;
+  args: CacheInstanceArgs;
 };
 
 export type CacheWhenFn = (
@@ -57,7 +47,7 @@ export type CacheRuleArgs = {
    * Defaults to false when a querystring is present
    * or the request is authenticated.
    */
-  when?: 'always' | 'public' | 'authenticated' | 'noQuery' | CacheWhenFn;
+  when?: 'always' | 'public' | 'private' | 'noQuery' | CacheWhenFn;
 };
 
 export type CacheControlArgs = {
@@ -76,22 +66,53 @@ export type CacheControlArgs = {
 };
 
 export type CacheHTTPArgs =
+  & {
+    strong?: undefined;
+    fromRequest?: undefined;
+  }
   & CacheRuleArgs
   & CacheControlArgs
 ;
 
-export type CacheETagArgs =
-  & CacheRuleArgs
-  & Omit<CacheControlArgs, 'etag'>
-  & { strong?: boolean }
+export type CacheHTTPInstanceArgs =
+  & CacheHTTPArgs
+  & { strategy: 'http', cache: CacheBuilder }
 ;
 
-export type CacheStoreArgs<
-  StorageKey extends string = string,
-> =
-  & { storage?: StorageKey }
+export type CacheETagArgs =
+  & {
+    strong?: boolean;
+    fromRequest?: boolean;
+    etag?: undefined;
+  }
   & CacheRuleArgs
   & Omit<CacheControlArgs, 'etag'>
+;
+
+export type CacheETagInstanceArgs =
+  & CacheETagArgs
+  & { stratey: 'etag', cache: CacheBuilder }
+;
+
+export type CacheStoreArgs =
+  & {
+    strong?: boolean;
+    fromRequest?: boolean;
+    etag?: undefined;
+  }
+  & CacheRuleArgs
+  & Omit<CacheControlArgs, 'etag'>
+;
+
+export type CacheStoreInstanceArgs =
+  & CacheStoreArgs
+  & { strategy: 'store', cache: CacheBuilder }
+;
+
+export type CacheInstanceArgs =
+  | CacheHTTPInstanceArgs
+  | CacheETagInstanceArgs
+  | CacheStoreInstanceArgs
 ;
 
 export type CacheDetails = {
@@ -127,24 +148,28 @@ export type LockedCacheMissHandle = {
   release(): Promise<void>;
 };
 
-export type Tagger = () => Promise<void>;
-
 export interface CacheMeta {
-  get(key: string): Promise<CacheHitHandle | CacheMissHandle>;
-  getOrLock(key: string): Promise<CacheHitHandle | LockedCacheMissHandle>;
-  tag(): Tagger;
+  get(key: string): CacheHitHandle | CacheMissHandle | Promise<CacheHitHandle | CacheMissHandle>;
+  getOrLock?(key: string): Promise<CacheHitHandle | LockedCacheMissHandle>;
+}
+
+export interface UpstreamCache {
+  push(key: string): Promise<void>;
+
 }
 
 export interface CacheStorage {
   /**
    * Retrieves a cache entry.
    */
-  get(key: string): Promise<ReadableStream>;
+  get(key: string): ReadableStream | Promise<ReadableStream>;
 
   /**
    * Sets a cache entry.
    */
-  set(key: string, data: ReadableStream): Promise<void>;
+  set(key: string, data: ReadableStream): void | Promise<void>;
+
+  invalidate(key: string): void | Promise<void>;
 };
 
 export type CacheSetter = (data: ReadableStream) => Promise<void>;
@@ -156,3 +181,20 @@ export interface ICacheGetter {
   >;
 }
 
+export interface CacheBuilder {
+  meta: CacheMeta;
+
+  storage: CacheStorage;
+
+  upstream: UpstreamCache | undefined;
+
+  http(args?: CacheHTTPArgs): CacheInstanceArgs;
+
+  etag(args?: CacheETagArgs): CacheInstanceArgs;
+
+  store(args?: CacheStoreArgs): CacheInstanceArgs;
+
+  invalidate?(request: Request): Promise<void>;
+
+  push?(request: Request): Promise<void>;
+}
