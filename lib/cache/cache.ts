@@ -1,56 +1,51 @@
 import {NextFn} from '../actions/spec.js';
-import { ConditionalRequestRules } from './etag.js';
-import type { CacheHTTPArgs, CacheETagArgs, CacheStoreArgs, CacheEntryDescriptor, CacheMeta, CacheStorage, CacheContext, CacheHitHandle, CacheMissHandle, LockedCacheMissHandle } from './types.js';
+import {Registry} from '../mod.js';
+import {ConditionalRequestRules} from './etag.js';
+import type {CacheBuilder, CacheContext, CacheEntryDescriptor, CacheETagArgs, CacheETagInstanceArgs, CacheHitHandle, CacheHTTPArgs, CacheHTTPInstanceArgs, CacheMeta, CacheStorage, CacheStoreArgs, CacheStoreInstanceArgs, LockedCacheMissHandle, UpstreamCache} from './types.js';
 
 
-export type CacheArgs<
-  StorageKey extends string = string,
-> =
-  & {
-    cache?: Cache;
-  }
-  & (
-    | CacheHTTPArgs
-    | CacheETagArgs
-    | CacheStoreArgs<StorageKey>
-  );
-
-
-export class Cache<
-  StorageKey extends string = string,
-> {
+export class Cache implements CacheBuilder {
+  #registry: Registry;
   #cacheMeta: CacheMeta;
-  #defaultStorage: CacheStorage;
-  #alternatives: Map<StorageKey, CacheStorage> = new Map();
+  #storage: CacheStorage;
+  #upstream?: UpstreamCache;
 
   constructor(
+    registry: Registry,
     cacheMeta: CacheMeta,
-    defaultStorage: CacheStorage,
-    alternatives?: Record<StorageKey, CacheStorage>,
+    storage: CacheStorage,
+    upstream?: UpstreamCache,
   ) {
+    this.#registry = registry;
     this.#cacheMeta = cacheMeta;
-    this.#defaultStorage = defaultStorage;
-
-    if (alternatives != null) {
-      this.#alternatives = new Map(
-        Object.entries(alternatives) as Array<[StorageKey, CacheStorage]>
-      );
-    }
+    this.#storage = storage;
+    this.#upstream = upstream;
   }
 
-  get defaultStorage(): CacheStorage {
-    return this.#defaultStorage;
+  get registry(): Registry {
+    return this.#registry;
   }
 
-  get alternatives(): ReadonlyMap<StorageKey, CacheStorage> {
-    return this.#alternatives;
+  get meta(): CacheMeta {
+    return this.#cacheMeta;
+  }
+
+  get storage(): CacheStorage {
+    return this.#storage;
+  }
+
+  get upstream(): UpstreamCache {
+    return this.#upstream;
   }
 
   /**
    * Add HTTP headers to the request.
    */
-  http(args?: CacheHTTPArgs): CacheArgs {
-    return Object.assign(Object.create(null), args, { cache: this });
+  http(args?: CacheHTTPArgs): CacheHTTPInstanceArgs {
+    return Object.assign(Object.create(null), args, {
+      stratey: 'http',
+      cache: this,
+    });
   }
 
   /**
@@ -58,17 +53,33 @@ export class Cache<
    * Requests made to an endpoint implementing etag cache can use `If-None-Match`
    * or `If-Modified-Since` headers to test 
    */
-  etag(args?: CacheETagArgs): CacheArgs {
-    return Object.assign(Object.create(null), args, { cache: this });
+  etag(args?: CacheETagArgs): CacheETagInstanceArgs {
+    return Object.assign(Object.create(null), args, {
+      stratey: 'etag',
+      cache: this,
+    });
   }
 
   /**
    * Caches the body of the response, stores and etag and adds HTTP headers to the request.
    */
-  store(args?: CacheStoreArgs<StorageKey>): CacheStoreArgs<StorageKey> & { cache: Cache } {
-    return Object.assign(Object.create(null), args, { cache: this });
+  store(args?: CacheStoreArgs): CacheStoreInstanceArgs {
+    return Object.assign(Object.create(null), args, {
+      stratey: 'store',
+      cache: this,
+    });
   }
 
+  async push(_req: Request): Promise<void> {
+
+  }
+
+  async invalidate(_req: Request): Promise<void> {
+
+  }
+}
+
+export class CacheMiddleware {
   async use(
     descriptors: CacheEntryDescriptor[],
     ctx: CacheContext,
@@ -83,7 +94,7 @@ export class Cache<
         return true;
       } else if (when === 'public' && ctx.authKey == null) {
         return true;
-      } else if (when === 'authenticated' && ctx.authKey != null) {
+      } else if (when === 'private' && ctx.authKey != null) {
         return true;
       } else if (typeof when === 'function') {
         return when(ctx);
@@ -96,7 +107,7 @@ export class Cache<
       return await next();
     }
 
-    switch (descriptor.type) {
+    switch (descriptor.args.strategy) {
       case 'http': {
         await this.#useHTTP(descriptor, ctx, next);
         break;
@@ -149,17 +160,16 @@ export class Cache<
   ): Promise<void> {
     const key = this.#makeKey(descriptor);
     const rules = new ConditionalRequestRules(ctx.req);
-    const resourceState = await this.#cacheMeta.get(key);
+    const resourceState = await descriptor.args.cache.meta.get(key);
 
     if (resourceState.type === 'cache-hit') {
       if (rules.ifMatches(resourceState.etag)) {
-
         return;
       } else if (!rules.ifNoneMatch(resourceState.etag)) {
+        ctx.hit = true;
         ctx.status = 304;
 
         return
-
       }
     }
 
@@ -169,29 +179,26 @@ export class Cache<
   }
 
   async #useStore(
-    descriptor: CacheEntryDescriptor<CacheStoreArgs>,
+    descriptor: CacheEntryDescriptor,
     ctx: CacheContext,
     next: NextFn,
   ): Promise<void> {
     const key = this.#makeKey(descriptor);
     const rules = new ConditionalRequestRules(ctx.req);
-    const storage = descriptor.args.storage == null
-      ? this.#defaultStorage
-      : this.#alternatives.get(descriptor.args.storage as StorageKey);
-
-    if (storage == null) {
-      return this.#useHTTP(descriptor, ctx, next)
-    }
-
     let resourceState: CacheHitHandle | LockedCacheMissHandle | undefined;
 
     try {
-      resourceState = await this.#cacheMeta.getOrLock(key);
+      resourceState = await descriptor.args.cache.meta.getOrLock(key);
     } catch (err) {
       console.error(err);
     }
 
+    console.log('RESOURCE STATE', resourceState);
+
     if (resourceState?.type === 'cache-hit') {
+      ctx.hit = true;
+      ctx.headers.set('Server-Timing', 'cache-hit');
+
       if (rules.ifMatches(resourceState.etag)) {
         ctx.status = 304;
 
@@ -204,7 +211,7 @@ export class Cache<
 
       if (resourceState.hasContent) {
         try {
-          ctx.bodyStream = await storage.get(key);
+          ctx.bodyStream = await descriptor.args.cache.storage.get(key);
         } catch (err) {
           console.log(err);
         }
@@ -216,22 +223,12 @@ export class Cache<
 
       await next();
 
-      await storage.set(key, ctx.bodyStream);
+      await descriptor.args.cache.storage.set(key, ctx.bodyStream);
     } catch (err) {
-      console.error(err);
       if (resourceState.type === 'locked-cache-miss') {
         await resourceState.release();
       }
     }
   }
+
 }
-
-export type CacheMiddlewareArgs =
-  & { cache: Cache }
-  & (
-    | CacheHTTPArgs
-    | CacheETagArgs
-    | CacheStoreArgs
-  )
-;
-

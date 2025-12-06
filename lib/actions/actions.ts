@@ -1,16 +1,13 @@
-import type { Handler, HandleRequestArgs, HandlerFn, HandlerMeta, HandlerText, HintArgs, ImplementedAction } from './types.js';
-import type { Registry } from '../registry.js';
-import type { Scope } from "../scopes.js";
-import type { CacheArgs } from '../cache/cache.js';
-import type { ContextState, ActionSpec } from "./spec.js";
-import type { ActionMeta } from "./meta.js";
-import { Context } from './context.js';
-import { processAction } from "../processAction.js";
-import type { JSONLDContext, JSONObject, TypeDef } from "../jsonld.js";
-import { joinPaths } from "../utils/joinPaths.js";
-import { getPropertyValueSpecifications } from "../utils/getPropertyValueSpecifications.js";
-import { getActionContext } from "../utils/getActionContext.js";
-import {IncomingMessage, ServerResponse} from 'node:http';
+import {CacheInstanceArgs} from '../cache/types.js';
+import type {JSONLDContext, JSONObject, TypeDef} from "../jsonld.js";
+import type {Registry} from '../registry.js';
+import type {Scope} from "../scopes.js";
+import {getActionContext} from "../utils/getActionContext.js";
+import {getPropertyValueSpecifications} from "../utils/getPropertyValueSpecifications.js";
+import {joinPaths} from "../utils/joinPaths.js";
+import type {ActionMeta} from "./meta.js";
+import type {ActionSpec, ContextState} from "./spec.js";
+import type {Handler, HandleRequestArgs, HandlerFn, HandlerMeta, HandlerText, HintArgs, ImplementedAction} from './types.js';
 import {ResponseTypes} from './writer.js';
 
 export type DefineArgs<
@@ -674,9 +671,10 @@ export class Endpoint<
     return this;
   }
   
-  cache<
-    StorageKey extends string = string,
-  >(_args: CacheArgs<StorageKey>) {
+  cache(args: CacheInstanceArgs) {
+    console.log('ADDING TO CACHE', args);
+    this.#meta.cache.push(args);
+
     return this;
   }
 

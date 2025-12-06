@@ -1,6 +1,6 @@
 import type { Registry } from '../registry.js';
 import type { Handler, HintArgs, ImplementedAction } from './types.js';
-import type { ContextState, ActionSpec, TransformerFn, FileValue } from './spec.js';
+import type { ContextState, ActionSpec, TransformerFn, FileValue, NextFn } from './spec.js';
 import type { Scope } from "../scopes.js";
 import { Path } from "./path.js";
 import type { HTTPWriter, ResponseTypes } from "./writer.js";
@@ -8,6 +8,11 @@ import {JSONValue} from '../jsonld.js';
 import {joinPaths} from '../utils/joinPaths.js';
 import {processAction} from '../processAction.js';
 import {Context} from './context.js';
+import {CacheContext, CacheEntryDescriptor, CacheInstanceArgs} from '../cache/types.js';
+import {CacheMiddleware} from '../cache/cache.js';
+
+
+const cacheMiddleware = new CacheMiddleware();
 
 export class ActionMeta<
   State extends ContextState = ContextState,
@@ -26,6 +31,8 @@ export class ActionMeta<
   action?: ImplementedAction<State, Spec>;
   acceptCache = new Set<string>();
   allowsPublicAccess = false;
+  compressBeforeCache = false;
+  cache: CacheInstanceArgs[] = [];
 
   constructor(
     rootIRI: string,
@@ -74,6 +81,7 @@ export class ActionMeta<
   }): Promise<ResponseTypes> {
     const iri = url.toString();
     const state: State = {} as State;
+    let ctx: Context<State, Spec>;
 
     // add auth check
     if (this.hints.length !== 0) {
@@ -82,35 +90,84 @@ export class ActionMeta<
       );
     }
 
-    const res = await processAction<State, Spec>({
-      iri,
-      req,
-      spec,
-      state,
-      action: this.action,
-    });
+    let next: NextFn = async () => {
+      if (typeof handler.handler === 'string') {
+        ctx.status = 200;
+        ctx.body = handler.handler;
+      } else {
+        await handler.handler(ctx);
+      }
+    };
 
-    const ctx = new Context<State, Spec>({
-      url: iri,
-      public: this.allowsPublicAccess,
-      handler,
-      params: res.params,
-      query: res.query,
-      payload: res.payload,
-    });
+    {
+      const upstream: NextFn = next;
+      next = async () => {
+        const res = await processAction<State, Spec>({
+          iri,
+          req,
+          spec,
+          state,
+          action: this.action,
+        });
 
-    if (contentType != null) {
-      ctx.headers.set('Content-Type', contentType)
+        ctx = new Context<State, Spec>({
+          url: iri,
+          public: this.allowsPublicAccess,
+          handler,
+          params: res.params,
+          query: res.query,
+          payload: res.payload,
+        });
+
+        if (contentType != null) {
+          ctx.headers.set('Content-Type', contentType)
+        }
+        await upstream();
+      }
     }
-    
-    if (typeof handler.handler === 'string') {
-      ctx.body = handler.handler
-    } else {
-      await handler.handler(ctx);
+    console.log('CACHE?', this.cache);
+
+    if (this.cache.length > 0) {
+      const cacheCtx: CacheContext = {
+        hit: false,
+        status: 0,
+        headers: new Headers(),
+        req,
+      };
+      const descriptors: CacheEntryDescriptor[] = this.cache.map(args => {
+        return {
+          action: this.action as ImplementedAction,
+          request: req,
+          args,
+        };
+      });
+
+      const upstream = next;
+      next = async () => {
+        console.log('USING CACHE');
+        await cacheMiddleware.use(
+          descriptors,
+          cacheCtx,
+          upstream,
+        );
+
+        if (cacheCtx.hit) {
+          ctx.status = cacheCtx.status;
+          ctx.headers = cacheCtx.headers;
+          ctx.body = cacheCtx.bodyStream;
+        } else {
+          await upstream();
+        }
+      }
     }
+
+    await next();
 
     writer.writeHead(ctx.status ?? 200, ctx.headers);
-    writer.writeBody(ctx.body);
+
+    if (ctx.body != null) {
+      writer.writeBody(ctx.body);
+    }
 
     return writer.response();
   }

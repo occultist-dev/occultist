@@ -1,5 +1,5 @@
-//export type * from './types.js';
-//export * from './transformers/fileTransformer.js';
+export * from './cache/types.js';
+export * from './cache/cache.js';
 export * from './actions/types.js';
 export * from './actions/meta.js';
 export * from './actions/spec.js';
@@ -9,5 +9,5 @@ export * from './actions/actions.js';
 export * from './actions/actionSets.js';
 export * from './registry.js';
 export * from './makeTypeDefs.js';
-export * from './utils/contextBuilder.js';
 export * from './utils/joinPaths.js';
+export * from './utils/contextBuilder.js';
