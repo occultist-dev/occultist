@@ -31,7 +31,7 @@
 
 /**
  * Taken from deno source as they do not export it publicly
- * https://jsr.io/@std/http/1.0.16/_negotiation/media_type.ts
+ * https://jsr.io/@std/http/1.0.16/_negotiation/media_type.js
  */
 
 export interface Specificity {

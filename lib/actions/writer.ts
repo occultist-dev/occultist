@@ -1,20 +1,35 @@
 import { ServerResponse } from 'node:http';
-import type { HintLink, HintArgs } from './types.ts';
+import type { HintLink, HintArgs, HintObj } from './types.js';
+import {Context} from './context.js';
+import {ContextState} from './spec.js';
+import {ReadStream} from 'node:fs';
 
+
+function isHintLink(hint: HintObj | HintLink): hint is HintLink {
+  return hint.href != null;
+}
 
 export type ResponseTypes =
   | ServerResponse
   | Response
 ;
 
-export interface HTTPWriter<T = unknown> {
+export type ResponseBody =
+  | null
+  | string
+  | Blob
+  | Uint8Array
+  | ReadStream
+;
+
+export interface HTTPWriter {
   writeEarlyHints(args: HintArgs): void;
   writeHead(status: number, headers?: Headers): void;
-  writeBody(body: ReadableStream): void;
-  response(): T;
+  writeBody(body: ResponseBody): void;
+  response(): ResponseTypes;
 };
 
-export class FetchResponseWriter implements HTTPWriter<ResponseTypes> {
+export class FetchResponseWriter implements HTTPWriter {
   #res?: ServerResponse;
   #hints?: {
     link: string | string[];
@@ -22,7 +37,7 @@ export class FetchResponseWriter implements HTTPWriter<ResponseTypes> {
   #status?: number;
   #statusText?: string;
   #headers: Headers = new Headers();
-  #body?: BodyInit;
+  #body?: ResponseBody;
 
   constructor(
     res?: ServerResponse,
@@ -33,39 +48,49 @@ export class FetchResponseWriter implements HTTPWriter<ResponseTypes> {
   /**
    * Writes early hints to the request.
    *
-   * Deno currently does not support early hints and will
-   * add link tags to the HTTP header of the main response
-   * instead.
+   * Runtimes which do not support writing early hints will have the
+   * headers added to the headers of the main response instead.
    */
-  writeEarlyHints(args: HintArgs) {
-    const res = this.#res;
-    let link: string | string[];
-
-    if (Array.isArray(args.link)) {
-      link = args.link.map(this.#formatEarlyHint);
-    } else if (args.link != null) {
-      link = this.#formatEarlyHint(args.link);
-    } else {
-      return;
-    }
-
-    const hints: {
-      link: string | string[];
-    } = { link };
-
-    if (res == null || res.writeEarlyHints == null) {
-      this.#hints = hints;
-
-      return;
-    }
-
-    return new Promise<void>((resolve, reject) => {
-      try {
-        res.writeEarlyHints(hints, resolve)
-      } catch (err) {
-        reject(err);
+  writeEarlyHints(args: HintArgs): Promise<void> {
+    const links: string[] = []
+    
+    if (Array.isArray(args)) {
+      for (let i = 0; i < args.length; i++) {
+        links.push(this.#formatEarlyHint(args[i]));
       }
-    });
+    } else if (typeof args === 'function') {
+      const res = args();
+
+      if (Array.isArray(res)) {
+        for (let i = 0; i < res.length; i++) {
+          links.push(this.#formatEarlyHint(res[i]))
+        }
+      } else if (isHintLink(res)) {
+        links.push(this.#formatEarlyHint(res));
+      } else if (Array.isArray(res.link)) {
+        for (let i = 0; i < res.link.length; i++) {
+          links.push(this.#formatEarlyHint(res.link[i]));
+        }
+      } else {
+        links.push(this.#formatEarlyHint(res.link));
+      }
+    } else if (isHintLink(args)) {
+      links.push(this.#formatEarlyHint(args));
+    } else if (Array.isArray(args.link)) {
+      for (let i = 0; i < args.link.length; i++) {
+        links.push(this.#formatEarlyHint(args.link[i]));
+      }
+    } else {
+      links.push(this.#formatEarlyHint(args.link));
+    }
+
+    if (this.#res == null) {
+      this.#headers.append('Link', links.join(', '));
+    } else {
+      return new Promise((resolve) => {
+        this.#res.writeEarlyHints({ 'Link': links.join(', ') }, resolve);
+      });
+    }
   }
 
   writeHead(status: number, headers?: Headers) {
@@ -84,7 +109,7 @@ export class FetchResponseWriter implements HTTPWriter<ResponseTypes> {
     }
   }
 
-  writeBody(body: ReadableStream): void {
+  writeBody(body: ResponseBody): void {
     if (this.#res instanceof ServerResponse) {
       this.#res.write(body);
     } else {

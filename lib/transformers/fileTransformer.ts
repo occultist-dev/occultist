@@ -1,50 +1,10 @@
-import type { FileData, FileInput } from "../types.ts";
-import { Buffer } from 'node:buffer';
 
-export class DataURLPart implements FileData {
-
-  #data: Uint8Array;
-  #contentType: string;
-
-  constructor(dataURL: string) {
-    this.#contentType = dataURL.replace(/^data:/, '').split(';')[0];
-    this.#data = new Uint8Array(Buffer.from(dataURL, 'base64url'));
-  }
-  
-  async *[Symbol.asyncIterator](): AsyncGenerator<Uint8Array<ArrayBufferLike>> {
-    yield this.#data;    
+export async function fileTransformer(value: File | string): Promise<File | Blob> {
+  if (typeof value === 'string') {
+    return fetch(value)
+      .then((res) => res.blob())
+      .catch(() => Promise.reject('Invalid data url'))
   }
 
-  arrayBuffer(): Promise<ArrayBufferLike> {
-    return Promise.resolve(this.#data.buffer);
-  }
-
-  bytes(): Promise<Uint8Array> {
-    return Promise.resolve(this.#data);
-  }
-
-  get size(): number | null {
-    return this.#data.byteLength;
-  }
-
-  get type(): string | null {
-    return this.#contentType;
-  }
-
-  get name(): string | null {
-    return null;
-  }
-
-  get filename(): string | null {
-    return null;
-  }
-
-}
-
-export function fileTransformer(fileData: FileInput): FileData {
-  if (typeof fileData === 'string') {
-    return new DataURLPart(fileData);
-  }
-
-  return fileData;
+  return value;
 }

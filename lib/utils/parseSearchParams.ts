@@ -1,5 +1,5 @@
-import type { EmptyObject, JSONObject, JSONValue } from "../jsonld.ts";
-import type { ContextState, ActionSpec } from "../types.ts";
+import type {ActionSpec, ContextState} from "../actions/spec.js";
+import type { EmptyObject, JSONObject, JSONValue } from "../jsonld.js";
 
 export function parseSearchParams<
   ActionState extends ContextState = EmptyObject,

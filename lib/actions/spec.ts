@@ -1,6 +1,6 @@
-import type { JSONPrimitive, JSONValue, OrArray, RecursiveDigit, RecursiveIncrement, TypeDef } from "../jsonld.ts";
-import type { Action } from "../types.ts";
-import type { Context } from './context.ts';
+import type { JSONPrimitive, JSONValue, OrArray, RecursiveDigit, RecursiveIncrement, TypeDef } from "../jsonld.js";
+import {Action} from "./actions.js";
+import type { Context } from './context.js';
 
 export type EmptyState = Record<string, unknown>;
 export type EmptySpec = Map<PropertyKey, never>;
@@ -24,16 +24,7 @@ export type Merge<M1 extends ContextState, M2 extends ContextState> = {
 
 export type ExtensionMap = Record<string, string>;
 
-export interface FileData extends AsyncIterable<Uint8Array> {
-  arrayBuffer(): Promise<ArrayBufferLike>;
-  bytes(): Promise<Uint8Array>;
-  size: number | null;
-  type: string | null;
-  name: string | null;
-  filename: string | null;
-};
-
-export type FileValue = FileData | string;
+export type FileValue = File | string;
 
 export type ParsedIRIValues = Record<string, JSONPrimitive | JSONPrimitive[]>;
 
@@ -71,7 +62,7 @@ export type ParameterizedContext<
   params: ParsedIRIValues;
   query: ParsedIRIValues;
   payload: ActionPayload<Spec>;
-  action: Action;
+  action: Action<State>;
 };
 
 export type AnyContext<

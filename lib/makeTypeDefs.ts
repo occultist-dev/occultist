@@ -1,8 +1,8 @@
-import { joinPaths } from "./utils/joinPaths.ts"
-import type { ContextDefinition, ContextDefinitionContainer, JSONLDContext, TypeDef } from "./jsonld.ts";
-import type { Context } from "./actions/context.ts";
-import { isPopulatedObject } from "./utils/isPopulatedObject.ts";
-import { isPopulatedString } from "./utils/isPopulatedString.ts";
+import { joinPaths } from "./utils/joinPaths.js"
+import type { ContextDefinition, ContextDefinitionContainer, JSONLDContext, TypeDef } from "./jsonld.js";
+import type { Context } from "./actions/context.js";
+import { isPopulatedObject } from "./utils/isPopulatedObject.js";
+import { isPopulatedString } from "./utils/isPopulatedString.js";
 
 export type MakeTypeDefArgsFromType<Term extends string, Type extends string> =
   {

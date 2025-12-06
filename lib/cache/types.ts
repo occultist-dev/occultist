@@ -1,5 +1,5 @@
-import type { Action } from '../types.ts';
-
+import {Action} from "../actions/actions.js";
+import {ImplementedAction} from "../actions/types.js";
 
 export type CacheContext = {
   status: number;
@@ -27,7 +27,7 @@ export interface CacheEntryDescriptor<
   Args extends CacheArgs = CacheArgs,
 > {
   type: CacheStrategyType;
-  action: Action;
+  action: ImplementedAction;
   request: Request;
   args: Args;
 };
@@ -37,6 +37,12 @@ export type CacheWhenFn = (
 ) => boolean;
 
 export type CacheRuleArgs = {
+  /**
+   * A version which should increment every when a new release
+   * causes the existing cache to become stale.
+   */
+  version?: number;
+
   /**
    * Defaults to varying on the authorization header
    * when authenticated.
@@ -64,8 +70,8 @@ export type CacheControlArgs = {
   noTransform?: true;
   immutable?: true;
   proxyRevalidate?: true;
-  expires?: () => number | Date | Temporal.ZonedDateTime;
-  maxAge?: number | Temporal.Duration | (() => number | Temporal.Duration);
+  expires?: () => number | Date;
+  maxAge?: number | Date | (() => number | Date);
   etag?: string;
 };
 

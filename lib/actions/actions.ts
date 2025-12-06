@@ -1,15 +1,17 @@
-import type { Handler, HandleRequestArgs, HandlerFn, HandlerMeta, HandlerText, HintArgs, ImplementedAction } from './types.ts';
-import type { Registry } from '../registry.ts';
-import type { Scope } from "../scopes.ts";
-import type { CacheArgs } from '../cache/cache.ts';
-import type { ContextState, ActionSpec } from "./spec.ts";
-import type { ActionMeta } from "./meta.ts";
-import { Context } from './context.ts';
-import { processAction } from "../processAction.ts";
-import type { JSONLDContext, JSONObject, TypeDef } from "../jsonld.ts";
-import { joinPaths } from "../utils/joinPaths.ts";
-import { getPropertyValueSpecifications } from "../utils/getPropertyValueSpecifications.ts";
-import { getActionContext } from "../utils/getActionContext.ts";
+import type { Handler, HandleRequestArgs, HandlerFn, HandlerMeta, HandlerText, HintArgs, ImplementedAction } from './types.js';
+import type { Registry } from '../registry.js';
+import type { Scope } from "../scopes.js";
+import type { CacheArgs } from '../cache/cache.js';
+import type { ContextState, ActionSpec } from "./spec.js";
+import type { ActionMeta } from "./meta.js";
+import { Context } from './context.js';
+import { processAction } from "../processAction.js";
+import type { JSONLDContext, JSONObject, TypeDef } from "../jsonld.js";
+import { joinPaths } from "../utils/joinPaths.js";
+import { getPropertyValueSpecifications } from "../utils/getPropertyValueSpecifications.js";
+import { getActionContext } from "../utils/getActionContext.js";
+import {IncomingMessage, ServerResponse} from 'node:http';
+import {ResponseTypes} from './writer.js';
 
 export type DefineArgs<
   Term extends string = string,
@@ -164,6 +166,10 @@ export class FinalizedAction<
     };
   }
 
+  get public(): boolean {
+    return this.#meta.allowsPublicAccess;
+  }
+
   get method(): string {
     return this.#meta.method;
   }
@@ -305,45 +311,13 @@ export class FinalizedAction<
     return this;
   }
 
-  async handleRequest(args: HandleRequestArgs) {
+  async handleRequest(args: HandleRequestArgs): Promise<ResponseTypes> {
     const handler = this.#handlers.get(args.contentType as string) as Handler<State, Spec>;
-    console.log('WILL PROCESS ACTION');
-    const { params, query, payload } = await processAction<State, Spec>({
-      iri: args.url.toString(),
-      req: args.req,
-      spec: this.#spec,
-      state: {} as State,
-      action: this as unknown as ImplementedAction<State, Spec>,
-    });
-    console.log('DID PROCESS ACTION');
-    console.log('PARAMS', params);
-    console.log('QUERY', query);
-    console.log('PAYLOAD', payload);
 
-    const context = new Context({
-      url: args.url.toString(),
-      public: this.#meta.allowsPublicAccess,
+    return this.#meta.handleRequest({
+      ...args,
       handler,
-      params,
-      query,
-      payload,
     });
-
-    context.headers.set('Content-Type', args.contentType);
-
-    if (typeof handler.handler === 'string') {
-      context.body = handler.handler;
-    } else {
-      console.log('HANDLING HANDLER');
-      await handler.handler(context);
-    }
-
-    context.headers.set('Content-Type', args.contentType);
-
-    args.writer.writeHead(context.status ?? 200, context.headers);
-    args.writer.writeBody(context.body);
-
-    return args.writer.response();
   }
 }
 
@@ -376,6 +350,10 @@ export class DefinedAction<
     this.#meta.action = this as unknown as ImplementedAction<State, Spec>;
   }
 
+  get public(): boolean {
+    return this.#meta.allowsPublicAccess;
+  }
+
   get method(): string {
     return this.#meta.method;
   }
@@ -394,6 +372,14 @@ export class DefinedAction<
 
   get name(): string {
     return this.#meta.name;
+  }
+
+  get template(): string {
+    return this.#meta.uriTemplate;
+  }
+
+  get pattern(): URLPattern {
+    return this.#meta.path.pattern;
   }
 
   get path(): string {
@@ -481,9 +467,12 @@ export class DefinedAction<
     );
   }
 
-  async handleRequest(_args: HandleRequestArgs) {
-    throw new Error('Not implemented');
+  async handleRequest(args: HandleRequestArgs): Promise<ResponseTypes> {
+    return this.#meta.handleRequest({
+      ...args,
+    });
   }
+
 }
 
 export class Action<
@@ -500,8 +489,11 @@ export class Action<
     meta: ActionMeta<State>,
   ) {
     this.#meta = meta;
-
     this.#meta.action = this;
+  }
+
+  get public(): boolean {
+    return this.#meta.allowsPublicAccess;
   }
 
   get method(): string {
@@ -523,6 +515,15 @@ export class Action<
   get name(): string {
     return this.#meta.name;
   }
+
+  get template(): string {
+    return this.#meta.uriTemplate;
+  }
+
+  get pattern(): URLPattern {
+    return this.#meta.path.pattern;
+  }
+
 
   get path(): string {
     return this.#meta.path.normalized;
@@ -548,12 +549,20 @@ export class Action<
     return [];
   }
 
+  get context(): JSONObject {
+    return getActionContext({
+      spec: this.#spec,
+      //vocab: this.#vocab,
+      //aliases: this.#aliases,
+    });
+  }
+
   url(): string {
     return '';
   }
 
-  jsonld(): JSONObject | null {
-    return null;
+  jsonld(): Promise<null> {
+    return Promise.resolve(null);
   }
 
   jsonldPartial(): { '@type': string, '@id': string } | null {
@@ -588,9 +597,12 @@ export class Action<
     );
   }
 
-  async handleRequest(_args: HandleRequestArgs) {
-    throw new Error('Not implemented');
+  async handleRequest(args: HandleRequestArgs): Promise<ResponseTypes> {
+    return this.#meta.handleRequest({
+      ...args,
+    });
   }
+
 }
 
 export class PreAction<
@@ -602,7 +614,7 @@ export class PreAction<
   #meta: ActionMeta<State>;
 
   constructor(
-    meta: ActionMeta,
+    meta: ActionMeta<State>,
   ) {
     this.#meta = meta;
   }
@@ -647,31 +659,16 @@ export class Endpoint<
   #meta: ActionMeta<State>;
 
   constructor(
-    meta: ActionMeta,
+    meta: ActionMeta<State>,
   ) {
     this.#meta = meta;
   }
   
-  hint(hints: HintArgs | ((hints: HintArgs) => void)): Endpoint<State> {
+  hint(hints: HintArgs): Endpoint<State> {
     this.#meta.hints.push(hints);
 
     return this;
   }
-
-  //transform(
-  //  contentType: string | string[],
-  //  transformer: TransformerFn,
-  //) {
-  //  if (!Array.isArray(contentType)) {
-  //    this.#meta.transformers.set(contentType, transformer);
-  //  } else {
-  //    for (const item of contentType) {
-  //      this.#meta.transformers.set(item, transformer);
-  //    }
-  //  }
-
-  //  return this;
-  //}
 
   compress(): Endpoint<State> {
     return this;
@@ -688,9 +685,7 @@ export class Endpoint<
   }
 
   use(): Action<State> {
-    return this.#meta.action = new Action(
-      this.#meta,
-    );
+    return new Action<State>(this.#meta);
   }
 
   define<
@@ -721,9 +716,9 @@ export class Endpoint<
 export class ActionAuth<
   State extends ContextState = ContextState,
 > {
-  #meta: ActionMeta;
+  #meta: ActionMeta<State>;
 
-  constructor(meta: ActionMeta) {
+  constructor(meta: ActionMeta<State>) {
     this.#meta = meta;
   }
 

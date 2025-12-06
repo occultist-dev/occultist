@@ -1,10 +1,10 @@
-import type { HTTPWriter } from "./writer.ts";
-import type { Registry } from '../registry.ts';
-import type { Scope } from "../scopes.ts";
-import type { ContextState, ActionSpec } from "./spec.ts";
-import type { Context } from "./context.ts";
+import type { HTTPWriter } from "./writer.js";
+import type { Registry } from '../registry.js';
+import type { Scope } from "../scopes.js";
+import type { ContextState, ActionSpec } from "./spec.js";
+import type { Context } from "./context.js";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { JSONObject, TypeDef } from "../jsonld.ts";
+import type { JSONObject, TypeDef } from "../jsonld.js";
 
 
 export type HandlerMeta = Record<symbol | string, unknown>;
@@ -12,7 +12,7 @@ export type HandlerMeta = Record<symbol | string, unknown>;
 export type HandlerFn<
   State extends ContextState = ContextState,
   Spec extends ActionSpec = ActionSpec,
-> = (ctx: Context<State, Spec>) => void;
+> = (ctx: Context<State, Spec>) => void | Promise<void>;
 
 export type HandlerText = string;
 
@@ -37,12 +37,30 @@ export type HintLink = {
   preload?: boolean;
   fetchPriority?: 'high' | 'low' | 'auto';
   crossOrigin?: boolean;
+  link?: undefined;
+  csp?: undefined;
 };
 
-export type HintArgs = {
+export type HintObj = {
   link: HintLink | HintLink[];
   csp?: string;
+  href?: undefined;
+  rel?: undefined;
+  type?: undefined;
+  as?: undefined;
+  preload?: undefined;
+  fetchPriority?: undefined;
+  crossOrigin?: undefined;
 };
+
+export type HintFn = () => HintObj | HintLink | HintLink[];
+
+export type HintArgs =
+  | HintLink
+  | HintLink[]
+  | HintObj
+  | HintFn
+;
 
 export type HandleFetchRequestArgs = {
   type: 'request';
@@ -74,6 +92,7 @@ export interface ImplementedAction<
   State extends ContextState = ContextState,
   Spec extends ActionSpec = ActionSpec,
 > {
+  readonly public: boolean;
   readonly method: string;
   readonly term?: string;
   readonly type?: string;

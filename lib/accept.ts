@@ -148,9 +148,10 @@ export class Accept {
       items.push({ ct, q });
     }
     
+    items.sort((a, b) => b.q - a.q);
+    
     return [
-      items.toSorted((a, b) => b.q - a.q)
-        .map(({ ct }) => ct),
+      items.map(({ ct }) => ct),
       cache,
     ];
   }

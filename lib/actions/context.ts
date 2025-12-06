@@ -1,8 +1,8 @@
 import type { ReadStream } from "node:fs";
-import type { Handler, ImplementedAction } from "./types.ts";
-import type { Registry } from "../registry.ts";
-import type { ActionSpec, ContextState, ActionPayload } from "./spec.ts";
-import type { ParsedIRIValues } from "../types.ts";
+import type { Handler, ImplementedAction } from "./types.js";
+import type { Registry } from "../registry.js";
+import type { ActionSpec, ContextState, ActionPayload, ParsedIRIValues } from "./spec.js";
+import {ResponseBody} from "./writer.js";
 
 
 export type ContextArgs<
@@ -28,7 +28,7 @@ export class Context<
   status?: number;
   statusText?: string;
   headers = new Headers();
-  body?: null | string | Blob | Uint8Array | ReadStream;
+  body?: ResponseBody;
 
   #url: string;
   #public: boolean = false
@@ -57,6 +57,10 @@ export class Context<
 
   get authKey(): string | undefined {
     return this.#authKey;
+  }
+
+  get method(): string {
+    return this.#action.method;
   }
 
   get url(): string {

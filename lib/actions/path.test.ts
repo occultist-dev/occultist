@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from "node:assert";
-import { Path } from "./path.ts";
+import { Path } from "./path.js";
 
 
 test('URI template style path creates valid URL Pattern', () => {

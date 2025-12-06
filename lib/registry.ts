@@ -1,14 +1,14 @@
-import { Accept } from "./accept.ts";
-import { ActionAuth } from "./actions/actions.ts";
-import { type ActionMatchResult, ActionSet } from "./actions/actionSets.ts";
-import { ActionMeta } from "./actions/meta.ts";
-import type { Handler, ImplementedAction } from "./actions/types.ts";
-import { FetchResponseWriter } from "./actions/writer.ts";
-import { Scope } from './scopes.ts';
+import { Accept } from "./accept.js";
+import { ActionAuth } from "./actions/actions.js";
+import { type ActionMatchResult, ActionSet } from "./actions/actionSets.js";
+import { ActionMeta } from "./actions/meta.js";
+import type { Handler, ImplementedAction } from "./actions/types.js";
+import { FetchResponseWriter } from "./actions/writer.js";
+import { Scope } from './scopes.js';
 import { IncomingMessage, type ServerResponse } from "node:http";
-import type { Merge } from "./actions/spec.ts";
-import type { ContextState, Middleware } from "./actions/spec.ts";
-import {ProblemDetailsError} from "./errors";
+import type { Merge } from "./actions/spec.js";
+import type { ContextState, Middleware } from "./actions/spec.js";
+import {ProblemDetailsError} from "./errors.js"
 
 
 export interface Callable<
@@ -184,7 +184,7 @@ export class Registry<
    * @param path   Path the action responds to.
    */
   public method(method: string, name: string, path: string): ActionAuth<State> {
-    const meta = new ActionMeta(
+    const meta = new ActionMeta<State>(
       this.#rootIRI,
       method.toUpperCase(),
       name,

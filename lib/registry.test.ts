@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Registry } from './registry.ts';
+import { Registry } from './registry.js';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
