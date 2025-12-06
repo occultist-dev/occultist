@@ -8,8 +8,6 @@ import {JSONValue} from '../jsonld.js';
 import {joinPaths} from '../utils/joinPaths.js';
 import {processAction} from '../processAction.js';
 import {Context} from './context.js';
-import {write} from 'fs';
-import {IncomingMessage, ServerResponse} from 'http';
 
 export class ActionMeta<
   State extends ContextState = ContextState,
@@ -68,8 +66,8 @@ export class ActionMeta<
     contentType?: string;
     language?: string;
     encoding?: string;
-    url: URL;
-    req: Request | IncomingMessage;
+    url: string;
+    req: Request;
     writer: HTTPWriter;
     spec?: Spec;
     handler?: Handler<State, Spec>,
