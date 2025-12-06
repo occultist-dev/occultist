@@ -1,6 +1,6 @@
-import type { NextFn } from '../types.ts';
-import { ConditionalRequestRules } from './etag.ts';
-import type { CacheHTTPArgs, CacheETagArgs, CacheStoreArgs, CacheEntryDescriptor, CacheMeta, CacheStorage, CacheContext } from './types.ts';
+import {NextFn} from '../actions/spec.js';
+import { ConditionalRequestRules } from './etag.js';
+import type { CacheHTTPArgs, CacheETagArgs, CacheStoreArgs, CacheEntryDescriptor, CacheMeta, CacheStorage, CacheContext, CacheHitHandle, CacheMissHandle, LockedCacheMissHandle } from './types.js';
 
 
 export type CacheArgs<
@@ -46,14 +46,25 @@ export class Cache<
     return this.#alternatives;
   }
 
+  /**
+   * Add HTTP headers to the request.
+   */
   http(args?: CacheHTTPArgs): CacheArgs {
     return Object.assign(Object.create(null), args, { cache: this });
   }
 
+  /**
+   * Stores an etag value of the response and adds HTTP headers to the request.
+   * Requests made to an endpoint implementing etag cache can use `If-None-Match`
+   * or `If-Modified-Since` headers to test 
+   */
   etag(args?: CacheETagArgs): CacheArgs {
     return Object.assign(Object.create(null), args, { cache: this });
   }
 
+  /**
+   * Caches the body of the response, stores and etag and adds HTTP headers to the request.
+   */
   store(args?: CacheStoreArgs<StorageKey>): CacheStoreArgs<StorageKey> & { cache: Cache } {
     return Object.assign(Object.create(null), args, { cache: this });
   }
@@ -101,6 +112,17 @@ export class Cache<
     }
   }
 
+  /**
+   * @todo Implement vary rules.
+   */
+  #makeKey(descriptor: CacheEntryDescriptor): string {
+    const { version } = descriptor.args;
+    const { name, method } = descriptor.action;
+    const { url } = descriptor.request;
+
+    return method.toLowerCase() + '|' + name + '|v' + (version ?? 0) + '|' + url.toString();
+  }
+
   #setHeaders(
     descriptor: CacheEntryDescriptor,
     ctx: CacheContext,
@@ -125,7 +147,7 @@ export class Cache<
     ctx: CacheContext,
     next: NextFn,
   ): Promise<void> {
-    const key = this.makeKey(descriptor);
+    const key = this.#makeKey(descriptor);
     const rules = new ConditionalRequestRules(ctx.req);
     const resourceState = await this.#cacheMeta.get(key);
 
@@ -151,7 +173,7 @@ export class Cache<
     ctx: CacheContext,
     next: NextFn,
   ): Promise<void> {
-    const key = this.makeKey(descriptor);
+    const key = this.#makeKey(descriptor);
     const rules = new ConditionalRequestRules(ctx.req);
     const storage = descriptor.args.storage == null
       ? this.#defaultStorage
@@ -161,7 +183,7 @@ export class Cache<
       return this.#useHTTP(descriptor, ctx, next)
     }
 
-    let resourceState: CachedLockHandle | UncachedLockHandle | undefined;
+    let resourceState: CacheHitHandle | LockedCacheMissHandle | undefined;
 
     try {
       resourceState = await this.#cacheMeta.getOrLock(key);
@@ -195,11 +217,11 @@ export class Cache<
       await next();
 
       await storage.set(key, ctx.bodyStream);
-
-      // resourceState?.set(key);
     } catch (err) {
       console.error(err);
-      await resourceState.release();
+      if (resourceState.type === 'locked-cache-miss') {
+        await resourceState.release();
+      }
     }
   }
 }

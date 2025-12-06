@@ -3,19 +3,17 @@ import {
   ObjectArraySpec,
   ObjectSpec,
   PropertySpec,
-} from './actions/spec.ts';
-import { isObject } from './utils/isObject.ts';
-import { isGeneratorFunction, isGeneratorObject } from 'node:util/types';
-import { preferredMediaTypes } from './utils/preferredMediaTypes.ts';
-import { isNil } from "./utils/isNil.ts";
-import { JSONValue } from "./jsonld.ts";
+} from './actions/spec.js';
+import { isObject } from './utils/isObject.js';
+import { preferredMediaTypes } from './utils/preferredMediaTypes.js';
+import { JSONValue } from "./jsonld.js";
 
 
 // deno-lint-ignore no-explicit-any
-export function isFileData(value: any): value is File {
+export function isFileData(value: JSONValue | File): value is string | File {
   if (typeof value === 'string' && value.startsWith('data:')) {
     return true;
-  } else if (isObject(value) && (isGeneratorFunction(value.iterable) || isGeneratorObject(value.iterable))) {
+  } else if (value instanceof File) {
     return true;
   }
 
@@ -73,11 +71,11 @@ export function failsContentTypeRequirement(
   value: JSONValue | File,
   specValue: PropertySpec
 ) {
-  if (specValue.type !== 'file') {
-    return false;
-  } else if (!isFileData(value)) {
-    return false;
-  } else if (!specValue.contentType) {
+  if (
+    specValue.type !== 'file' ||
+    specValue.contentType == null ||
+    !isFileData(value)
+  ) {
     return false;
   }
 
@@ -86,10 +84,10 @@ export function failsContentTypeRequirement(
   if (typeof value === 'string') {
     contentType = value.replace(/^data\:/, '').split(';')[0];
   } else {
-    contentType = (value as File).type;
+    contentType = value.type;
   }
 
-  if (!contentType) {
+  if (contentType == null) {
     return true;
   } else if (typeof specValue.contentType === 'string') {
     return !preferredMediaTypes(contentType, [specValue.contentType]);
@@ -99,7 +97,7 @@ export function failsContentTypeRequirement(
 }
 
 export function failsMinValue(value: JSONValue, specValue: PropertySpec) {
-  if (!specValue.valueRequired && isNil(value)) {
+  if (!specValue.valueRequired && value == null) {
     return false;
   }
 
@@ -113,7 +111,7 @@ export function failsMinValue(value: JSONValue, specValue: PropertySpec) {
 }
 
 export function failsMaxValue(value: JSONValue, specValue: PropertySpec) {
-  if (!specValue.valueRequired && isNil(value)) {
+  if (!specValue.valueRequired && value == null) {
     return false;
   }
 

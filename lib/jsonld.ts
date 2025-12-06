@@ -1,4 +1,4 @@
-import type { ShallowMerge } from "./merge.ts";
+import type { ShallowMerge } from "./merge.js";
 
 // Union of numbers within our depth limit
 export type RecursiveDigit = 1 | 2 | 3 | 4 | 5 | 6 | 7;

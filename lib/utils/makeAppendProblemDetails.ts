@@ -1,5 +1,4 @@
-import { STATUS_CODE } from '@std/http/status';
-import type { ProblemDetailsParam, ProblemDetails } from "../types.ts";
+import type {ProblemDetailsParam, ProblemDetails} from '../types.js';
 
 export type AppendProblemDetails = (args: {
   status: number;
@@ -29,10 +28,13 @@ export function makeAppendProblemDetails(
     detail?: string,
     param?: ProblemDetailsParam;
   }) {
-    if (!refs.httpStatus) {
+    if (refs.httpStatus == null) {
       refs.httpStatus = status;
-    } else if (refs.httpStatus !== status) {
-      refs.httpStatus = STATUS_CODE.MultipleChoices;
+    } else if (
+      refs.httpStatus !== status &&
+      refs.httpStatus < 400
+    ) {
+      refs.httpStatus = status
     }
 
     if (!refs.problemDetails) {

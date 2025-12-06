@@ -1,7 +1,7 @@
-import type { OrArray, JSONValue } from "../jsonld.ts";
-import type { ActionSpec, PropertySpec, ResponseInputSpec, SpecValue, ActionOption } from "../actions/spec.ts";
-import { isNil } from "./isNil.ts";
-import { isObject } from "./isObject.ts";
+import type { OrArray, JSONValue } from "../jsonld.js";
+import type { ActionSpec, PropertySpec, ResponseInputSpec, SpecValue, ActionOption } from "../actions/spec.js";
+import { isNil } from "./isNil.js";
+import { isObject } from "./isObject.js";
 
 
 // deno-lint-ignore no-explicit-any

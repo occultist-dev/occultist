@@ -1,9 +1,40 @@
 {
   "name": "@occultist/occultist",
-  "type": "module",
+  "description": "A koa inspired web framework with first class support for request caching and content negotiation",
+  "author": "Matthew Quinn",
+  "homepage": "https://github.com/occultist-dev/occultist",
   "license": "MIT",
+  "type": "module",
+  "main": "dist/occultist.ts",
+  "types": "dist/occultist.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/occultist-dev/occultist.git"
+  },
+  "bugs": {
+    "url": "https://github.com/occultist-dev/occultist/issues"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "directories": {
+    "lib": "lib"
+  },
+  "files": [
+    "./README.md",
+    "./LICENCE",
+    "./dist",
+    "./lib"
+  ],
+  "peerDependencies": {
+    "json-ptr": "^3.1.1",
+    "jsonld": "^9.0.0"
+  },
   "devDependencies": {
-    "@types/node": "^24.5.2",
+    "@types/node": "^24.10.1",
+    "esbuild": "^0.27.0",
+    "json-ptr": "^3.1.1",
+    "jsonld": "^9.0.0",
     "typescript": "^5.9.3"
   }
 }

@@ -1,19 +1,17 @@
 import { JsonPointer } from 'json-ptr';
-import { STATUS_CODE } from "@std/http/status";
-import type { JSONValue } from "./jsonld.ts";
-// import type { ActionSpec, ParsedIRIValues, ActionPayload, ValueSpec, ArraySpec, ObjectSpec, ObjectArraySpec, PropertySpec, SpecValue } from "./types.ts";
-import { getInternalName } from "./utils/getInternalName.ts";
-import { type BodyValue, getRequestBodyValues } from "./utils/getRequestBodyValues.ts";
-import { type IRIValue, getRequestIRIValues } from "./utils/getRequestIRIValues.ts";
-import { isNil } from "./utils/isNil.ts";
-import { isObject } from "./utils/isObject.ts";
-import { isPopulatedObject } from "./utils/isPopulatedObject.ts";
-import { type ProblemDetailsParamsRefs, makeAppendProblemDetails } from "./utils/makeAppendProblemDetails.ts";
-import { failsRequiredRequirement, failsTypeRequirement, failsContentTypeRequirement, failsMaxValue, failsMinValue, failValueMinLength, failValueMaxLength, failsStepValue, failsPatternValue, failsValidator, isObjectArraySpec, isObjectSpec, isArraySpec } from "./validators.ts";
-import { InvalidActionParamsError, ProblemDetailsError } from "./errors.ts";
-import { alwaysArray } from "./utils/alwaysArray.ts";
-import type { ImplementedAction } from "./actions/types.ts";
-import type { ActionPayload, ActionSpec, ArraySpec, ContextState, ObjectArraySpec, ObjectSpec, ParsedIRIValues, PropertySpec, SpecValue, ValueSpec } from "./actions/spec.ts";
+import type { JSONValue } from "./jsonld.js";
+import { getInternalName } from "./utils/getInternalName.js";
+import { type BodyValue, getRequestBodyValues } from "./utils/getRequestBodyValues.js";
+import { type IRIValue, getRequestIRIValues } from "./utils/getRequestIRIValues.js";
+import { isNil } from "./utils/isNil.js";
+import { isObject } from "./utils/isObject.js";
+import { isPopulatedObject } from "./utils/isPopulatedObject.js";
+import { type ProblemDetailsParamsRefs, makeAppendProblemDetails } from "./utils/makeAppendProblemDetails.js";
+import { failsRequiredRequirement, failsTypeRequirement, failsContentTypeRequirement, failsMaxValue, failsMinValue, failValueMinLength, failValueMaxLength, failsStepValue, failsPatternValue, failsValidator, isObjectArraySpec, isObjectSpec, isArraySpec } from "./validators.js";
+import { InvalidActionParamsError, ProblemDetailsError } from "./errors.js";
+import { alwaysArray } from "./utils/alwaysArray.js";
+import type { ImplementedAction } from "./actions/types.js";
+import type { ActionPayload, ActionSpec, ArraySpec, ContextState, ObjectArraySpec, ObjectSpec, ParsedIRIValues, PropertySpec, SpecValue, ValueSpec } from "./actions/spec.js";
 
 
 
@@ -46,7 +44,7 @@ export async function processAction<
   spec,
   state,
   action,
-}: ProcessActionArgs<State, Spec>): Promise<ProcessActionResult> {
+}: ProcessActionArgs<State, Spec>): Promise<ProcessActionResult<Spec>> {
   let httpStatus: number | null = null;
   const payload: Partial<ActionPayload<Spec>> = {};
   const transformers: Record<string, Promise<unknown>> = {};
@@ -72,7 +70,7 @@ export async function processAction<
     bodyValues = result.bodyValues;
   }
 
-  const mergedValues = Object.assign(Object.create(null), bodyValues, iriValues);
+  const mergedValues: BodyValue & IRIValue = Object.assign(Object.create(null), bodyValues, iriValues);
 
   function hasRequiredFields(
     specObject: Record<
@@ -115,7 +113,7 @@ export async function processAction<
 
     if (failsRequiredRequirement(value, specValue)) {
       appendProblemDetailsParam({
-        status: STATUS_CODE.BadRequest,
+        status: 400,
         param: {
           name: paramName,
           reason: `Value required`,
@@ -131,7 +129,7 @@ export async function processAction<
         specValue.dataType === 'file'
       ) {
         appendProblemDetailsParam({
-          status: STATUS_CODE.BadRequest,
+          status: 400,
           param: {
             name: paramName,
             reason: `Invalid datatype provided when a ${specValue.dataType} is expected`,
@@ -140,7 +138,7 @@ export async function processAction<
         });
       } else {
         appendProblemDetailsParam({
-          status: STATUS_CODE.BadRequest,
+          status: 400,
           param: {
             name: paramName,
             reason: `Invalid datatype provided`,
@@ -152,7 +150,7 @@ export async function processAction<
       return null;
     } else if (failsContentTypeRequirement(value, specValue)) {
       appendProblemDetailsParam({
-        status: STATUS_CODE.BadRequest,
+        status: 400,
         param: {
           name: paramName,
           reason: `File does not meet content type requirements for upload`,
@@ -161,7 +159,7 @@ export async function processAction<
       });
     } else if (failsMaxValue(value, specValue)) {
       appendProblemDetailsParam({
-        status: STATUS_CODE.BadRequest,
+        status: 400,
         param: {
           name: paramName,
           reason: `Value too large`,
@@ -172,7 +170,7 @@ export async function processAction<
       return null;
     } else if (failsMinValue(value, specValue)) {
       appendProblemDetailsParam({
-        status: STATUS_CODE.BadRequest,
+        status: 400,
         param: {
           name: paramName,
           reason: `Value too small`,
@@ -183,7 +181,7 @@ export async function processAction<
       return null;
     } else if (failValueMinLength(value, specValue)) {
       appendProblemDetailsParam({
-        status: STATUS_CODE.BadRequest,
+        status: 400,
         param: {
           name: paramName,
           reason: `Value's length too small`,
@@ -194,7 +192,7 @@ export async function processAction<
       return null;
     } else if (failValueMaxLength(value, specValue)) {
       appendProblemDetailsParam({
-        status: STATUS_CODE.BadRequest,
+        status: 400,
         param: {
           name: paramName,
           reason: `Value's length too large`,
@@ -205,7 +203,7 @@ export async function processAction<
       return null;
     } else if (failsStepValue(value, specValue)) {
       appendProblemDetailsParam({
-        status: STATUS_CODE.BadRequest,
+        status: 400,
         param: {
           name: paramName,
           reason: `Value does not meet step requirements`,
@@ -216,7 +214,7 @@ export async function processAction<
       return null;
     } else if (failsPatternValue(value, specValue)) {
       appendProblemDetailsParam({
-        status: STATUS_CODE.BadRequest,
+        status: 400,
         param: {
           name: paramName,
           reason: `Value does not meet pattern requirements`,
@@ -227,7 +225,7 @@ export async function processAction<
       return null;
     } else if (failsValidator(value, specValue)) {
       appendProblemDetailsParam({
-        status: STATUS_CODE.BadRequest,
+        status: 400,
         param: {
           name: paramName,
           reason: `Value is not valid`,
@@ -253,7 +251,7 @@ export async function processAction<
             if (typeof httpStatus !== 'number') {
               httpStatus = err.status;
             } else if (httpStatus !== err.status) {
-              httpStatus = STATUS_CODE.BadRequest;
+              httpStatus = 400;
             }
 
             appendProblemDetailsParam({
@@ -262,7 +260,7 @@ export async function processAction<
                 reason: err.message,
                 pointer,
               },
-              status: STATUS_CODE.BadRequest,
+              status: 400,
             });
           } else {
             appendProblemDetailsParam({
@@ -271,7 +269,7 @@ export async function processAction<
                 reason: `Failed to cast value`,
                 pointer,
               },
-              status: STATUS_CODE.BadRequest,
+              status: 400,
             });
           }
 
@@ -310,7 +308,7 @@ export async function processAction<
           reason: `Value required`,
           pointer,
         },
-        status: STATUS_CODE.BadRequest,
+        status: 400,
       });
 
       return null;
@@ -325,7 +323,7 @@ export async function processAction<
           reason: `Value's length too small`,
           pointer,
         },
-        status: STATUS_CODE.BadRequest,
+        status: 400,
       });
 
       return null;
@@ -336,7 +334,7 @@ export async function processAction<
           reason: `Value's length too large`,
           pointer,
         },
-        status: STATUS_CODE.BadRequest,
+        status: 400,
       });
 
       return null;
@@ -382,7 +380,7 @@ export async function processAction<
           reason: `Value required`,
           pointer,
         },
-        status: STATUS_CODE.BadRequest,
+        status: 400,
       });
 
       return null;
@@ -393,7 +391,7 @@ export async function processAction<
           reason: `Object expected`,
           pointer,
         },
-        status: STATUS_CODE.BadRequest,
+        status: 400,
       });
 
       return null;
@@ -411,7 +409,7 @@ export async function processAction<
             reason: `Value required`,
             pointer: `${pointer}/${paramName}`,
           },
-          status: STATUS_CODE.BadRequest,
+          status: 400,
         });
       }
     }
@@ -456,7 +454,7 @@ export async function processAction<
           reason: `Value required`,
           pointer: parentPointer,
         },
-        status: STATUS_CODE.BadRequest,
+        status: 400,
       });
 
       return null;
@@ -471,7 +469,7 @@ export async function processAction<
           reason: `Value's length too small`,
           pointer: parentPointer,
         },
-        status: STATUS_CODE.BadRequest,
+        status: 400,
       });
 
       return null;
@@ -482,7 +480,7 @@ export async function processAction<
           reason: `Value's length too large`,
           pointer: parentPointer,
         },
-        status: STATUS_CODE.BadRequest,
+        status: 400,
       });
 
       return null;
@@ -512,7 +510,7 @@ export async function processAction<
 
         if (!isPopulatedObject<JSONValue>(value)) {
           appendProblemDetailsParam({
-            status: STATUS_CODE.BadRequest,
+            status: 400,
             param: {
               name: paramName,
               reason: `Object expected`,
@@ -582,7 +580,7 @@ export async function processAction<
 
   if (hasRequiredFields(spec) && !isPopulatedObject(mergedValues)) {
     throw new ProblemDetailsError(
-      httpStatus || STATUS_CODE.BadRequest,
+      httpStatus || 400,
       {
         title: `This action requires a request body`,
       },
@@ -607,7 +605,7 @@ export async function processAction<
           reason: `Value required`,
           pointer: `#/${paramName}`,
         },
-        status: STATUS_CODE.BadRequest,
+        status: 400,
       });
     }
   }
@@ -615,7 +613,7 @@ export async function processAction<
   for (const [paramName, value] of Object.entries(mergedValues)) {
     if (!Object.hasOwn(spec, paramName)) {
       throw new ProblemDetailsError(
-        httpStatus || STATUS_CODE.BadRequest,
+        httpStatus || 400,
         {
           title: `Invalid request`,
           errors: [
@@ -651,7 +649,7 @@ export async function processAction<
 
   if (refs.problemDetails) {
     throw new ProblemDetailsError(
-      refs.httpStatus || STATUS_CODE.BadRequest,
+      refs.httpStatus || 400,
       refs.problemDetails,
     );
   }
@@ -676,7 +674,7 @@ export async function processAction<
 
   if (refs.problemDetails) {
     throw new ProblemDetailsError(
-      refs.httpStatus || STATUS_CODE.BadRequest,
+      refs.httpStatus || 400,
       refs.problemDetails,
     );
   }

@@ -1,8 +1,7 @@
-import { STATUS_CODE } from "@std/http/status";
-import type { ImplementedAction } from "../actions/types.ts";
-import { ProblemDetailsError } from "../errors.ts";
-import type { ActionSpec, ContextState, FileSingleSpec, FileMultiSpec, BooleanSingleSpec, BooleanMultiSpec, NumberSingleSpec, NumberMultiSpec, StringSingleSpec, StringMultiSpec, ParsedIRIValues, PropertySpec } from "../actions/spec.ts";
-import { getParamLocation } from "./getParamLocation.ts";
+import type { ImplementedAction } from "../actions/types.js";
+import { ProblemDetailsError } from "../errors.js";
+import type { ActionSpec, ContextState, FileSingleSpec, FileMultiSpec, BooleanSingleSpec, BooleanMultiSpec, NumberSingleSpec, NumberMultiSpec, StringSingleSpec, StringMultiSpec, ParsedIRIValues, PropertySpec } from "../actions/spec.js";
+import { getParamLocation } from "./getParamLocation.js";
 
 
 export type IRIValue<
@@ -56,7 +55,7 @@ export function getRequestIRIValues<
   //if (action.strict) {
     for (const valueName of searchParams.keys()) {
       if (!valueNames.includes(valueName)) {
-        throw new ProblemDetailsError(STATUS_CODE.BadRequest, {
+        throw new ProblemDetailsError(400, {
           title: `Unexpected value "${valueName}"`,
         });
       }
@@ -88,7 +87,7 @@ export function getRequestIRIValues<
     }
 
     if (!multipleValues && Array.isArray(value) && value.length > 1) {
-      throw new ProblemDetailsError(STATUS_CODE.BadRequest, {
+      throw new ProblemDetailsError(400, {
         title: `Invalid request`,
         errors: [{
           name: term,
@@ -163,7 +162,7 @@ function parseBoolean({
   pointer: string;
 }): boolean {
   if (!['', 'true', 'false'].includes(value)) {
-    throw new ProblemDetailsError(STATUS_CODE.BadRequest, {
+    throw new ProblemDetailsError(400, {
       title: `Invalid request`,
       errors: [{
         name: term,
@@ -188,7 +187,7 @@ function parseNumber({
   const numberValue = Number(value);
 
   if (isNaN(numberValue) || !Number.isFinite(numberValue)) {
-    throw new ProblemDetailsError(STATUS_CODE.BadRequest, {
+    throw new ProblemDetailsError(400, {
       title: `Invalid request`,
       errors: [{
         name: term,

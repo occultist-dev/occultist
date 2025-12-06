@@ -1,10 +1,10 @@
-import { joinPaths } from "./utils/joinPaths.ts";
-import { ActionAuth } from "./actions/actions.ts";
-import { ActionMeta } from "./actions/meta.ts";
-import type { ContextState } from "./actions/spec.ts";
-import type { Handler, ImplementedAction } from "./actions/types.ts";
-import type { HTTPWriter } from "./actions/writer.ts";
-import { type Callable, HTTP, type Registry } from './registry.ts';
+import { joinPaths } from "./utils/joinPaths.js";
+import { ActionAuth } from "./actions/actions.js";
+import { ActionMeta } from "./actions/meta.js";
+import type { ContextState } from "./actions/spec.js";
+import type { Handler, ImplementedAction } from "./actions/types.js";
+import type { HTTPWriter } from "./actions/writer.js";
+import { type Callable, HTTP, type Registry } from './registry.js';
 
 
 export class Scope<
@@ -13,7 +13,7 @@ export class Scope<
   #path: string;
   #registry: Registry;
   #writer: HTTPWriter;
-  #http: HTTP;
+  #http: HTTP<State>;
   #children: Array<ActionMeta> = [];
   #public: boolean = true;
   #propergateMeta: (meta: ActionMeta) => void;
@@ -79,7 +79,7 @@ export class Scope<
    * @param path   Path the action responds to.
    */
   method(method: string, name: string, path: string): ActionAuth<State> {
-    const meta = new ActionMeta(
+    const meta = new ActionMeta<State>(
       this.#registry.rootIRI,
       method.toUpperCase(),
       name,
@@ -132,8 +132,8 @@ export class Scope<
       this.#registry.http.get('scope', this.#path)
         .public()
         .handle('application/ld+json', (ctx) => {
-            ctx.body = JSON.stringify(partials);
-         });
+           ctx.body = JSON.stringify(partials);
+        });
     }
     
     for (let index = 0; index < this.#children.length; index++) {

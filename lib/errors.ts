@@ -1,19 +1,4 @@
-
-import { STATUS_CODE } from '@std/http/status';
-import { stringify } from '@libs/xml';
-
-export type ProblemDetails = {
-  status?: number;
-  type?: string;
-  instance?: string;
-  title?: string;
-  detail?: string;
-  reason?: string;
-  errors?: Array<{
-    name: string;
-    reason: string;
-  }>;
-};
+import {ProblemDetails} from "./types.js";
 
 // https://datatracker.ietf.org/doc/html/rfc9457
 export class ProblemDetailsError extends Error {
@@ -68,18 +53,6 @@ export class ProblemDetailsError extends Error {
         </body>
         </html>
       `;
-    } else if (
-      contentType === 'application/problem+xml' ||
-      contentType === 'application/xml'
-    ) {
-      return stringify({
-        '@version': '1.0',
-        '@encoding': 'UTF-8',
-        problem: {
-          '@xmlns': 'urn:ietf:rfc:7807',
-          ...this.problemDetails,
-        },
-      });
     }
 
     return JSON.stringify(this.problemDetails);
@@ -88,6 +61,6 @@ export class ProblemDetailsError extends Error {
 
 export class InvalidActionParamsError extends ProblemDetailsError {
   constructor(title: string) {
-    super(STATUS_CODE.BadRequest, { title, type: 'invalid-param' });
+    super(400, { title, type: 'invalid-param' });
   }
 }

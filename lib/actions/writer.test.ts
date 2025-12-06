@@ -1,18 +1,16 @@
-import { createServer } from 'node:http';
-import { Writer } from './writer.ts';
-import { assertEquals } from 'jsr:@std/assert';
+import {createServer} from 'node:http';
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {FetchResponseWriter} from './writer.js';
+import {AddressInfo} from 'node:net';
 
 
-Deno.test('Writer writes hints', {
-  permissions: {
-    net: ['127.0.0.1'],
-  },
-}, () => {
+test('Writer writes hints', () => {
   return new Promise((resolve, reject) => {
     const server = createServer();
 
-    server.on('request', async (req, res) => {
-      const writer = new Writer(res);
+    server.on('request', async (_req, res) => {
+      const writer = new FetchResponseWriter(res);
       await writer.writeEarlyHints({
         link: [
           {
@@ -40,12 +38,12 @@ Deno.test('Writer writes hints', {
     });
   
     server.listen(0, '127.0.0.1', async () => {
-      const { port, address } = server.address();
+      const { port, address } = server.address() as AddressInfo;
   
       const res = await fetch(`http://${address}:${port}`);
       await res.text();
 
-      assertEquals(
+      assert(
         res.headers.get('link'),
         `</https://example.com/main.css>; rel=preload; as=stylesheet; fetchpriority=high, `
         + `</https://example.com/main.js>; rel=preload; as=script; fetchpriority=low`,

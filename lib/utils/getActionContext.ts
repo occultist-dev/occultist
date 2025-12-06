@@ -1,7 +1,7 @@
-import type { JSONLDContext, TypeDef } from "../jsonld.ts";
-import { makeTypeDef, makeTypeDefs } from "../makeTypeDefs.ts";
-import { contextBuilder } from "./contextBuilder.ts";
-import type { ActionSpec, PropertySpec } from '../actions/spec.ts';
+import type { JSONLDContext, TypeDef } from "../jsonld.js";
+import { makeTypeDef, makeTypeDefs } from "../makeTypeDefs.js";
+import { contextBuilder } from "./contextBuilder.js";
+import type { ActionSpec, PropertySpec } from '../actions/spec.js';
 
 const defaultTypeDefs = makeTypeDefs([
   makeTypeDef({ schema: 'https://schema.org/', term: 'Entrypoint' }),
@@ -34,20 +34,20 @@ export function getActionContext({
     term: string,
     propertySpec: PropertySpec,
   ) {
-    if (typeof propertySpec.type === 'string') {
-      typeDefs.push(makeTypeDef({ term, type: propertySpec.type }));
-      typeDefs.push(
-        makeTypeDef({
-          term: `${term}-input`,
-          type: `${propertySpec.type}-input`,
-        }),
-      );
-    } else {
+    if (propertySpec.typeDef != null) {
       typeDefs.push(propertySpec.typeDef);
       typeDefs.push(
         makeTypeDef({
           term: `${term}-input`,
           type: `${propertySpec.typeDef.type}-input`,
+        }),
+      );
+    } else if (propertySpec.type === 'string') {
+      typeDefs.push(makeTypeDef({ term, type: propertySpec.type }));
+      typeDefs.push(
+        makeTypeDef({
+          term: `${term}-input`,
+          type: `${propertySpec.type}-input`,
         }),
       );
     }

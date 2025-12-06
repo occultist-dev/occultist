@@ -1,9 +1,8 @@
-import { STATUS_CODE } from "@std/http/status";
-import { ProblemDetailsError } from "../errors.ts";
-import type { JSONValue, ContextDefinition, JSONObject } from "../jsonld.ts";
-import type { ContextState, ActionSpec, PropertySpec } from "../actions/spec.ts";
+import { ProblemDetailsError } from "../errors.js";
+import type { JSONValue, ContextDefinition, JSONObject } from "../jsonld.js";
+import type { ContextState, ActionSpec, PropertySpec } from "../actions/spec.js";
 import jsonld from 'jsonld';
-import type { ImplementedAction } from "../actions/types.ts";
+import type { ImplementedAction } from "../actions/types.js";
 
 
 // export type BodyValue = Record<string, FileInput | FileInput[] | JSONValue>;
@@ -53,7 +52,7 @@ export async function getRequestBodyValues<
 
     for (const [name, part] of formData.entries()) {
       if (typeof name !== 'string') {
-        throw new ProblemDetailsError(STATUS_CODE.BadRequest, {
+        throw new ProblemDetailsError(400, {
           title: 'Unnamed parameter in request multipart body',
         });
       }
@@ -70,7 +69,7 @@ export async function getRequestBodyValues<
         }
 
         if (propertySpec.dataType !== 'file') {
-          throw new ProblemDetailsError(STATUS_CODE.BadRequest, {
+          throw new ProblemDetailsError(400, {
             title: `Unexpected content '${name}' in request multipart body`,
           });
         }
@@ -87,7 +86,7 @@ export async function getRequestBodyValues<
         term = mappedTypes[name].term;
         propertySpec = mappedTypes[name].propertySpec;
       } else {
-        throw new ProblemDetailsError(STATUS_CODE.BadRequest, {
+        throw new ProblemDetailsError(400, {
           title: `Unexpected content '${name}' in request multipart body`,
         });
       }
@@ -114,7 +113,7 @@ export async function getRequestBodyValues<
     try {
       bodyValues = await req.json();
     } catch {
-      throw new ProblemDetailsError(STATUS_CODE.BadRequest, {
+      throw new ProblemDetailsError(400, {
         title: 'Failed to parse JSON body',
       });
     }
@@ -126,7 +125,7 @@ export async function getRequestBodyValues<
     try {
       source = await req.json();
     } catch {
-      throw new ProblemDetailsError(STATUS_CODE.BadRequest, {
+      throw new ProblemDetailsError(400, {
         title: 'Failed to parse JSON body',
       });
     }
@@ -134,7 +133,7 @@ export async function getRequestBodyValues<
     try {
       expanded = await jsonld.expand(source as jsonld.JsonLdDocument);
     } catch {
-      throw new ProblemDetailsError(STATUS_CODE.BadRequest, {
+      throw new ProblemDetailsError(400, {
         title: 'Failed to expand JSON-LD body',
       });
     }
@@ -142,7 +141,7 @@ export async function getRequestBodyValues<
     try {
       compacted = await jsonld.compact(expanded, action.context as ContextDefinition)
     } catch {
-      throw new ProblemDetailsError(STATUS_CODE.BadRequest, {
+      throw new ProblemDetailsError(400, {
         title: 'Failed to compact JSON-LD body',
       });
     }
