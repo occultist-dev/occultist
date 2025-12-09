@@ -8,8 +8,8 @@ import {JSONValue} from '../jsonld.js';
 import {joinPaths} from '../utils/joinPaths.js';
 import {processAction} from '../processAction.js';
 import {Context} from './context.js';
-import {CacheContext, CacheEntryDescriptor, CacheInstanceArgs} from '../cache/types.js';
-import {CacheMiddleware} from '../cache/cache.js';
+import {CacheEntryDescriptor, CacheInstanceArgs} from '../cache/types.js';
+import {CacheContext, CacheMiddleware, CacheNextFn} from '../cache/cache.js';
 
 
 const cacheMiddleware = new CacheMiddleware();
@@ -22,6 +22,8 @@ export class ActionMeta<
   method: string;
   name: string;
   uriTemplate: string;
+  public: boolean = false;
+  authKey?: string;
   path: Path;
   hints: HintArgs[] = [];
   transformers: Map<string, TransformerFn<JSONValue | FileValue, State, Spec>> = new Map();
@@ -30,9 +32,9 @@ export class ActionMeta<
   writer: HTTPWriter;
   action?: ImplementedAction<State, Spec>;
   acceptCache = new Set<string>();
-  allowsPublicAccess = false;
-  compressBeforeCache = false;
+  compressBeforeCache: boolean = false;
   cache: CacheInstanceArgs[] = [];
+  serverTiming: boolean = false;
 
   constructor(
     rootIRI: string,
@@ -61,6 +63,7 @@ export class ActionMeta<
   }
 
   async handleRequest({
+    startTime,
     contentType,
     language: _language,
     encoding: _encoding,
@@ -70,6 +73,7 @@ export class ActionMeta<
     spec,
     handler,
   }: {
+    startTime: number;
     contentType?: string;
     language?: string;
     encoding?: string;
@@ -79,9 +83,19 @@ export class ActionMeta<
     spec?: Spec;
     handler?: Handler<State, Spec>,
   }): Promise<ResponseTypes> {
-    const iri = url.toString();
     const state: State = {} as State;
+    const headers = new Headers();
     let ctx: Context<State, Spec>;
+    let prevTime = startTime;
+
+    const serverTiming = (name: string) => {
+      const nextTime = performance.now();
+      const duration = nextTime - prevTime;
+      headers.append('Server-Timing', `${name};dur=${duration.toPrecision(2)}`);
+      prevTime = nextTime;
+    }
+
+    if (this.serverTiming) serverTiming('enter');
 
     // add auth check
     if (this.hints.length !== 0) {
@@ -97,13 +111,15 @@ export class ActionMeta<
       } else {
         await handler.handler(ctx);
       }
+
+      if (this.serverTiming) serverTiming('handle');
     };
 
     {
       const upstream: NextFn = next;
       next = async () => {
         const res = await processAction<State, Spec>({
-          iri,
+          iri: url,
           req,
           spec,
           state,
@@ -111,8 +127,9 @@ export class ActionMeta<
         });
 
         ctx = new Context<State, Spec>({
-          url: iri,
-          public: this.allowsPublicAccess,
+          url,
+          contentType,
+          public: this.public,
           handler,
           params: res.params,
           query: res.query,
@@ -122,46 +139,73 @@ export class ActionMeta<
         if (contentType != null) {
           ctx.headers.set('Content-Type', contentType)
         }
+
+        if (this.serverTiming) serverTiming('payload');
+
         await upstream();
       }
     }
-    console.log('CACHE?', this.cache);
 
     if (this.cache.length > 0) {
-      const cacheCtx: CacheContext = {
-        hit: false,
-        status: 0,
-        headers: new Headers(),
-        req,
-      };
+      const cacheCtx = new CacheContext({
+        url,
+        contentType: contentType,
+        method: this.method,
+        public: this.public,
+        authKey: this.authKey,
+        action: this.action,
+        params: {},
+      });
       const descriptors: CacheEntryDescriptor[] = this.cache.map(args => {
         return {
+          contentType,
           action: this.action as ImplementedAction,
           request: req,
           args,
         };
       });
 
-      const upstream = next;
+      const upstream1 = next;
+      const upstream2: CacheNextFn = async () => {
+        await upstream1();
+
+        return ctx;
+      };
       next = async () => {
-        console.log('USING CACHE');
         await cacheMiddleware.use(
           descriptors,
           cacheCtx,
-          upstream,
+          upstream2,
         );
 
         if (cacheCtx.hit) {
+          if (this.serverTiming) serverTiming('cache-hit');
+
+          ctx = new Context({
+            url,
+            contentType,
+            public: this.public,
+            authKey: this.authKey,
+            handler,
+          });
+
           ctx.status = cacheCtx.status;
           ctx.headers = cacheCtx.headers;
-          ctx.body = cacheCtx.bodyStream;
+          ctx.body = cacheCtx.body as BodyInit;
         } else {
-          await upstream();
+          if (this.serverTiming) serverTiming('cache-miss');
         }
       }
     }
 
-    await next();
+    try {
+      await next();
+      writer.mergeHeaders(headers);
+    } catch (err) {
+      writer.mergeHeaders(headers);
+
+      throw err;
+    }
 
     writer.writeHead(ctx.status ?? 200, ctx.headers);
 

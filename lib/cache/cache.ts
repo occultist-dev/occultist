@@ -1,8 +1,46 @@
-import {NextFn} from '../actions/spec.js';
-import {Registry} from '../mod.js';
+import {createHash} from 'node:crypto';
+import {NextFn, ParsedIRIValues} from '../actions/spec.js';
+import {Context, ImplementedAction, Registry} from '../mod.js';
 import {ConditionalRequestRules} from './etag.js';
-import type {CacheBuilder, CacheContext, CacheEntryDescriptor, CacheETagArgs, CacheETagInstanceArgs, CacheHitHandle, CacheHTTPArgs, CacheHTTPInstanceArgs, CacheMeta, CacheStorage, CacheStoreArgs, CacheStoreInstanceArgs, LockedCacheMissHandle, UpstreamCache} from './types.js';
+import type {CacheBuilder, CacheEntryDescriptor, CacheETagArgs, CacheETagInstanceArgs, CacheHitHandle, CacheHTTPArgs, CacheHTTPInstanceArgs, CacheMeta, CacheMissHandle, CacheStorage, CacheStoreArgs, CacheStoreInstanceArgs, LockedCacheMissHandle, UpstreamCache} from './types.js';
 
+
+export type CacheNextFn = () => Promise<Context>;
+
+export type CacheContextArgs = {
+  url: string;
+  contentType?: string;
+  method: string;
+  public: boolean;
+  authKey?: string;
+  action: ImplementedAction;
+  params: ParsedIRIValues;
+};
+
+export class CacheContext {
+  hit: boolean = false;
+  url: string;
+  contentType?: string;
+  method: string;
+  public: boolean;
+  authKey?: string;
+  action: ImplementedAction;
+  registry: Registry;
+  params: ParsedIRIValues;
+  status?: number;
+  body?: Uint8Array;
+  headers?: Headers;
+
+  constructor(args: CacheContextArgs) {
+    this.url = args.url;
+    this.contentType = args.contentType;
+    this.method = args.method;
+    this.public = args.public;
+    this.authKey = args.authKey;
+    this.action = args.action;
+    this.params = args.params;
+  }
+}
 
 export class Cache implements CacheBuilder {
   #registry: Registry;
@@ -43,7 +81,7 @@ export class Cache implements CacheBuilder {
    */
   http(args?: CacheHTTPArgs): CacheHTTPInstanceArgs {
     return Object.assign(Object.create(null), args, {
-      stratey: 'http',
+      strategy: 'http',
       cache: this,
     });
   }
@@ -55,7 +93,7 @@ export class Cache implements CacheBuilder {
    */
   etag(args?: CacheETagArgs): CacheETagInstanceArgs {
     return Object.assign(Object.create(null), args, {
-      stratey: 'etag',
+      strategy: 'etag',
       cache: this,
     });
   }
@@ -65,7 +103,7 @@ export class Cache implements CacheBuilder {
    */
   store(args?: CacheStoreArgs): CacheStoreInstanceArgs {
     return Object.assign(Object.create(null), args, {
-      stratey: 'store',
+      strategy: 'store',
       cache: this,
     });
   }
@@ -83,7 +121,7 @@ export class CacheMiddleware {
   async use(
     descriptors: CacheEntryDescriptor[],
     ctx: CacheContext,
-    next: NextFn,
+    next: CacheNextFn,
   ): Promise<void> {
     const descriptor = descriptors.find((descriptor) => {
       const when = descriptor.args.when;
@@ -104,7 +142,8 @@ export class CacheMiddleware {
     });
 
     if (descriptor == null) {
-      return await next();
+      await next();
+      return;
     }
 
     switch (descriptor.args.strategy) {
@@ -127,11 +166,12 @@ export class CacheMiddleware {
    * @todo Implement vary rules.
    */
   #makeKey(descriptor: CacheEntryDescriptor): string {
+    const { contentType } = descriptor;
     const { version } = descriptor.args;
-    const { name, method } = descriptor.action;
+    const { name } = descriptor.action;
     const { url } = descriptor.request;
 
-    return method.toLowerCase() + '|' + name + '|v' + (version ?? 0) + '|' + url.toString();
+    return 'v' + (version ?? 0) + '|' + name + '|' + contentType.toLowerCase() + '|' + url.toString();
   }
 
   #setHeaders(
@@ -146,7 +186,7 @@ export class CacheMiddleware {
   async #useHTTP(
     descriptor: CacheEntryDescriptor,
     ctx: CacheContext,
-    next: NextFn,
+    next: CacheNextFn,
   ): Promise<void> {
     this.#setHeaders(descriptor, ctx);
 
@@ -156,7 +196,7 @@ export class CacheMiddleware {
   async #useEtag(
     descriptor: CacheEntryDescriptor,
     ctx: CacheContext,
-    next: NextFn,
+    next: CacheNextFn,
   ): Promise<void> {
     const key = this.#makeKey(descriptor);
     const rules = new ConditionalRequestRules(ctx.req);
@@ -181,37 +221,45 @@ export class CacheMiddleware {
   async #useStore(
     descriptor: CacheEntryDescriptor,
     ctx: CacheContext,
-    next: NextFn,
+    next: CacheNextFn,
   ): Promise<void> {
     const key = this.#makeKey(descriptor);
     const rules = new ConditionalRequestRules(ctx.req);
-    let resourceState: CacheHitHandle | LockedCacheMissHandle | undefined;
+    let resourceState:  CacheHitHandle | CacheMissHandle | LockedCacheMissHandle | undefined;
 
-    try {
-      resourceState = await descriptor.args.cache.meta.getOrLock(key);
-    } catch (err) {
-      console.error(err);
+    if (
+      typeof descriptor.args.cache.meta.getOrLock === 'function' &&
+      descriptor.args.lock
+    ) {
+      try {
+        resourceState = await descriptor.args.cache.meta.getOrLock(key);
+      } catch (err) {
+        resourceState = await descriptor.args.cache.meta.get(key);
+      }
+    } else {
+      resourceState = await descriptor.args.cache.meta.get(key);
     }
 
-    console.log('RESOURCE STATE', resourceState);
-
     if (resourceState?.type === 'cache-hit') {
-      ctx.hit = true;
-      ctx.headers.set('Server-Timing', 'cache-hit');
 
-      if (rules.ifMatches(resourceState.etag)) {
-        ctx.status = 304;
+      //if (rules.ifMatches(resourceState.etag)) {
+      //  ctx.status = 304;
 
-        return;
-      } else if (!rules.ifNoneMatch(resourceState.etag)) {
-        ctx.status = 304;
+      //  return;
+      //} else if (!rules.ifNoneMatch(resourceState.etag)) {
+      //  ctx.status = 304;
 
-        return;
-      }
+      //  return;
+      //}
 
       if (resourceState.hasContent) {
         try {
-          ctx.bodyStream = await descriptor.args.cache.storage.get(key);
+          ctx.hit = true;
+          ctx.status = resourceState.status;
+          ctx.headers = resourceState.headers;
+          ctx.body = await descriptor.args.cache.storage.get(key);
+
+          return;
         } catch (err) {
           console.log(err);
         }
@@ -221,14 +269,42 @@ export class CacheMiddleware {
     try {
       this.#setHeaders(descriptor, ctx);
 
-      await next();
+      const actionContext = await next();
+      let body: Uint8Array;
 
-      await descriptor.args.cache.storage.set(key, ctx.bodyStream);
+      if (actionContext.body instanceof ReadableStream) {
+        const [t1, t2] = actionContext.body.tee();
+        actionContext.body = t1;
+        body = await new Response(t2).bytes()
+      } else if (actionContext.body != null) {
+        body = await new Response(actionContext.body).bytes();
+      }
+
+      await descriptor.args.cache.meta.set(key, {
+        key,
+        authKey: actionContext.authKey,
+        iri: actionContext.url,
+        status: actionContext.status ?? 200,
+        hasContent: actionContext.body != null,
+        headers: actionContext.headers,
+        contentType: actionContext.contentType,
+        etag: this.#createEtag(body),
+      });
+
+      if (actionContext.body != null) {
+        await descriptor.args.cache.storage.set(key, body);
+      }
     } catch (err) {
       if (resourceState.type === 'locked-cache-miss') {
         await resourceState.release();
       }
     }
+  }
+
+  #createEtag(body: Uint8Array, weak: boolean = true): string {
+    const hash = createHash('sha1').update(body).digest('hex');
+    const quoted = `"${hash}"`;
+    return weak ? `W/${quoted}` : quoted;
   }
 
 }

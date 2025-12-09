@@ -1,4 +1,3 @@
-import type { ReadStream } from "node:fs";
 import type { Handler, ImplementedAction } from "./types.js";
 import type { Registry } from "../registry.js";
 import type { ActionSpec, ContextState, ActionPayload, ParsedIRIValues } from "./spec.js";
@@ -10,6 +9,7 @@ export type ContextArgs<
   Spec extends ActionSpec = ActionSpec,
 > = {
   url: string;
+  contentType: string;
   public: boolean;
   authKey?: string;
   handler: Handler<State, Spec>;
@@ -31,6 +31,7 @@ export class Context<
   body?: ResponseBody;
 
   #url: string;
+  #contentType: string;
   #public: boolean = false
   #authKey?: string;
   #state: State = {} as State;
@@ -42,6 +43,7 @@ export class Context<
 
   constructor(args: ContextArgs<State, Spec>) {
     this.#url = args.url;
+    this.#contentType = args.contentType;
     this.#public = args.public;
     this.#authKey = args.authKey;
     this.#action = args.handler.action;
@@ -65,6 +67,10 @@ export class Context<
 
   get url(): string {
     return this.#url;
+  }
+
+  get contentType(): string | undefined {
+    return this.#contentType;
   }
 
   get state(): State {

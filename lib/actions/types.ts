@@ -3,7 +3,7 @@ import type { Registry } from '../registry.js';
 import type { Scope } from "../scopes.js";
 import type { ContextState, ActionSpec } from "./spec.js";
 import type { Context } from "./context.js";
-import type { IncomingMessage, ServerResponse } from "node:http";
+import type { ServerResponse } from "node:http";
 import type { JSONObject, TypeDef } from "../jsonld.js";
 
 
@@ -63,6 +63,7 @@ export type HintArgs =
 ;
 
 export type HandleRequestArgs = {
+  startTime: number;
   contentType?: string;
   language?: string;
   encoding?: string;

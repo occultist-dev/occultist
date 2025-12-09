@@ -1,14 +1,5 @@
 import {ImplementedAction} from "../actions/types.js";
-
-
-export type CacheContext = {
-  hit: boolean;
-  headers: Headers;
-  authKey?: string;
-  req: Request;
-  status?: number;
-  bodyStream?: ReadableStream;
-};
+import {ParsedIRIValues, Registry} from "../mod.js";
 
 export type CacheStrategyType =
   | 'http'
@@ -17,6 +8,7 @@ export type CacheStrategyType =
 ;
 
 export interface CacheEntryDescriptor {
+  contentType: string;
   action: ImplementedAction;
   request: Request;
   args: CacheInstanceArgs;
@@ -33,6 +25,7 @@ export type CacheRuleArgs = {
    */
   version?: number;
 
+  lock?: boolean;
   /**
    * Defaults to varying on the authorization header
    * when authenticated.
@@ -46,8 +39,10 @@ export type CacheRuleArgs = {
   /**
    * Defaults to false when a querystring is present
    * or the request is authenticated.
+   *
+   * @default 'public-no-query'
    */
-  when?: 'always' | 'public' | 'private' | 'noQuery' | CacheWhenFn;
+  when?: 'always' | 'public' | 'private' | 'no-query' | 'public-no-query' | 'private-no-query' | CacheWhenFn;
 };
 
 export type CacheControlArgs = {
@@ -67,6 +62,7 @@ export type CacheControlArgs = {
 
 export type CacheHTTPArgs =
   & {
+    strategy: 'http';
     strong?: undefined;
     fromRequest?: undefined;
   }
@@ -81,6 +77,7 @@ export type CacheHTTPInstanceArgs =
 
 export type CacheETagArgs =
   & {
+    strategy: 'etag';
     strong?: boolean;
     fromRequest?: boolean;
     etag?: undefined;
@@ -96,6 +93,7 @@ export type CacheETagInstanceArgs =
 
 export type CacheStoreArgs =
   & {
+    strategy: 'store';
     strong?: boolean;
     fromRequest?: boolean;
     etag?: undefined;
@@ -118,16 +116,16 @@ export type CacheInstanceArgs =
 export type CacheDetails = {
   key: string;
   iri: string;
-  status: number;
+  status?: number;
   hasContent: boolean;
   authKey: string;
   etag: string;
-  header: ReadableStream;
+  headers: Headers;
   contentType: string;
-  contentLength: number;
-  contentEncoding: string;
-  contentLanguage: string;
-  contentRange: string;
+  contentLength?: number;
+  contentEncoding?: string;
+  contentLanguage?: string;
+  contentRange?: string;
 };
 
 export type CacheHitHandle =
@@ -149,6 +147,7 @@ export type LockedCacheMissHandle = {
 };
 
 export interface CacheMeta {
+  set(key: string, details: CacheDetails): void | Promise<void>;
   get(key: string): CacheHitHandle | CacheMissHandle | Promise<CacheHitHandle | CacheMissHandle>;
   getOrLock?(key: string): Promise<CacheHitHandle | LockedCacheMissHandle>;
 }
@@ -162,24 +161,15 @@ export interface CacheStorage {
   /**
    * Retrieves a cache entry.
    */
-  get(key: string): ReadableStream | Promise<ReadableStream>;
+  get(key: string): Uint8Array | Promise<Uint8Array>;
 
   /**
    * Sets a cache entry.
    */
-  set(key: string, data: ReadableStream): void | Promise<void>;
+  set(key: string, data: Uint8Array): void | Promise<void>;
 
   invalidate(key: string): void | Promise<void>;
 };
-
-export type CacheSetter = (data: ReadableStream) => Promise<void>;
-
-export interface ICacheGetter {
-  get(descriptor: CacheEntryDescriptor): Promise<
-    | CacheSetter
-    | ReadableStream
-  >;
-}
 
 export interface CacheBuilder {
   meta: CacheMeta;

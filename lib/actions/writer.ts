@@ -11,16 +11,13 @@ export type ResponseTypes =
   | Response
 ;
 
-export type ResponseBody =
-  | null
-  | string
-  | Blob
-  | Uint8Array
-  | ReadableStream
-;
+export type ResponseBody = BodyInit;
+
 
 export interface HTTPWriter {
+  mergeHeaders(headers: HeadersInit): void;
   writeEarlyHints(args: HintArgs): void;
+  mergeHeaders(headers: HeadersInit): void;
   writeHead(status: number, headers?: Headers): void;
   writeBody(body: ResponseBody): void;
   response(): ResponseTypes;
@@ -90,6 +87,10 @@ export class FetchResponseWriter implements HTTPWriter {
     }
   }
 
+  mergeHeaders(headersInit: HeadersInit): void {
+    this.#setHeaders(new Headers(headersInit));
+  }
+
   writeHead(status: number, headers?: Headers) {
     const res = this.#res;
 
@@ -144,7 +145,7 @@ export class FetchResponseWriter implements HTTPWriter {
   }
 
   #formatEarlyHint(hint: HintLink): string {
-    let link: string = `</${hint.href}>`;
+    let link: string = `<${encodeURI(hint.href)}>`;
 
     if (hint.preload) {
       link += `; rel=preload`;

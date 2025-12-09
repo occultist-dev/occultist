@@ -164,7 +164,7 @@ export class FinalizedAction<
   }
 
   get public(): boolean {
-    return this.#meta.allowsPublicAccess;
+    return this.#meta.public;
   }
 
   get method(): string {
@@ -348,7 +348,7 @@ export class DefinedAction<
   }
 
   get public(): boolean {
-    return this.#meta.allowsPublicAccess;
+    return this.#meta.public;
   }
 
   get method(): string {
@@ -490,7 +490,7 @@ export class Action<
   }
 
   get public(): boolean {
-    return this.#meta.allowsPublicAccess;
+    return this.#meta.public;
   }
 
   get method(): string {
@@ -672,7 +672,6 @@ export class Endpoint<
   }
   
   cache(args: CacheInstanceArgs) {
-    console.log('ADDING TO CACHE', args);
     this.#meta.cache.push(args);
 
     return this;
@@ -721,7 +720,7 @@ export class ActionAuth<
   }
 
   public(): Endpoint<State> {
-    this.#meta.allowsPublicAccess = true;
+    this.#meta.public = true;
     
     return new Endpoint(this.#meta);
   }

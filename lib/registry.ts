@@ -96,6 +96,7 @@ export type RegistryEvents =
 
 export type RegistryArgs = {
   rootIRI: string;
+  serverTiming?: boolean;
 };
 
 export class Registry<
@@ -104,6 +105,7 @@ export class Registry<
 
   #path: string;
   #rootIRI: string;
+  #serverTiming: boolean;
   #http: HTTP<State>;
   #scopes: Scope[] = [];
   #children: ActionMeta[] = [];
@@ -117,16 +119,18 @@ export class Registry<
 
     this.#rootIRI = args.rootIRI;
     this.#path = url.pathname
+    this.#serverTiming = args.serverTiming ?? false;
     this.#http = new HTTP<State>(this);
   }
 
   scope(path: string): Scope<State> {
-    const scope = new Scope<State>(
+    const scope = new Scope<State>({
       path,
-      this,
-      this.#writer,
-      (meta) => this.#children.push(meta),
-    );
+      serverTiming: this.#serverTiming,
+      registry: this,
+      writer: this.#writer,
+      propergateMeta: (meta) => this.#children.push(meta),
+    });
 
     this.#scopes.push(scope);
     
@@ -193,6 +197,8 @@ export class Registry<
       this,
       this.#writer,
     );
+
+    meta.serverTiming = this.#serverTiming;
 
     this.#children.push(meta);
     
@@ -274,6 +280,7 @@ export class Registry<
     req: Request | IncomingMessage,
     res?: ServerResponse,
   ): Promise<Response | ServerResponse> {
+    const startTime = performance.now();
     const accept = Accept.from(req);
     // hack, until a better way to normalize the url is sorted
     const reqURL = new URL(req.url);
@@ -296,6 +303,7 @@ export class Registry<
           contentType: match.contentType,
           req,
           writer: new FetchResponseWriter(),
+          startTime,
         });
       } else if (match?.type === 'match' && req instanceof IncomingMessage) {
         const nodeRequest = new NodeRequest(this.#rootIRI, req) as Request;
@@ -305,6 +313,7 @@ export class Registry<
           contentType: match.contentType,
           req: nodeRequest,
           writer: new FetchResponseWriter(res),
+          startTime,
         });
       }
     } catch (err2) {

@@ -7,10 +7,22 @@ import type { HTTPWriter } from "./actions/writer.js";
 import { type Callable, HTTP, type Registry } from './registry.js';
 
 
+export type MetaPropatator = (meta: ActionMeta) => void;
+
+export type ScopeArgs = {
+  path: string;
+  serverTiming?: boolean;
+  registry: Registry;
+  writer: HTTPWriter;
+  propergateMeta: MetaPropatator;
+}
+
+
 export class Scope<
   State extends ContextState = ContextState,
 > implements Callable<State> {
   #path: string;
+  #serverTiming: boolean = false;
   #registry: Registry;
   #writer: HTTPWriter;
   #http: HTTP<State>;
@@ -18,13 +30,15 @@ export class Scope<
   #public: boolean = true;
   #propergateMeta: (meta: ActionMeta) => void;
   
-  constructor(
-    path: string,
-    registry: Registry,
-    writer: HTTPWriter,
-    propergateMeta: (meta: ActionMeta) => void,
-  ) {
+  constructor({
+    path,
+    serverTiming,
+    registry,
+    writer,
+    propergateMeta,
+  }: ScopeArgs) {
     this.#path = path;
+    this.#serverTiming = serverTiming;
     this.#registry = registry;
     this.#writer = writer;
     this.#http = new HTTP<State>(this);
@@ -88,6 +102,8 @@ export class Scope<
       this.#writer,
       this,
     );
+
+    meta.serverTiming = this.#serverTiming;
 
     this.#children.push(meta);
     this.#propergateMeta(meta);
