@@ -5,29 +5,7 @@ import type { ContextState, ActionSpec } from "./spec.js";
 import type { Context } from "./context.js";
 import type { ServerResponse } from "node:http";
 import type { JSONObject, TypeDef } from "../jsonld.js";
-
-
-export type HandlerMeta = Record<symbol | string, unknown>;
-
-export type HandlerFn<
-  State extends ContextState = ContextState,
-  Spec extends ActionSpec = ActionSpec,
-> = (ctx: Context<State, Spec>) => void | Promise<void>;
-
-export type HandlerText = string;
-
-export interface Handler<
-  State extends ContextState = ContextState,
-  Spec extends ActionSpec = ActionSpec,
-  Action extends ImplementedAction<State, Spec> = ImplementedAction<State, Spec>,
-> {
-  readonly contentType: string;
-  readonly name: string;
-  readonly meta: HandlerMeta;
-  readonly action: Action;
-  readonly registry: Registry;
-  readonly handler: HandlerFn<State, Spec> | HandlerText;
-}
+import {Readable} from "node:stream";
 
 export type HintLink = {
   href: string;
@@ -62,6 +40,54 @@ export type HintArgs =
   | HintFn
 ;
 
+/**
+ * An object of values that can be used to programically query actions
+ * by metadata defined on the action.
+ */
+export type HandlerMeta = Record<symbol | string, unknown>;
+
+/**
+ * A fixed value that an endpoint will always return.
+ */
+export type HandlerValue = Exclude<BodyInit, ReadableStream>;
+
+/**
+ * An action handler function that is passed a context object.
+ * Responses should be set on the context object.
+ */
+export type HandlerFn<
+  State extends ContextState = ContextState,
+  Spec extends ActionSpec = ActionSpec,
+> = (ctx: Context<State, Spec>) => void | Promise<void>;
+
+/**
+ * A handler object argument.
+ * 
+ * Occultist extensions can use this handler argument method to provide arguments
+ * which are usually defined while defining the action.
+ */
+export interface HandlerObj<
+  State extends ContextState = ContextState,
+  Spec extends ActionSpec = ActionSpec,
+> {
+  contentType: string | string[];
+  handler: HandlerFn<State, Spec> | HandlerValue;
+  meta?: HandlerMeta;
+  hints?: HintArgs;
+};
+
+/**
+ * Handler arguments for an action.
+ */
+export type HandlerArgs<
+  State extends ContextState = ContextState,
+  Spec extends ActionSpec = ActionSpec,
+> =
+  | HandlerValue
+  | HandlerFn<State, Spec>
+  | HandlerObj<State, Spec>
+;
+
 export type HandleRequestArgs = {
   startTime: number;
   contentType?: string;
@@ -70,6 +96,23 @@ export type HandleRequestArgs = {
   url: string;
   req: Request;
   writer: HTTPWriter;
+};
+
+/**
+ * A handler definition which can be pulled from a registry, scope or action
+ * after an action is defined.
+ */
+export interface HandlerDefinition<
+  State extends ContextState = ContextState,
+  Spec extends ActionSpec = ActionSpec,
+  Action extends ImplementedAction<State, Spec> = ImplementedAction<State, Spec>,
+> {
+  readonly contentType: string;
+  readonly name: string;
+  readonly meta: HandlerMeta;
+  readonly action: Action;
+  readonly registry: Registry;
+  readonly handler: HandlerObj<State, Spec>;
 };
 
 export interface ImplementedAction<
@@ -87,7 +130,7 @@ export interface ImplementedAction<
   readonly spec: Spec;
   readonly registry: Registry;
   readonly scope?: Scope;
-  readonly handlers: Handler<State, Spec>[];
+  readonly handlers: HandlerObj<State, Spec>[];
   readonly contentTypes: string[];
   readonly context: JSONObject;
 

@@ -4,45 +4,79 @@ import type {Registry} from '../registry.js';
 import type {Scope} from "../scopes.js";
 import {getActionContext} from "../utils/getActionContext.js";
 import {getPropertyValueSpecifications} from "../utils/getPropertyValueSpecifications.js";
+import {isPopulatedObject} from '../utils/isPopulatedObject.js';
 import {joinPaths} from "../utils/joinPaths.js";
-import type {ActionMeta} from "./meta.js";
+import {AfterDefinition, BeforeDefinition, type ActionMeta} from "./meta.js";
 import type {ActionSpec, ContextState} from "./spec.js";
-import type {Handler, HandleRequestArgs, HandlerFn, HandlerMeta, HandlerText, HintArgs, ImplementedAction} from './types.js';
+import type {HandlerArgs, HandleRequestArgs, HandlerFn, HandlerMeta, HandlerObj, HandlerValue, HintArgs, ImplementedAction} from './types.js';
 import {ResponseTypes} from './writer.js';
+
 
 export type DefineArgs<
   Term extends string = string,
   Spec extends ActionSpec = ActionSpec,
 > = {
   typeDef?: TypeDef<Term>
-  spec: Spec;
+  spec?: Spec;
 };
 
-export type HandlerArgs<
+
+function isHandlerObj<
+  State extends ContextState = ContextState,
+  Spec extends ActionSpec = ActionSpec
+>(handler: unknown): handler is HandlerObj<State, Spec> {
+  return isPopulatedObject(handler);
+}
+
+/**
+ * A handler definition which can be pulled from a registry, scope or action
+ * after an action is defined.
+ */
+export class HandlerDefinition<
   State extends ContextState = ContextState,
   Spec extends ActionSpec = ActionSpec,
-> = {
-  contentType: string | string[];
-  handler: HandlerFn<State, Spec> | HandlerText;
-  meta?: Record<symbol | string, unknown>;
-};
+> {
+  name: string;
+  contentType: string;
+  handler: HandlerFn | HandlerValue;
+  meta: HandlerMeta;
+  action: ImplementedAction<State, Spec>;
+  
+  constructor(
+    name: string,
+    contentType: string,
+    handler: HandlerFn | HandlerValue,
+    meta: HandlerMeta,
+    action: ImplementedAction<State, Spec>,
+  ) {
+    this.name = name;
+    this.contentType = contentType;
+    this.handler = handler;
+    this.meta = meta ?? {};
+    this.action = action;
 
-export type Hints =
-  | HintArgs
-  | ((args: HintArgs) => void)
-;
+    Object.freeze(this);
+  }
+}
 
 export interface Handleable<
   State extends ContextState = ContextState,
   Spec extends ActionSpec = ActionSpec,
 > {
+  
+  /**
+   * Defines the final handler for this content type.
+   *
+   * An action can have multiple handlers defined
+   * each for a different set of content types.
+   */
   handle(
     contentType: string | string[],
-    handler: HandlerFn<State, Spec> | HandlerText,
+    handler: HandlerValue | HandlerFn<State, Spec>,
   ): FinalizedAction<State, Spec>;
 
   handle(
-    args: HandlerArgs<State, Spec>,
+    args: HandlerObj<State, Spec>,
   ): FinalizedAction<State, Spec>;
 }
 
@@ -56,13 +90,13 @@ export class FinalizedAction<
   #spec: Spec;
   #meta: ActionMeta<State, Spec>;
   #typeDef?: TypeDef;
-  #handlers: Map<string, Handler<State, Spec, ImplementedAction<State, Spec>>>;
+  #handlers: Map<string, HandlerDefinition<State, Spec>>;
 
   constructor(
     typeDef: TypeDef | undefined,
     spec: Spec,
     meta: ActionMeta<State, Spec>,
-    handlerArgs: HandlerArgs<State, Spec>,
+    handlerArgs: HandlerObj<State, Spec>,
   ) {
     this.#typeDef = typeDef;
     this.#spec = spec;
@@ -70,27 +104,25 @@ export class FinalizedAction<
 
     this.#meta.action = this as unknown as ImplementedAction<State, Spec>;
 
-    const handlers: Map<string, Handler<State, Spec, ImplementedAction<State, Spec>>> = new Map();
+    const handlers: Map<string, HandlerDefinition<State, Spec>> = new Map();
 
     if (typeof handlerArgs.contentType === 'string') {
-      handlers.set(handlerArgs.contentType, {
-        contentType: handlerArgs.contentType,
-        handler: handlerArgs.handler,
-        meta: handlerArgs.meta ?? {},
-        name: this.#meta.name,
-        action: this as unknown as ImplementedAction<State, Spec>,
-        registry: this.#meta.registry,
-      });
-    } else {
-      for (const item of handlerArgs.contentType) {
-        handlers.set(item, {
-          contentType: item,
-          handler: handlerArgs.handler,
-          name: this.#meta.name,
-          meta: handlerArgs.meta ?? {},
-          action: this as unknown as ImplementedAction<State, Spec>,
-          registry: this.#meta.registry,
-        });
+      handlers.set(handlerArgs.contentType, new HandlerDefinition(
+        this.name,
+        handlerArgs.contentType,
+        handlerArgs.handler,
+        handlerArgs.meta,
+        this as unknown as ImplementedAction<State, Spec>,
+      ));
+    } else if (isPopulatedObject(handlerArgs)) {
+      for (let i = 0; i < handlerArgs.contentType.length; i++) {
+        handlers.set(handlerArgs.contentType[i], new HandlerDefinition(
+          this.name,
+          handlerArgs.contentType[i],
+          handlerArgs.handler,
+          handlerArgs.meta,
+          this as unknown as ImplementedAction<State, Spec>,
+        ));
       }
     }
 
@@ -105,7 +137,7 @@ export class FinalizedAction<
     spec: Spec,
     meta: ActionMeta<State, Spec>,
     contextType: string | string[],
-    handler: HandlerFn<State, Spec> | HandlerText,
+    handler: HandlerValue | HandlerFn<State, Spec>,
   ): FinalizedAction<State, Spec>;
 
   static fromHandlers<
@@ -115,7 +147,7 @@ export class FinalizedAction<
     typeDef: TypeDef | undefined,
     spec: Spec,
     meta: ActionMeta<State, Spec>,
-    handlerArgs: HandlerArgs<State, Spec>,
+    handlerArgs: HandlerObj<State, Spec>,
   ): FinalizedAction<State, Spec>;
 
   static fromHandlers<
@@ -125,16 +157,14 @@ export class FinalizedAction<
     typeDef: TypeDef | undefined,
     spec: Spec,
     meta: ActionMeta<State, Spec>,
-    arg3: string | string[] | HandlerArgs<State, Spec>,
-    arg4?: HandlerFn<State, Spec>,
+    arg3: string | string[] | HandlerObj<State, Spec>,
+    arg4?: HandlerValue | HandlerFn<State, Spec>,
   ): FinalizedAction<State, Spec> {
     if (Array.isArray(arg3) || typeof arg3 === 'string') {
-      return new FinalizedAction<State, Spec>(
-        typeDef,
-        spec,
-        meta,
-        { contentType: arg3, handler: arg4 as HandlerFn<State, Spec> | HandlerText },
-      );
+      return new FinalizedAction<State, Spec>(typeDef, spec, meta, {
+        contentType: arg3,
+        handler: arg4,
+      });
     }
 
     return new FinalizedAction(typeDef, spec, meta, arg3);
@@ -147,6 +177,7 @@ export class FinalizedAction<
     if (scope == null || action.typeDef == null) {
       return null;
     }
+
     const apiSpec = await getPropertyValueSpecifications(action.spec);
 
     return {
@@ -207,7 +238,7 @@ export class FinalizedAction<
     return this.#meta.registry;
   }
   
-  get handlers(): Handler<State, Spec>[] {
+  get handlers(): HandlerDefinition<State, Spec>[] {
     return Array.from(this.#handlers.values());
   }
 
@@ -252,26 +283,22 @@ export class FinalizedAction<
 
   handle(
     contentType: string | string[],
-    handler: HandlerFn<State, Spec> | HandlerText,
+    handler: HandlerFn<State, Spec> | HandlerValue,
   ): FinalizedAction<State, Spec>;
 
   handle(
-    args: HandlerArgs<State, Spec>,
+    args: HandlerObj<State, Spec>,
   ): FinalizedAction<State, Spec>;
   
   handle(
-    arg1: string | string[] | HandlerArgs<State, Spec>,
+    arg1: string | string[] | HandlerObj<State, Spec>,
     arg2?: HandlerFn<State, Spec>,
   ): FinalizedAction<State, Spec> {
     let contentType: string | string[];
-    let handler: HandlerFn<State, Spec> | HandlerText;
+    let handler: HandlerFn<State, Spec> | HandlerValue;
     let meta: HandlerMeta;
 
-    if (Array.isArray(arg1) || typeof arg1 === 'string') {
-      contentType = arg1;
-      handler = arg2 as HandlerFn<State, Spec> | HandlerText;
-      meta = Object.create(null);
-    } else {
+    if (isHandlerObj(arg1)) {
       contentType = arg1.contentType;
       handler = arg1.handler;
       meta = Object.assign(Object.create(null), arg1.meta);
@@ -281,27 +308,33 @@ export class FinalizedAction<
           meta[sym] = arg1.meta[sym];
         }
       }
+    } else {
+      contentType = arg1;
+      handler = arg2;
+      meta = Object.create(null);
+    }
+
+    if (Array.isArray(arg1)) {
+      console.log('HANDLER!!!!', contentType);
     }
 
     if (!Array.isArray(contentType)) {
-      this.#handlers.set(contentType, {
+      this.#handlers.set(contentType, new HandlerDefinition(
+        this.#meta.name,
         contentType,
-        name: this.#meta.name,
-        meta,
-        action: this as unknown as ImplementedAction<State, Spec>,
-        registry: this.#meta.registry,
         handler,
-      });
+        meta,
+        this as unknown as ImplementedAction<State, Spec>,
+      ));
     } else {
-      for (const item of contentType) {
-        this.#handlers.set(item, {
-          contentType: item,
-          name: this.#meta.name,
-          meta,
-          action: this as unknown as ImplementedAction<State, Spec>,
-          registry: this.#meta.registry,
+      for (let i = 0; i < contentType.length; i++) {
+        this.#handlers.set(contentType[i], new HandlerDefinition(
+          this.#meta.name,
+          contentType[i],
           handler,
-        });
+          meta,
+          this as unknown as ImplementedAction<State, Spec>,
+        ));
       }
     }
 
@@ -309,7 +342,7 @@ export class FinalizedAction<
   }
 
   async handleRequest(args: HandleRequestArgs): Promise<ResponseTypes> {
-    const handler = this.#handlers.get(args.contentType as string) as Handler<State, Spec>;
+    const handler = this.#handlers.get(args.contentType as string);
 
     return this.#meta.handleRequest({
       ...args,
@@ -395,7 +428,7 @@ export class DefinedAction<
     return this.#meta.registry;
   }
 
-  get handlers(): Handler<State, Spec>[] {
+  get handlers(): HandlerDefinition<State, Spec>[] {
     return [];
   }
 
@@ -438,28 +471,44 @@ export class DefinedAction<
     };
   }
 
-  use(): DefinedAction<State, string, Spec> {
+  /**
+   * Defines a cache handling rule for this action.
+   *
+   * Defining caching rules after the `action.define()` method is safer
+   * if validating and transforming the action payload might cause
+   * auth sensitive checks to be run which might reject the request.
+   */
+  cache(args: CacheInstanceArgs): DefinedAction<State, string, Spec> {
+    if (this.#meta.cache.length !== 0 &&
+        this.#meta.cacheOccurance === BeforeDefinition) {
+      throw new Error(
+        'Action cache may be defined either before or after ' +
+        'the definition method is called, but not both.');
+    } else if (this.#meta.cacheOccurance === BeforeDefinition) {
+      this.#meta.cacheOccurance = AfterDefinition;
+    }
+
+    this.#meta.cache.push(args);
+
+    return this;
+  }
+  
+  meta(): DefinedAction<State, string, Spec> {
     return this;
   }
 
-  handle(
-    contentType: string | string[],
-    handler: HandlerFn<State, Spec> | HandlerText,
-  ): FinalizedAction<State, Spec>;
-
-  handle(
-    args: HandlerArgs<State, Spec>,
-  ): FinalizedAction<State, Spec>;
-
-  handle(
-    arg1: string | string[] | HandlerArgs<State, Spec>,
-    arg2?: HandlerFn<State, Spec>,
-  ): FinalizedAction<State, Spec> {
+  use(): DefinedAction<State, string, Spec> {
+    return this;
+  }
+  
+  handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Spec>): FinalizedAction<State, Spec>;
+  handle(args: HandlerObj<State, Spec>): FinalizedAction<State, Spec>;
+  handle(arg1: unknown, arg2?: unknown): FinalizedAction<State, Spec> {
     return FinalizedAction.fromHandlers(
       this.#typeDef,
       this.#spec,
       this.#meta,
-      arg1 as string,
+      arg1 as string | string[],
       arg2 as HandlerFn<State, Spec>,
     );
   }
@@ -486,7 +535,7 @@ export class Action<
     meta: ActionMeta<State>,
   ) {
     this.#meta = meta;
-    this.#meta.action = this;
+    this.#meta.action = this as ImplementedAction<State, {}>;
   }
 
   get public(): boolean {
@@ -538,7 +587,7 @@ export class Action<
     return this.#meta.registry;
   }
   
-  get handlers(): Handler[] {
+  get handlers(): HandlerDefinition[] {
     return [];
   }
 
@@ -576,20 +625,19 @@ export class Action<
   >(args: DefineArgs<Term, Spec>): DefinedAction<State, Term, Spec> {
     return new DefinedAction<State, Term, Spec>(
       args.typeDef,
-      args.spec,
+      args.spec ?? {} as Spec,
       this.#meta as unknown as ActionMeta<State, Spec>,
     );
   }
-
-  handle(
-    arg1: string | string[] | HandlerArgs<State>,
-    arg2?: HandlerFn<State>,
-  ): FinalizedAction<State> {
+  
+  handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State>): FinalizedAction<State>;
+  handle(args: HandlerObj<State>): FinalizedAction<State>;
+  handle(arg1: unknown, arg2?: unknown): FinalizedAction<State> {
     return FinalizedAction.fromHandlers(
-      undefined,
+      null,
       this.#spec,
       this.#meta,
-      arg1 as string,
+      arg1 as string | string[],
       arg2 as HandlerFn<State>,
     );
   }
@@ -632,16 +680,15 @@ export class PreAction<
       this.#meta as unknown as ActionMeta<State, Spec>,
     );
   }
-
-  handle(
-    arg1: string | string[] | HandlerArgs<State>,
-    arg2?: HandlerFn<State>,
-  ): FinalizedAction<State> {
+  
+  handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State>): FinalizedAction<State>;
+  handle(args: HandlerObj<State>): FinalizedAction<State>;
+  handle(arg1: unknown, arg2?: unknown): FinalizedAction<State> {
     return FinalizedAction.fromHandlers(
-      undefined,
+      null,
       {},
       this.#meta,
-      arg1 as string,
+      arg1 as string | string[],
       arg2 as HandlerFn<State>,
     );
   }
@@ -696,15 +743,14 @@ export class Endpoint<
     );
   }
 
-  handle(
-    arg1: string | string[] | HandlerArgs<State>,
-    arg2?: HandlerFn<State>,
-  ): FinalizedAction<State> {
+  handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State>): FinalizedAction<State>;
+  handle(args: HandlerObj<State>): FinalizedAction<State>;
+  handle(arg1: unknown, arg2?: unknown): FinalizedAction<State> {
     return FinalizedAction.fromHandlers(
       undefined,
       {},
       this.#meta,
-      arg1 as string,
+      arg1 as string | string[],
       arg2 as HandlerFn<State>,
     );
   }

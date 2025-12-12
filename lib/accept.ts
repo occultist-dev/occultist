@@ -1,16 +1,4 @@
 
-/**
- * Future proofing for cross platform differences
- * where node:http might not be accessable.
- */
-type IncomingMessageHeaderObject = {
-  headers: {
-    'accept'?: string;
-    'accept-language'?: string;
-    'accept-encoding'?: string;
-  };
-};
-
 
 /**
  * Creates a content type cache usually from the set of content type
@@ -55,9 +43,9 @@ export class ContentTypeCache {
  * @param acceptEncoding - The value of the request's accept-encoding header.
  */
 export class Accept {
-  #acceptRe = /(?<ct>[^,;\s]+)(;\s?q=(?<q>(\d(\.\d+)|(.\d))))?/g;
-  #accept: string[] = [];
-  #acceptCache: Set<string> = new Set();
+  acceptRe = /(?<ct>[^,;\s]+)(;\s?q=(?<q>(\d(\.\d+)|(.\d))))?/g;
+  accept: string[] = [];
+  acceptCache: Set<string> = new Set();
   //#acceptLanguage: string[] = [];
   //#acceptLanguageCache: Set<string> = new Set();
   //#acceptEncoding: string[] = [];
@@ -68,7 +56,7 @@ export class Accept {
     _acceptLanguage: string | null,
     _acceptEncoding: string | null,
   ) {
-    [this.#accept, this.#acceptCache] = this.#process(accept);
+    [this.accept, this.acceptCache] = this.#process(accept);
     //[this.#acceptLanguage, this.#acceptLanguageCache] = this.#process(acceptLanguage);
     //[this.#acceptEncoding, this.#acceptEncodingCache] = this.#process(acceptEncoding);
   }
@@ -76,7 +64,7 @@ export class Accept {
   /**
    * Creates an accept instance from a request or response instance
    */
-  static from(req: Request | IncomingMessageHeaderObject): Accept {
+  static from(req: Request): Accept {
     let accept: string | null;
     let acceptLanguage: string | null;
     let acceptEncoding: string | null;
@@ -85,10 +73,6 @@ export class Accept {
       accept = req.headers.get('Accept');
       acceptLanguage = req.headers.get('Accept-Language');
       acceptEncoding = req.headers.get('Accept-Encoding');
-    } else {
-      accept = req.headers['accept'] ?? null;
-      acceptLanguage = req.headers['accept-language'] ?? null;
-      acceptEncoding = req.headers['accept-encoding'] ?? null;
     }
     
     return new Accept(
@@ -99,7 +83,7 @@ export class Accept {
   }
 
   debug() {
-    return this.#accept.join(' ');
+    return this.accept.join(' ');
   }
 
   /**
@@ -108,19 +92,19 @@ export class Accept {
    * @param contentType Content type cache built for an action.
    */
   negotiate(contentType: ContentTypeCache): null | string {
-    if (this.#accept.length === 0) {
+    if (this.accept.length === 0) {
       return contentType.default;
     }
 
     // TODO: check might be over-optimizing.
-    const intersection = this.#acceptCache.intersection(contentType.set);
+    const intersection = this.acceptCache.intersection(contentType.set);
     
     if (intersection.size === 0) {
       return null;
     }
     
-    for (let index = 0; index < this.#accept.length; index++) {
-      const match = contentType.map.get(this.#accept[index]);
+    for (let index = 0; index < this.accept.length; index++) {
+      const match = contentType.map.get(this.accept[index]);
 
       if (match != null) {
         return match;
@@ -140,7 +124,7 @@ export class Accept {
     const items: Array<{ ct: string, q: number }> = [];
     const cache = new Set<string>();
 
-    while ((match = this.#acceptRe.exec(header))) {
+    while ((match = this.acceptRe.exec(header))) {
       const ct = match.groups?.ct as string;
       const q = Number(match.groups?.q ?? 1);
 

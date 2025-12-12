@@ -155,7 +155,8 @@ export interface CacheMeta {
 export interface UpstreamCache {
   push(key: string): Promise<void>;
 
-}
+  invalidate(key: string): Promise<void>;
+};
 
 export interface CacheStorage {
   /**

@@ -1,8 +1,8 @@
 type ObjectValue = Record<string | number | symbol, unknown>;
 
-export function isObject<T extends ObjectValue = ObjectValue>(
-  // deno-lint-ignore no-explicit-any
-  value: any,
-): value is T {
-  return typeof value === 'object' && value !== null;
+/**
+ * Returns true if the input value is a plain Javascript object.
+ */
+export function isObject<T extends ObjectValue = ObjectValue>(value: unknown): value is T {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

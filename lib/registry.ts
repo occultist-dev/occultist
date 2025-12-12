@@ -166,20 +166,23 @@ export class Registry<
   }
 
   get handlers(): Handler[] {
-    return this.actions.flatMap((action) => action.handlers);
+    return this.actions.flatMap(action => action.handlers);
   }
 
-  get(actionName: string): ImplementedAction | undefined {
-    return this.actions.find((action) => action.name === actionName);
+  /**
+   * Returns the first action using the given action name. A content type
+   * can be provided to select another action going by the same name
+   * and returning a different content type.
+   */
+  get(actionName: string, contentType?: string): ImplementedAction | undefined {
+    if (contentType != null) {
+      return this.actions.find(action =>
+        action.name === actionName &&
+        action.contentTypes.includes(contentType)
+      );
+    }
+    return this.actions.find(action => action.name === actionName);
   }
-
-  //extensions(extensions: ExtensionMap) {
-  //  this.#extensions = new Map(
-  //    Object.entries(extensions),
-  //  );
-
-  //  return this;
-  //}
 
   /**
    * Creates any HTTP method.

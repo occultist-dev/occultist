@@ -1,5 +1,5 @@
 import type { Registry } from '../registry.js';
-import type { Handler, HintArgs, ImplementedAction } from './types.js';
+import type { HandlerArgs, HandlerObj, HintArgs, ImplementedAction } from './types.js';
 import type { ContextState, ActionSpec, TransformerFn, FileValue, NextFn } from './spec.js';
 import type { Scope } from "../scopes.js";
 import { Path } from "./path.js";
@@ -11,6 +11,9 @@ import {Context} from './context.js';
 import {CacheEntryDescriptor, CacheInstanceArgs} from '../cache/types.js';
 import {CacheContext, CacheMiddleware, CacheNextFn} from '../cache/cache.js';
 
+
+export const BeforeDefinition = 0;
+export const AfterDefinition = 1;
 
 const cacheMiddleware = new CacheMiddleware();
 
@@ -33,6 +36,7 @@ export class ActionMeta<
   action?: ImplementedAction<State, Spec>;
   acceptCache = new Set<string>();
   compressBeforeCache: boolean = false;
+  cacheOccurance: 0 | 1 = BeforeDefinition;
   cache: CacheInstanceArgs[] = [];
   serverTiming: boolean = false;
 
@@ -81,7 +85,7 @@ export class ActionMeta<
     req: Request;
     writer: HTTPWriter;
     spec?: Spec;
-    handler?: Handler<State, Spec>,
+    handler?: HandlerObj<State, Spec>,
   }): Promise<ResponseTypes> {
     const state: State = {} as State;
     const headers = new Headers();
@@ -105,11 +109,11 @@ export class ActionMeta<
     }
 
     let next: NextFn = async () => {
-      if (typeof handler.handler === 'string') {
+      if (typeof handler.handler === 'function') {
+        await handler.handler(ctx);
+      } else {
         ctx.status = 200;
         ctx.body = handler.handler;
-      } else {
-        await handler.handler(ctx);
       }
 
       if (this.serverTiming) serverTiming('handle');
