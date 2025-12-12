@@ -5,7 +5,7 @@ import type { ContextState, ActionSpec } from "./spec.js";
 import type { Context } from "./context.js";
 import type { ServerResponse } from "node:http";
 import type { JSONObject, TypeDef } from "../jsonld.js";
-import {Readable} from "node:stream";
+import type {HandlerDefinition} from "../mod.js";
 
 export type HintLink = {
   href: string;
@@ -98,23 +98,6 @@ export type HandleRequestArgs = {
   writer: HTTPWriter;
 };
 
-/**
- * A handler definition which can be pulled from a registry, scope or action
- * after an action is defined.
- */
-export interface HandlerDefinition<
-  State extends ContextState = ContextState,
-  Spec extends ActionSpec = ActionSpec,
-  Action extends ImplementedAction<State, Spec> = ImplementedAction<State, Spec>,
-> {
-  readonly contentType: string;
-  readonly name: string;
-  readonly meta: HandlerMeta;
-  readonly action: Action;
-  readonly registry: Registry;
-  readonly handler: HandlerObj<State, Spec>;
-};
-
 export interface ImplementedAction<
   State extends ContextState = ContextState,
   Spec extends ActionSpec = ActionSpec,
@@ -130,7 +113,7 @@ export interface ImplementedAction<
   readonly spec: Spec;
   readonly registry: Registry;
   readonly scope?: Scope;
-  readonly handlers: HandlerObj<State, Spec>[];
+  readonly handlers: HandlerDefinition<State, Spec>[];
   readonly contentTypes: string[];
   readonly context: JSONObject;
 

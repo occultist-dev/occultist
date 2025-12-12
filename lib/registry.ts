@@ -1,8 +1,8 @@
 import { Accept } from "./accept.js";
-import { ActionAuth } from "./actions/actions.js";
+import { ActionAuth, HandlerDefinition } from "./actions/actions.js";
 import { type ActionMatchResult, ActionSet } from "./actions/actionSets.js";
 import { ActionMeta } from "./actions/meta.js";
-import type { Handler, ImplementedAction } from "./actions/types.js";
+import type { ImplementedAction } from "./actions/types.js";
 import { FetchResponseWriter } from "./actions/writer.js";
 import { Scope } from './scopes.js';
 import { IncomingMessage, type ServerResponse } from "node:http";
@@ -103,6 +103,7 @@ export class Registry<
   State extends ContextState = ContextState,
 > implements Callable<State> {
 
+  #finalized: boolean = false;
   #path: string;
   #rootIRI: string;
   #serverTiming: boolean;
@@ -113,6 +114,8 @@ export class Registry<
   #writer = new FetchResponseWriter();
   #eventTarget = new EventTarget();
   #middleware: Middleware[] = [];
+  #actions: ImplementedAction[] | null = null;
+  #handlers: HandlerDefinition[] | null = null;
 
   constructor(args: RegistryArgs) {
     const url = new URL(args.rootIRI);
@@ -150,44 +153,138 @@ export class Registry<
   }
 
   get actions(): Array<ImplementedAction> {
-    const implemented = this.#children
-      .filter((meta) => {
-        if (meta.action == null) {
-          console.warn(`Action ${meta.method}: ${meta.path} not fully implemented before processing`);
-        }
+    if (this.#finalized && this.#actions != null) {
+      return this.#actions;
+    }
+    
+    const actions: ImplementedAction[] = [];
 
-        return meta.action != null;
-      })
-      .map((meta) => meta.action) as Array<ImplementedAction>;
+    for (let i = 0; i < this.#children.length; i++) {
+      if (this.#children[i].action == null) continue;
 
-    return implemented.concat(
-      this.#scopes.flatMap((scope) => scope.actions)
-    );
-  }
+      actions.push(this.#children[i].action);
+    }
 
-  get handlers(): Handler[] {
-    return this.actions.flatMap(action => action.handlers);
+    for (let i = 0; i < this.#scopes.length; i++) {
+      for (let j = 0; j < this.#scopes[i].actions.length; j++) {
+        actions.push(this.#scopes[i].actions[j]);
+      }
+    }
+
+    if (this.#finalized) this.#actions = actions;
+
+    return actions;
   }
 
   /**
    * Returns the first action using the given action name. A content type
    * can be provided to select another action going by the same name
    * and returning a different content type.
+   *
+   * @param name        - The name of the action.
+   * @param contentType - The action's content type.
    */
-  get(actionName: string, contentType?: string): ImplementedAction | undefined {
-    if (contentType != null) {
-      return this.actions.find(action =>
-        action.name === actionName &&
-        action.contentTypes.includes(contentType)
-      );
+  get(name: string, contentType?: string): ImplementedAction | undefined {
+    const actions = this.actions;
+
+    for (let i = 0; i < actions.length; i++) {
+      if (actions[i].name !== name) {
+        continue;
+      } else if (contentType == null && !this.actions[i].contentTypes.includes(contentType)) {
+        continue;
+      }
+
+      return actions[i];
     }
-    return this.actions.find(action => action.name === actionName);
   }
 
   /**
-   * Creates any HTTP method.
+   * Returns a list of all action handler definitions.
+   */
+  get handlers(): HandlerDefinition[] {
+    if (this.#finalized && this.#handlers != null) {
+      return this.#handlers;
+    }
+
+    const actions = this.actions;
+    const handlers: HandlerDefinition[] = [];
+
+    for (let i = 0; i < actions.length; i++) {
+      for (let j = 0; j < actions[i].handlers.length; j++) {
+        handlers.push(actions[i].handlers[j]);
+      }
+    }
+
+    if (this.#finalized) this.#handlers = handlers;
+
+    return handlers;
+  }
+
+  /**
+   * Queries all handler definitions.
    *
-   * @param method The HTTP method.
+   * @param args.method      The HTTP method the action should handle.
+   * @param args.contentType A content type, or list of content types the action
+   *                         should handle. If a list is given the action
+   *                         will be included if it matches one content type
+   *                         in the list.
+   * @param args.meta        A meta value, such as a unique symbol, which the action
+   *                         should have in its meta object.
+   */
+  query({
+    method,
+    contentType,
+    meta,
+  }: {
+    method?: string | string[];
+    contentType?: string | string[]
+    meta?: string | symbol;
+  } = {}): HandlerDefinition[] {
+    const source = this.handlers;
+    const handlers: HandlerDefinition[] = [];
+    let handler: HandlerDefinition;
+
+    if (method == null &&
+        contentType == null &&
+        meta == null) {
+      return source;
+    }
+
+    for (let i = 0; i < source.length; i++) {
+      handler = source[i];
+
+      if (Array.isArray(contentType)) {
+        if (!contentType.includes(handler.contentType)) {
+          continue;
+        }
+      } else if (contentType != null && contentType !== handler.contentType) {
+        continue;
+      }
+
+      if (Array.isArray(method)) {
+        if (!method.includes(handler.action.method)) {
+          continue;
+        }
+      } else if (method != null && method !== handler.action.method) {
+        continue;
+      }
+
+      if (meta != null) {
+        if (!Reflect.has(handler.meta, meta)) {
+          continue;
+        }
+      }
+
+      handlers.push(handler);
+    }
+
+    return handlers;
+  }
+
+  /**
+   * Creates an action for any HTTP method.
+   *
+   * @param method The HTTP method name.
    * @param name   Name for the action being produced.
    * @param path   Path the action responds to.
    */
@@ -219,6 +316,9 @@ export class Registry<
   }
 
   finalize() {
+    if (this.#finalized)
+      throw new Error('Registry has already been finalized');
+      
     const actionSets: ActionSet[] = [];
     const groupedMeta = new Map<string, Map<string, ActionMeta[]>>();
 
@@ -264,10 +364,22 @@ export class Registry<
       }
     }
 
+    this.#finalized = true;
     this.#index = new IndexEntry(actionSets);
     this.#eventTarget.dispatchEvent(
       new Event('afterfinalize', { bubbles: true, cancelable: false })
     );
+
+    // force actions and handlers to cache.
+    this.handlers;
+
+    // freeze all scopes.
+    for (let i = 0; i < this.#scopes.length; i++) {
+      Object.freeze(this.#scopes[i]);
+    }
+
+    // freeze the registry.
+    Object.freeze(this);
   }
 
   handleRequest(
@@ -354,5 +466,4 @@ export class Registry<
   removeEventListener(type: RegistryEvents, callback: EventListener) {
     this.#eventTarget.removeEventListener(type, callback)
   }
-
- }
+}

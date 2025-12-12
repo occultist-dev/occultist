@@ -1,21 +1,112 @@
-import type { Handler, ImplementedAction } from "./types.js";
-import type { Registry } from "../registry.js";
-import type { ActionSpec, ContextState, ActionPayload, ParsedIRIValues } from "./spec.js";
-import {ResponseBody} from "./writer.js";
+import type {HandlerDefinition} from "../mod.js";
+import type {Registry} from "../registry.js";
+import type {ActionPayload, ActionSpec, ContextState, ParsedIRIValues} from "./spec.js";
+import type {ImplementedAction} from "./types.js";
+import type {ResponseBody} from "./writer.js";
+
+
+class EditableContext {
+  hit: boolean = false;
+  etag?: string;
+  status?: number;
+  body?: ResponseBody;
+};
+
+export type CacheContextArgs = {
+  req: Request;
+  url: string;
+  contentType: string;
+  public: boolean;
+  authKey?: string;
+  handler: HandlerDefinition;
+  params: ParsedIRIValues;
+  query: ParsedIRIValues;
+};
+
+
+/**
+ * Request context object.
+ */
+export class CacheContext {
+  #editable = new EditableContext();
+  req: Request;
+  method: string;
+  url: string;
+  contentType: string;
+  public: boolean = false
+  authKey?: string;
+  action: ImplementedAction;
+  registry: Registry;
+  params: ParsedIRIValues;
+  query: ParsedIRIValues;
+  headers: Headers = new Headers();
+
+  constructor(args: CacheContextArgs) {
+    this.req = args.req;
+    this.url = args.url;
+    this.contentType = args.contentType;
+    this.public = args.public;
+    this.authKey = args.authKey;
+    this.action = args.handler.action;
+    this.method = args.handler.action.method;
+    this.registry = args.handler.action.registry;
+    this.params = args.params;
+    this.query = args.query;
+
+    Object.freeze(this);
+  }
+
+  get hit(): boolean {
+    return this.#editable.hit;
+  }
+
+  set hit(hit: boolean) {
+    this.#editable.hit = hit;
+  }
+
+  get status(): undefined | number {
+    return this.#editable.status;
+  }
+
+  set status(status: number) {
+    this.#editable.status = status;
+  }
+
+  get body(): undefined | ResponseBody {
+    return this.#editable.body;
+  }
+
+  set body(body: ResponseBody) {
+    this.#editable.body = body;
+  }
+
+  get etag(): undefined | string {
+    return this.#editable.etag;
+  }
+
+  set etag(etag: string) {
+    this.#editable.etag = etag;
+  }
+
+  get [Symbol.toStringTag]() {
+    return `action=${this.action.name} method=${this.method} contentType=${this.contentType}`;
+  }
+}
 
 
 export type ContextArgs<
   State extends ContextState = ContextState,
   Spec extends ActionSpec = ActionSpec,
 > = {
+  req: Request;
   url: string;
   contentType: string;
   public: boolean;
   authKey?: string;
-  handler: Handler<State, Spec>;
-  params?: ParsedIRIValues;
-  query?: ParsedIRIValues;
-  payload?: ActionPayload<Spec>;
+  handler: HandlerDefinition<State, Spec>;
+  params: ParsedIRIValues;
+  query: ParsedIRIValues;
+  payload: ActionPayload<Spec>;
 };
 
 /**
@@ -25,77 +116,55 @@ export class Context<
   State extends ContextState = ContextState,
   Spec extends ActionSpec = ActionSpec,
 > {
-  status?: number;
-  statusText?: string;
-  headers = new Headers();
-  body?: ResponseBody;
-
-  #url: string;
-  #contentType: string;
-  #public: boolean = false
-  #authKey?: string;
-  #state: State = {} as State;
-  #action: ImplementedAction<State, Spec>;
-  #registry: Registry;
-  #params?: ParsedIRIValues;
-  #query?: ParsedIRIValues;
-  #payload: ActionPayload<Spec>;
+  #editable = new EditableContext();
+  req: Request;
+  method: string;
+  url: string;
+  contentType: string;
+  public: boolean = false
+  authKey?: string;
+  state: State = {} as State;
+  action: ImplementedAction<State, Spec>;
+  registry: Registry;
+  params: ParsedIRIValues;
+  query: ParsedIRIValues;
+  payload: ActionPayload<Spec>;
+  headers: Headers = new Headers();
 
   constructor(args: ContextArgs<State, Spec>) {
-    this.#url = args.url;
-    this.#contentType = args.contentType;
-    this.#public = args.public;
-    this.#authKey = args.authKey;
-    this.#action = args.handler.action;
-    this.#registry = args.handler.registry;
-    this.#params = args.params;
-    this.#query = args.query;
-    this.#payload = args.payload;
+    this.req = args.req;
+    this.url = args.url;
+    this.contentType = args.contentType;
+    this.public = args.public;
+    this.authKey = args.authKey;
+    this.action = args.handler.action;
+    this.method = args.handler.action.method;
+    this.registry = args.handler.action.registry;
+    this.params = args.params;
+    this.query = args.query;
+    this.payload = args.payload;
+
+    Object.freeze(this);
   }
 
-  get public(): boolean {
-    return this.#public;
+  get status(): undefined | number {
+    return this.#editable.status;
   }
 
-  get authKey(): string | undefined {
-    return this.#authKey;
+  set status(status: number) {
+    this.#editable.status = status;
   }
 
-  get method(): string {
-    return this.#action.method;
+  get body(): undefined | ResponseBody {
+    return this.#editable.body;
   }
 
-  get url(): string {
-    return this.#url;
+  set body(body: ResponseBody) {
+    this.#editable.body = body;
   }
 
-  get contentType(): string | undefined {
-    return this.#contentType;
+  get [Symbol.toStringTag]() {
+    return `action=${this.action.name} method=${this.method} contentType=${this.contentType}`;
   }
-
-  get state(): State {
-    return this.#state;
-  }
-
-  get action(): ImplementedAction<State, Spec> {
-    return this.#action;
-  }
-
-  get registry(): Registry {
-    return this.#registry;
-  }
-
-  get payload(): ActionPayload<Spec> {
-    return this.#payload;
-  }
-
-  get params(): ParsedIRIValues {
-    return this.#params ?? {};
-  }
-
-  get query(): ParsedIRIValues {
-    return this.#query ?? {};
-  }
-
 }
 

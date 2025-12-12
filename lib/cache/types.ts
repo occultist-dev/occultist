@@ -146,29 +146,77 @@ export type LockedCacheMissHandle = {
   release(): Promise<void>;
 };
 
+
+/**
+ * The cache meta knows how to query a storage for current freshness
+ * information on a cache entry without querying the data itself.
+ *
+ * Meta information might be stored in a separate data store to the
+ * cached response bodies. If supported by the storage, the representation
+ * can be locked for update preventing other requests for the same
+ * resource from proceeding until the cached representation is created.
+ */
 export interface CacheMeta {
+
+  /**
+   * Sets the cache details for a representation.
+   *
+   * @param key       A unique key for this representation.
+   * @param details   The cache details.
+   */
   set(key: string, details: CacheDetails): void | Promise<void>;
+
+  /**
+   * Retrieves the cache details of a representation.
+   *
+   * @param key       A unique key for this representation.
+   */
   get(key: string): CacheHitHandle | CacheMissHandle | Promise<CacheHitHandle | CacheMissHandle>;
+
+  /**
+   * Retrieves the cache details of a representation and takes a lock
+   * for update if the representation is not current.
+   *
+   * Any other requests for this representation will wait for the request
+   * holding the lock to populate the cache before proceeding.
+   *
+   * @param key   A unique key for this representation.
+   */
   getOrLock?(key: string): Promise<CacheHitHandle | LockedCacheMissHandle>;
 }
 
 export interface UpstreamCache {
-  push(key: string): Promise<void>;
 
-  invalidate(key: string): Promise<void>;
+  /**
+   * Pushes a representation to the upstream cache.
+   */
+  push(args: {
+    url: string;
+    headers: Headers;
+    data: Blob;
+  }): Promise<void>;
+
+  /**
+   * Invalidates a representation in the upstream cache.
+   */
+  invalidate(url: string): Promise<void>;
 };
 
 export interface CacheStorage {
+
   /**
    * Retrieves a cache entry.
    */
-  get(key: string): Uint8Array | Promise<Uint8Array>;
+  get(key: string): Blob | Promise<Blob>;
 
   /**
    * Sets a cache entry.
    */
-  set(key: string, data: Uint8Array): void | Promise<void>;
+  set(key: string, data: Blob): void | Promise<void>;
 
+  /**
+   * Invalidates a cache entry.
+   */
   invalidate(key: string): void | Promise<void>;
 };
 
@@ -189,3 +237,4 @@ export interface CacheBuilder {
 
   push?(request: Request): Promise<void>;
 }
+

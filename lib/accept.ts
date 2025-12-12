@@ -30,6 +30,10 @@ export class ContentTypeCache {
       }
     }
   }
+
+  get [Symbol.toStringTag]() {
+    return `[ContentTypeCache ${this.contentTypes.join(' ')}]`;
+  }
 }
 
 /**
@@ -138,6 +142,10 @@ export class Accept {
       items.map(({ ct }) => ct),
       cache,
     ];
+  }
+
+  get [Symbol.toStringTag]() {
+    return `[Accept ${this.accept.join(' ')}]`
   }
 }
 

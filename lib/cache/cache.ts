@@ -1,46 +1,8 @@
 import {createHash} from 'node:crypto';
-import {NextFn, ParsedIRIValues} from '../actions/spec.js';
-import {Context, ImplementedAction, Registry} from '../mod.js';
+import {CacheContext, NextFn, Registry} from '../mod.js';
 import {ConditionalRequestRules} from './etag.js';
 import type {CacheBuilder, CacheEntryDescriptor, CacheETagArgs, CacheETagInstanceArgs, CacheHitHandle, CacheHTTPArgs, CacheHTTPInstanceArgs, CacheMeta, CacheMissHandle, CacheStorage, CacheStoreArgs, CacheStoreInstanceArgs, LockedCacheMissHandle, UpstreamCache} from './types.js';
 
-
-export type CacheNextFn = () => Promise<Context>;
-
-export type CacheContextArgs = {
-  url: string;
-  contentType?: string;
-  method: string;
-  public: boolean;
-  authKey?: string;
-  action: ImplementedAction;
-  params: ParsedIRIValues;
-};
-
-export class CacheContext {
-  hit: boolean = false;
-  url: string;
-  contentType?: string;
-  method: string;
-  public: boolean;
-  authKey?: string;
-  action: ImplementedAction;
-  registry: Registry;
-  params: ParsedIRIValues;
-  status?: number;
-  body?: Uint8Array;
-  headers?: Headers;
-
-  constructor(args: CacheContextArgs) {
-    this.url = args.url;
-    this.contentType = args.contentType;
-    this.method = args.method;
-    this.public = args.public;
-    this.authKey = args.authKey;
-    this.action = args.action;
-    this.params = args.params;
-  }
-}
 
 export class Cache implements CacheBuilder {
   #registry: Registry;
@@ -121,7 +83,7 @@ export class CacheMiddleware {
   async use(
     descriptors: CacheEntryDescriptor[],
     ctx: CacheContext,
-    next: CacheNextFn,
+    next: NextFn,
   ): Promise<void> {
     const descriptor = descriptors.find((descriptor) => {
       const when = descriptor.args.when;
@@ -142,8 +104,7 @@ export class CacheMiddleware {
     });
 
     if (descriptor == null) {
-      await next();
-      return;
+      return await next();
     }
 
     switch (descriptor.args.strategy) {
@@ -186,7 +147,7 @@ export class CacheMiddleware {
   async #useHTTP(
     descriptor: CacheEntryDescriptor,
     ctx: CacheContext,
-    next: CacheNextFn,
+    next: NextFn,
   ): Promise<void> {
     this.#setHeaders(descriptor, ctx);
 
@@ -196,10 +157,10 @@ export class CacheMiddleware {
   async #useEtag(
     descriptor: CacheEntryDescriptor,
     ctx: CacheContext,
-    next: CacheNextFn,
+    next: NextFn,
   ): Promise<void> {
     const key = this.#makeKey(descriptor);
-    const rules = new ConditionalRequestRules(ctx.req);
+    const rules = new ConditionalRequestRules(ctx.req.headers);
     const resourceState = await descriptor.args.cache.meta.get(key);
 
     if (resourceState.type === 'cache-hit') {
@@ -221,10 +182,9 @@ export class CacheMiddleware {
   async #useStore(
     descriptor: CacheEntryDescriptor,
     ctx: CacheContext,
-    next: CacheNextFn,
+    next: NextFn,
   ): Promise<void> {
     const key = this.#makeKey(descriptor);
-    const rules = new ConditionalRequestRules(ctx.req);
     let resourceState:  CacheHitHandle | CacheMissHandle | LockedCacheMissHandle | undefined;
 
     if (
@@ -241,23 +201,22 @@ export class CacheMiddleware {
     }
 
     if (resourceState?.type === 'cache-hit') {
+      if (this.#matches(ctx.req.headers, resourceState.etag)) {
+        ctx.hit = true;
+        ctx.status = 304;
 
-      //if (rules.ifMatches(resourceState.etag)) {
-      //  ctx.status = 304;
-
-      //  return;
-      //} else if (!rules.ifNoneMatch(resourceState.etag)) {
-      //  ctx.status = 304;
-
-      //  return;
-      //}
+        return;
+      }
 
       if (resourceState.hasContent) {
         try {
           ctx.hit = true;
           ctx.status = resourceState.status;
-          ctx.headers = resourceState.headers;
           ctx.body = await descriptor.args.cache.storage.get(key);
+
+          for (const [key, value] of resourceState.headers.entries()) {
+            ctx.headers.set(key, value);
+          }
 
           return;
         } catch (err) {
@@ -269,30 +228,40 @@ export class CacheMiddleware {
     try {
       this.#setHeaders(descriptor, ctx);
 
-      const actionContext = await next();
-      let body: Uint8Array;
+      await next();
 
-      if (actionContext.body instanceof ReadableStream) {
-        const [t1, t2] = actionContext.body.tee();
-        actionContext.body = t1;
-        body = await new Response(t2).bytes()
-      } else if (actionContext.body != null) {
-        body = await new Response(actionContext.body).bytes();
-      }
+      const body = await new Response(ctx.body).blob();
+      const etag = await this.#createEtag(body);
+
+      ctx.etag = etag;
+      ctx.headers.set('Etag', etag);
 
       await descriptor.args.cache.meta.set(key, {
         key,
-        authKey: actionContext.authKey,
-        iri: actionContext.url,
-        status: actionContext.status ?? 200,
-        hasContent: actionContext.body != null,
-        headers: actionContext.headers,
-        contentType: actionContext.contentType,
-        etag: this.#createEtag(body),
+        authKey: ctx.authKey,
+        iri: ctx.url,
+        status: ctx.status ?? 200,
+        hasContent: ctx.body != null,
+        headers: ctx.headers,
+        contentType: ctx.contentType,
+        etag,
       });
 
-      if (actionContext.body != null) {
+      if (ctx.body != null) {
         await descriptor.args.cache.storage.set(key, body);
+      }
+
+      if (resourceState.type === 'locked-cache-miss') {
+        await resourceState.release();
+      }
+
+      if (this.#matches(ctx.req.headers, etag)) {
+        ctx.hit = true;
+        ctx.status = 304;
+        ctx.body = null;
+        ctx.headers.delete('Etag');
+        
+        return;
       }
     } catch (err) {
       if (resourceState.type === 'locked-cache-miss') {
@@ -301,9 +270,18 @@ export class CacheMiddleware {
     }
   }
 
-  #createEtag(body: Uint8Array, weak: boolean = true): string {
-    const hash = createHash('sha1').update(body).digest('hex');
+  #matches(headers: Headers, etag: string): boolean {
+    const rules = new ConditionalRequestRules(headers);
+
+    return rules.ifMatches(etag) ||
+      rules.ifNoneMatch(etag);
+  }
+
+  async #createEtag(body: Blob, weak: boolean = true): Promise<string> {
+    const buff = await body.bytes();
+    const hash = createHash('sha1').update(buff).digest('hex');
     const quoted = `"${hash}"`;
+
     return weak ? `W/${quoted}` : quoted;
   }
 

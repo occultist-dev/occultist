@@ -1,21 +1,22 @@
 
-const etagRe = /^"(.+)"$/;
-
 export class ConditionalRequestRules {
 
-  #req: Request;
+  headers: Headers;
   
-  constructor(
-    req: Request,
-  ) {
-    this.#req = req;
+  constructor(headers: Headers) {
+    this.headers = headers;
   }
 
   public ifMatches(
     etag: string,
   ): boolean {
-    let ifMatch = this.#req.headers
-      .get('if-match')?.split?.(',');
+    const header = this.headers.get('If-Match');
+
+    if (header == null) {
+      return false;
+    }
+
+    const ifMatch = header;
 
     if (ifMatch == null || ifMatch.length === 0) {
       return false;
@@ -25,12 +26,8 @@ export class ConditionalRequestRules {
       return etag != null;
     }
 
-    for (const etag of ifMatch) {
-      const value = etagRe.exec(etag);
-
-      if (value?.[0] === etag) {
-        return true;
-      }
+    if (header.trim() === etag) {
+      return true;
     }
 
     return false;
@@ -39,8 +36,13 @@ export class ConditionalRequestRules {
   public ifNoneMatch(
     etag: string,
   ): boolean {
-    let ifMatch = this.#req.headers
-      .get('if-none-match')?.split?.(',');
+    const header = this.headers.get('If-None-Match');
+
+    if (header == null) {
+      return false;
+    }
+
+    let ifMatch = header.split?.(',');
 
     if (ifMatch == null || ifMatch.length === 0) {
       return false;
@@ -50,10 +52,8 @@ export class ConditionalRequestRules {
       return etag != null;
     }
 
-    for (const etag of ifMatch) {
-      const value = etagRe.exec(etag);
-
-      if (value?.[0] === etag) {
+    for (const headerValue of ifMatch) {
+      if (headerValue === etag) {
         return false;
       }
     }

@@ -1,15 +1,16 @@
-import type { Registry } from '../registry.js';
-import type { HandlerArgs, HandlerObj, HintArgs, ImplementedAction } from './types.js';
-import type { ContextState, ActionSpec, TransformerFn, FileValue, NextFn } from './spec.js';
-import type { Scope } from "../scopes.js";
-import { Path } from "./path.js";
-import type { HTTPWriter, ResponseTypes } from "./writer.js";
-import {JSONValue} from '../jsonld.js';
-import {joinPaths} from '../utils/joinPaths.js';
-import {processAction} from '../processAction.js';
-import {Context} from './context.js';
+import {CacheMiddleware} from '../cache/cache.js';
 import {CacheEntryDescriptor, CacheInstanceArgs} from '../cache/types.js';
-import {CacheContext, CacheMiddleware, CacheNextFn} from '../cache/cache.js';
+import {JSONValue} from '../jsonld.js';
+import {processAction} from '../processAction.js';
+import type {Registry} from '../registry.js';
+import type {Scope} from "../scopes.js";
+import {joinPaths} from '../utils/joinPaths.js';
+import {HandlerDefinition} from './actions.js';
+import {CacheContext, Context} from './context.js';
+import {Path} from "./path.js";
+import type {ActionSpec, ContextState, FileValue, NextFn, TransformerFn} from './spec.js';
+import type {HintArgs, ImplementedAction} from './types.js';
+import type {HTTPWriter, ResponseTypes} from "./writer.js";
 
 
 export const BeforeDefinition = 0;
@@ -85,16 +86,18 @@ export class ActionMeta<
     req: Request;
     writer: HTTPWriter;
     spec?: Spec;
-    handler?: HandlerObj<State, Spec>,
+    handler?: HandlerDefinition<State, Spec>,
   }): Promise<ResponseTypes> {
     const state: State = {} as State;
     const headers = new Headers();
-    let ctx: Context<State, Spec>;
+    let ctx: CacheContext | Context<State, Spec>;
+    let cacheCtx: CacheContext;
     let prevTime = startTime;
 
     const serverTiming = (name: string) => {
       const nextTime = performance.now();
       const duration = nextTime - prevTime;
+
       headers.append('Server-Timing', `${name};dur=${duration.toPrecision(2)}`);
       prevTime = nextTime;
     }
@@ -110,7 +113,7 @@ export class ActionMeta<
 
     let next: NextFn = async () => {
       if (typeof handler.handler === 'function') {
-        await handler.handler(ctx);
+        await handler.handler(ctx as Context<State, Spec>);
       } else {
         ctx.status = 200;
         ctx.body = handler.handler;
@@ -125,12 +128,13 @@ export class ActionMeta<
         const res = await processAction<State, Spec>({
           iri: url,
           req,
-          spec,
+          spec: spec ?? {} as Spec,
           state,
           action: this.action,
         });
 
         ctx = new Context<State, Spec>({
+          req,
           url,
           contentType,
           public: this.public,
@@ -151,14 +155,14 @@ export class ActionMeta<
     }
 
     if (this.cache.length > 0) {
-      const cacheCtx = new CacheContext({
+      cacheCtx = new CacheContext({
+        req,
         url,
-        contentType: contentType,
-        method: this.method,
+        contentType,
         public: this.public,
-        authKey: this.authKey,
-        action: this.action,
+        handler,
         params: {},
+        query: {},
       });
       const descriptors: CacheEntryDescriptor[] = this.cache.map(args => {
         return {
@@ -169,41 +173,47 @@ export class ActionMeta<
         };
       });
 
-      const upstream1 = next;
-      const upstream2: CacheNextFn = async () => {
-        await upstream1();
-
-        return ctx;
-      };
+      const upstream = next;
       next = async () => {
         await cacheMiddleware.use(
           descriptors,
           cacheCtx,
-          upstream2,
+          async () => {
+            // cache was not hit if in this function
+            await upstream();
+
+            // the cache middleware requires these values are set 
+            cacheCtx.status = ctx.status;
+
+            if (ctx.body instanceof ReadableStream) {
+              const [a, b] = ctx.body.tee();
+              
+              ctx.body = a;
+              cacheCtx.body = b;
+            } else {
+              cacheCtx.body = ctx.body;
+            }
+        
+            for (const [key, value] of ctx.headers.entries()) {
+              cacheCtx.headers.set(key, value);
+            }
+          },
         );
-
-        if (cacheCtx.hit) {
-          if (this.serverTiming) serverTiming('cache-hit');
-
-          ctx = new Context({
-            url,
-            contentType,
-            public: this.public,
-            authKey: this.authKey,
-            handler,
-          });
-
-          ctx.status = cacheCtx.status;
-          ctx.headers = cacheCtx.headers;
-          ctx.body = cacheCtx.body as BodyInit;
-        } else {
-          if (this.serverTiming) serverTiming('cache-miss');
-        }
       }
     }
 
     try {
       await next();
+
+      if (cacheCtx?.hit) {
+        if (this.serverTiming) serverTiming('hit');
+        
+        // set the ctx so the writer has access to the cached values.
+        ctx = cacheCtx;
+      } else if (cacheCtx?.etag != null) {
+        ctx.headers.set('Etag', cacheCtx.etag);
+      }
+      
       writer.mergeHeaders(headers);
     } catch (err) {
       writer.mergeHeaders(headers);
@@ -233,5 +243,9 @@ export class ActionMeta<
       this.acceptCache.add(contentType);
       this.acceptCache.add(contentType.replace(/[^/]+$/, '*'));
     }
+  }
+
+  get [Symbol.toStringTag]() {
+    return `[Meta ${this.name} ${this.uriTemplate}]`;
   }
 }

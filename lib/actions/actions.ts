@@ -57,6 +57,10 @@ export class HandlerDefinition<
 
     Object.freeze(this);
   }
+
+  get [Symbol.toStringTag]() {
+    return `name=${this.name} contentType=${this.contentType}`;
+  }
 }
 
 export interface Handleable<
@@ -99,7 +103,7 @@ export class FinalizedAction<
     handlerArgs: HandlerObj<State, Spec>,
   ) {
     this.#typeDef = typeDef;
-    this.#spec = spec;
+    this.#spec = spec ?? {} as Spec;
     this.#meta = meta;
 
     this.#meta.action = this as unknown as ImplementedAction<State, Spec>;
@@ -314,10 +318,6 @@ export class FinalizedAction<
       meta = Object.create(null);
     }
 
-    if (Array.isArray(arg1)) {
-      console.log('HANDLER!!!!', contentType);
-    }
-
     if (!Array.isArray(contentType)) {
       this.#handlers.set(contentType, new HandlerDefinition(
         this.#meta.name,
@@ -373,7 +373,7 @@ export class DefinedAction<
     spec: Spec,
     meta: ActionMeta<State, Spec>,
   ) {
-    this.#spec = spec;
+    this.#spec = spec ?? {} as Spec;
     this.#meta = meta;
     this.#typeDef = typeDef;
 
