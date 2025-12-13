@@ -1,5 +1,6 @@
 export * from './cache/types.js';
 export * from './cache/cache.js';
+export * from './cache/memory.js';
 export * from './actions/types.js';
 export * from './actions/meta.js';
 export * from './actions/spec.js';

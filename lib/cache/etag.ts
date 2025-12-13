@@ -1,5 +1,5 @@
 
-export class ConditionalRequestRules {
+export class EtagConditions {
 
   headers: Headers;
   
@@ -7,58 +7,71 @@ export class ConditionalRequestRules {
     this.headers = headers;
   }
 
-  public ifMatches(
-    etag: string,
+  public ifMatch(
+    representationEtag?: string,
   ): boolean {
+    let etag: string;
     const header = this.headers.get('If-Match');
 
     if (header == null) {
-      return false;
-    }
-
-    const ifMatch = header;
-
-    if (ifMatch == null || ifMatch.length === 0) {
-      return false;
-    }
-
-    if (ifMatch[0] === '*') {
-      return etag != null;
-    }
-
-    if (header.trim() === etag) {
       return true;
+    } else if (header.trim() === '*') {
+      return representationEtag != null;
+    }
+
+    const etags = header.split?.(',');
+
+    if (etags.length === 0) {
+      return true;
+    } else if (representationEtag == null) {
+      return false;
+    }
+
+    for (let i = 0; i < etags.length; i++) {
+      etag = etags[i].trim();
+
+      // If-Match ignores weak etags
+      if (etag.startsWith('W\/')) {
+        continue;
+      } else if (etag === representationEtag) {
+        return true;
+      }
     }
 
     return false;
   }
 
   public ifNoneMatch(
-    etag: string,
+    representationEtag?: string,
   ): boolean {
+    let etag: string;
     const header = this.headers.get('If-None-Match');
 
-    if (header == null) {
-      return false;
+    if (header == null || representationEtag == null) {
+      return true;
     }
 
-    let ifMatch = header.split?.(',');
+    const etags = header.split?.(',');
 
-    if (ifMatch == null || ifMatch.length === 0) {
-      return false;
+    if (etags.length === 0) {
+      return true;
     }
 
-    if (ifMatch[0] === '*') {
-      return etag != null;
+    if (etags[0] === '*') {
+      return representationEtag == null;
     }
 
-    for (const headerValue of ifMatch) {
-      if (headerValue === etag) {
+    for (let i = 0; i < etags.length; i++) {
+      etag = etags[i].trim();
+
+      if (!etag.startsWith('W\/')) {
+        continue;
+      } else if (etag === representationEtag) {
         return false;
       }
     }
 
-    return false;
+    return true;
   }
 
   public ifModifiedSince(): never {

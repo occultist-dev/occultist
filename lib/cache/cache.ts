@@ -1,6 +1,6 @@
 import {createHash} from 'node:crypto';
 import {CacheContext, NextFn, Registry} from '../mod.js';
-import {ConditionalRequestRules} from './etag.js';
+import {EtagConditions} from './etag.js';
 import type {CacheBuilder, CacheEntryDescriptor, CacheETagArgs, CacheETagInstanceArgs, CacheHitHandle, CacheHTTPArgs, CacheHTTPInstanceArgs, CacheMeta, CacheMissHandle, CacheStorage, CacheStoreArgs, CacheStoreInstanceArgs, LockedCacheMissHandle, UpstreamCache} from './types.js';
 
 
@@ -160,11 +160,11 @@ export class CacheMiddleware {
     next: NextFn,
   ): Promise<void> {
     const key = this.#makeKey(descriptor);
-    const rules = new ConditionalRequestRules(ctx.req.headers);
+    const rules = new EtagConditions(ctx.req.headers);
     const resourceState = await descriptor.args.cache.meta.get(key);
 
     if (resourceState.type === 'cache-hit') {
-      if (rules.ifMatches(resourceState.etag)) {
+      if (rules.ifMatch(resourceState.etag)) {
         return;
       } else if (!rules.ifNoneMatch(resourceState.etag)) {
         ctx.hit = true;
@@ -271,10 +271,10 @@ export class CacheMiddleware {
   }
 
   #matches(headers: Headers, etag: string): boolean {
-    const rules = new ConditionalRequestRules(headers);
+    const rules = new EtagConditions(headers);
 
-    return rules.ifMatches(etag) ||
-      rules.ifNoneMatch(etag);
+    return rules.ifMatch(etag) ||
+      !rules.ifNoneMatch(etag);
   }
 
   async #createEtag(body: Blob, weak: boolean = true): Promise<string> {
