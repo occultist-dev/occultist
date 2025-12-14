@@ -3,13 +3,13 @@ import { ActionAuth, HandlerDefinition } from "./actions/actions.js";
 import { type ActionMatchResult, ActionSet } from "./actions/actionSets.js";
 import { ActionMeta } from "./actions/meta.js";
 import type { ImplementedAction } from "./actions/types.js";
-import { FetchResponseWriter } from "./actions/writer.js";
+import { ResponseWriter } from "./actions/writer.js";
 import { Scope } from './scopes.js';
 import { IncomingMessage, type ServerResponse } from "node:http";
 import type { Merge } from "./actions/spec.js";
 import type { ContextState, Middleware } from "./actions/spec.js";
 import {ProblemDetailsError} from "./errors.js"
-import {NodeRequest} from "./request.js";
+import {WrappedRequest} from "./request.js";
 
 
 export interface Callable<
@@ -111,7 +111,7 @@ export class Registry<
   #scopes: Scope[] = [];
   #children: ActionMeta[] = [];
   #index?: IndexEntry;
-  #writer = new FetchResponseWriter();
+  #writer = new ResponseWriter();
   #eventTarget = new EventTarget();
   #middleware: Middleware[] = [];
   #actions: ImplementedAction[] | null = null;
@@ -121,7 +121,7 @@ export class Registry<
     const url = new URL(args.rootIRI);
 
     this.#rootIRI = args.rootIRI;
-    this.#path = url.pathname
+    this.#path = url.pathname;
     this.#serverTiming = args.serverTiming ?? false;
     this.#http = new HTTP<State>(this);
   }
@@ -396,38 +396,24 @@ export class Registry<
     res?: ServerResponse,
   ): Promise<Response | ServerResponse> {
     const startTime = performance.now();
-    const accept = Accept.from(req);
-    // hack, until a better way to normalize the url is sorted
-    const reqURL = new URL(req.url);
-    const url = new URL(this.#rootIRI + reqURL.pathname);
-    
-    url.search = reqURL.search;
-
+    const wrapped = new WrappedRequest(this.#rootIRI, req);
+    const writer = new ResponseWriter(res);
+    const accept = Accept.from(wrapped);
     const match = this.#index?.match(
       req.method ?? 'GET',
-      url.toString(),
+      wrapped.url.toString(),
       accept,
     );
 
     let err: ProblemDetailsError;
 
     try {
-      if (match?.type === 'match' && req instanceof Request) {
+      if (match?.type === 'match') {
         return await match.action.handleRequest({
-          url: req.url,
+          url: wrapped.url,
           contentType: match.contentType,
-          req,
-          writer: new FetchResponseWriter(),
-          startTime,
-        });
-      } else if (match?.type === 'match' && req instanceof IncomingMessage) {
-        const nodeRequest = new NodeRequest(this.#rootIRI, req) as Request;
-
-        return await match.action.handleRequest({
-          url: nodeRequest.url,
-          contentType: match.contentType,
-          req: nodeRequest,
-          writer: new FetchResponseWriter(res),
+          req: wrapped,
+          writer,
           startTime,
         });
       }
@@ -435,12 +421,12 @@ export class Registry<
       if (err2 instanceof ProblemDetailsError) {
         err = err2;
       } else {
-        console.error('Unexpected error', err2);
+        err = new ProblemDetailsError(500, 'Internal server error');
       }
     }
 
     if (err == null) {
-      err = new ProblemDetailsError(500, 'Unexpected error');
+      err = new ProblemDetailsError(404, 'Not found');
     }
       
     if (err instanceof ProblemDetailsError && req instanceof Request) {

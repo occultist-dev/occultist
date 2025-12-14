@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {EtagConditions} from './etag.ts';
+import {EtagConditions} from './etag.js';
 
 
 test.describe('conditions.ifMatch()', () => {

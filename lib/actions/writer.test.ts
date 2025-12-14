@@ -1,7 +1,7 @@
 import {createServer} from 'node:http';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {FetchResponseWriter} from './writer.js';
+import {ResponseWriter} from './writer.js';
 import {AddressInfo} from 'node:net';
 
 
@@ -10,7 +10,7 @@ test('Writer writes hints', () => {
     const server = createServer();
 
     server.on('request', async (_req, res) => {
-      const writer = new FetchResponseWriter(res);
+      const writer = new ResponseWriter(res);
       await writer.writeEarlyHints({
         link: [
           {

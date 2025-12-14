@@ -7,6 +7,23 @@ export class EtagConditions {
     this.headers = headers;
   }
 
+  /**
+   * Returns true if the representation is not modified based of
+   * conditional headers and the value of the current representation's
+   * etag. True results should result in a 304 response.
+   *
+   * @param representationEtag - The current etag value for this representation.
+   */
+  public isNotModified(representationEtag?: string): boolean {
+    if (this.headers.has('If-Match')) {
+      return this.ifMatch(representationEtag);
+    } else if (this.headers.has('If-None-Match')) {
+      return !this.ifNoneMatch(representationEtag);
+    }
+
+    return false;
+  }
+
   public ifMatch(
     representationEtag?: string,
   ): boolean {

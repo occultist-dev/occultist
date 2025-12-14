@@ -1,5 +1,5 @@
 import {ImplementedAction} from "../actions/types.js";
-import {ParsedIRIValues, Registry} from "../mod.js";
+import {CacheContext} from "../mod.js";
 
 export type CacheStrategyType =
   | 'http'

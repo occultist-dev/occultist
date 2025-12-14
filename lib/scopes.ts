@@ -1,8 +1,8 @@
 import { joinPaths } from "./utils/joinPaths.js";
-import { ActionAuth } from "./actions/actions.js";
+import { ActionAuth, HandlerDefinition } from "./actions/actions.js";
 import { ActionMeta } from "./actions/meta.js";
 import type { ContextState } from "./actions/spec.js";
-import type { Handler, ImplementedAction } from "./actions/types.js";
+import type { ImplementedAction } from "./actions/types.js";
 import type { HTTPWriter } from "./actions/writer.js";
 import { type Callable, HTTP, type Registry } from './registry.js';
 
@@ -69,7 +69,7 @@ export class Scope<
       .map((meta) => meta.action) as Array<ImplementedAction>;
   }
 
-  get handlers(): Handler[] {
+  get handlers(): HandlerDefinition[] {
     return this.actions.flatMap((action) => action.handlers);
   }
 

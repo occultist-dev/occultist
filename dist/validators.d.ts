@@ -1,0 +1,16 @@
+import { ArraySpec, ObjectArraySpec, ObjectSpec, PropertySpec } from './actions/spec.js';
+import { JSONValue } from "./jsonld.js";
+export declare function isFileData(value: JSONValue | File): value is string | File;
+export declare function isObjectArraySpec(spec: PropertySpec): spec is ObjectArraySpec;
+export declare function isObjectSpec(spec: PropertySpec): spec is ObjectSpec;
+export declare function isArraySpec(spec: PropertySpec): spec is ArraySpec;
+export declare function failsRequiredRequirement(value: JSONValue, specValue: PropertySpec): boolean;
+export declare function failsTypeRequirement(value: JSONValue | File, specValue: PropertySpec): boolean;
+export declare function failsContentTypeRequirement(value: JSONValue | File, specValue: PropertySpec): boolean;
+export declare function failsMinValue(value: JSONValue, specValue: PropertySpec): boolean;
+export declare function failsMaxValue(value: JSONValue, specValue: PropertySpec): boolean;
+export declare function failsStepValue(value: JSONValue, specValue: PropertySpec): boolean;
+export declare function failsPatternValue(value: JSONValue, specValue: PropertySpec): boolean;
+export declare function failValueMinLength(value: JSONValue, specValue: PropertySpec): boolean;
+export declare function failValueMaxLength(value: JSONValue, specValue: PropertySpec): boolean;
+export declare function failsValidator(value: JSONValue | File, specValue: PropertySpec): boolean;

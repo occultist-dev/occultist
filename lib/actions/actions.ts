@@ -41,6 +41,7 @@ export class HandlerDefinition<
   handler: HandlerFn | HandlerValue;
   meta: HandlerMeta;
   action: ImplementedAction<State, Spec>;
+  cache: ReadonlyArray<CacheInstanceArgs>;
   
   constructor(
     name: string,
@@ -48,12 +49,21 @@ export class HandlerDefinition<
     handler: HandlerFn | HandlerValue,
     meta: HandlerMeta,
     action: ImplementedAction<State, Spec>,
+    actionMeta: ActionMeta,
   ) {
     this.name = name;
     this.contentType = contentType;
     this.handler = handler;
-    this.meta = meta ?? {};
     this.action = action;
+    this.meta = Object.freeze({ ...meta ?? {} });
+    
+    const cache: CacheInstanceArgs[] = [];
+
+    for (let i = 0; i < actionMeta.cache.length; i++) {
+      cache.push(Object.freeze({ ...actionMeta.cache[i] }));
+    }
+
+    this.cache = Object.freeze(cache);
 
     Object.freeze(this);
   }
@@ -117,6 +127,7 @@ export class FinalizedAction<
         handlerArgs.handler,
         handlerArgs.meta,
         this as unknown as ImplementedAction<State, Spec>,
+        this.#meta,
       ));
     } else if (isPopulatedObject(handlerArgs)) {
       for (let i = 0; i < handlerArgs.contentType.length; i++) {
@@ -126,6 +137,7 @@ export class FinalizedAction<
           handlerArgs.handler,
           handlerArgs.meta,
           this as unknown as ImplementedAction<State, Spec>,
+          this.#meta,
         ));
       }
     }
@@ -325,6 +337,7 @@ export class FinalizedAction<
         handler,
         meta,
         this as unknown as ImplementedAction<State, Spec>,
+        this.#meta,
       ));
     } else {
       for (let i = 0; i < contentType.length; i++) {
@@ -334,6 +347,7 @@ export class FinalizedAction<
           handler,
           meta,
           this as unknown as ImplementedAction<State, Spec>,
+          this.#meta,
         ));
       }
     }
@@ -346,6 +360,7 @@ export class FinalizedAction<
 
     return this.#meta.handleRequest({
       ...args,
+      spec: this.#spec,
       handler,
     });
   }
@@ -516,6 +531,7 @@ export class DefinedAction<
   async handleRequest(args: HandleRequestArgs): Promise<ResponseTypes> {
     return this.#meta.handleRequest({
       ...args,
+      spec: this.#spec,
     });
   }
 
@@ -645,6 +661,7 @@ export class Action<
   async handleRequest(args: HandleRequestArgs): Promise<ResponseTypes> {
     return this.#meta.handleRequest({
       ...args,
+      spec: this.#spec,
     });
   }
 

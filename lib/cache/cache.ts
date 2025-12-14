@@ -201,7 +201,7 @@ export class CacheMiddleware {
     }
 
     if (resourceState?.type === 'cache-hit') {
-      if (this.#matches(ctx.req.headers, resourceState.etag)) {
+      if (this.#isNotModified(ctx.req.headers, resourceState.etag)) {
         ctx.hit = true;
         ctx.status = 304;
 
@@ -255,7 +255,7 @@ export class CacheMiddleware {
         await resourceState.release();
       }
 
-      if (this.#matches(ctx.req.headers, etag)) {
+      if (this.#isNotModified(ctx.req.headers, etag)) {
         ctx.hit = true;
         ctx.status = 304;
         ctx.body = null;
@@ -270,11 +270,14 @@ export class CacheMiddleware {
     }
   }
 
-  #matches(headers: Headers, etag: string): boolean {
+  /**
+   * Returns true if the request has conditional headers
+   * which should result in a not modified response.
+   */
+  #isNotModified(headers: Headers, etag: string): boolean {
     const rules = new EtagConditions(headers);
 
-    return rules.ifMatch(etag) ||
-      !rules.ifNoneMatch(etag);
+    return rules.isNotModified(etag);
   }
 
   async #createEtag(body: Blob, weak: boolean = true): Promise<string> {

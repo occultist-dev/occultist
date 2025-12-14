@@ -69,15 +69,11 @@ export class Accept {
    * Creates an accept instance from a request or response instance
    */
   static from(req: Request): Accept {
-    let accept: string | null;
-    let acceptLanguage: string | null;
-    let acceptEncoding: string | null;
+    const accept = req.headers.get('Accept');
+    const acceptLanguage = req.headers.get('Accept-Language');
+    const acceptEncoding = req.headers.get('Accept-Encoding');
 
-    if (req instanceof Request) {
-      accept = req.headers.get('Accept');
-      acceptLanguage = req.headers.get('Accept-Language');
-      acceptEncoding = req.headers.get('Accept-Encoding');
-    }
+    console.log('ACCEPT', accept);
     
     return new Accept(
       accept,

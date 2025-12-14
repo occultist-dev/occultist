@@ -23,7 +23,7 @@ export interface HTTPWriter {
   response(): ResponseTypes;
 };
 
-export class FetchResponseWriter implements HTTPWriter {
+export class ResponseWriter implements HTTPWriter {
   #res?: ServerResponse;
   #hints?: {
     link: string | string[];

@@ -3,7 +3,7 @@
 /**
  * Maps the URL of the request to the root IRI.
  */
-export function normalizeURL(rootIRI: string, urlStr: string): [URL, string] {
+export function normalizeURL(rootIRI: string, urlStr: string): string {
     const sourceURL = new URL(urlStr);
     const targetURL = new URL(rootIRI);
     
@@ -11,5 +11,5 @@ export function normalizeURL(rootIRI: string, urlStr: string): [URL, string] {
     targetURL.search = sourceURL.search;
     targetURL.hash = sourceURL.hash;
 
-    return [targetURL, targetURL.toString()];
+    return targetURL.toString();
 }

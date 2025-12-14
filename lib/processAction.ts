@@ -51,6 +51,8 @@ export async function processAction<
   const refs: ProblemDetailsParamsRefs = {};
   const appendProblemDetailsParam = makeAppendProblemDetails(refs);
 
+  console.log('SPEC', spec);
+
   let params: ParsedIRIValues;
   let query: ParsedIRIValues;
   let iriValues: IRIValue;
@@ -612,6 +614,7 @@ export async function processAction<
 
   for (const [paramName, value] of Object.entries(mergedValues)) {
     if (!Object.hasOwn(spec, paramName)) {
+      console.log(spec);
       throw new ProblemDetailsError(
         httpStatus || 400,
         {

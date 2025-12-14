@@ -3,7 +3,8 @@
     "outDir": "dist",
     "target": "esnext",
     "moduleResolution": "nodenext",
-    "module": "nodenext"
+    "module": "nodenext",
+    "declaration": true
   },
   "include": [
     "lib/**/*.ts"
