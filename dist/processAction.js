@@ -6,16 +6,15 @@ import { isNil } from "./utils/isNil.js";
 import { isObject } from "./utils/isObject.js";
 import { isPopulatedObject } from "./utils/isPopulatedObject.js";
 import { makeAppendProblemDetails } from "./utils/makeAppendProblemDetails.js";
-import { failsRequiredRequirement, failsTypeRequirement, failsContentTypeRequirement, failsMaxValue, failsMinValue, failValueMinLength, failValueMaxLength, failsStepValue, failsPatternValue, failsValidator, isObjectArraySpec, isObjectSpec, isArraySpec } from "./validators.js";
+import { failsRequiredRequirement, failsTypeRequirement, failsContentTypeRequirement, failsMaxValue, failsMinValue, failsValueMinLength, failsValueMaxLength, failsStepValue, failsPatternValue, failsValidator, isObjectArraySpec, isObjectSpec, isArraySpec } from "./validators.js";
 import { InvalidActionParamsError, ProblemDetailsError } from "./errors.js";
 import { alwaysArray } from "./utils/alwaysArray.js";
 export async function processAction({ iri, req, spec, state, action, }) {
     let httpStatus = null;
-    const payload = {};
-    const transformers = {};
-    const refs = {};
+    const payload = Object.create(null);
+    const transformers = Object.create(null);
+    const refs = Object.create(null);
     const appendProblemDetailsParam = makeAppendProblemDetails(refs);
-    console.log('SPEC', spec);
     let params;
     let query;
     let iriValues;
@@ -117,7 +116,7 @@ export async function processAction({ iri, req, spec, state, action, }) {
             });
             return null;
         }
-        else if (failValueMinLength(value, specValue)) {
+        else if (failsValueMinLength(value, specValue)) {
             appendProblemDetailsParam({
                 status: 400,
                 param: {
@@ -128,7 +127,7 @@ export async function processAction({ iri, req, spec, state, action, }) {
             });
             return null;
         }
-        else if (failValueMaxLength(value, specValue)) {
+        else if (failsValueMaxLength(value, specValue)) {
             appendProblemDetailsParam({
                 status: 400,
                 param: {
@@ -221,7 +220,6 @@ export async function processAction({ iri, req, spec, state, action, }) {
             return [];
         }
         if (failsTypeRequirement(parentValue, specValue)) {
-            throw new Error('Nope');
             appendProblemDetailsParam({
                 param: {
                     name: paramName,
@@ -233,7 +231,7 @@ export async function processAction({ iri, req, spec, state, action, }) {
             return null;
         }
         const arrayValue = alwaysArray(parentValue);
-        if (failValueMinLength(arrayValue, specValue)) {
+        if (failsValueMinLength(arrayValue, specValue)) {
             appendProblemDetailsParam({
                 param: {
                     name: paramName,
@@ -244,7 +242,7 @@ export async function processAction({ iri, req, spec, state, action, }) {
             });
             return null;
         }
-        else if (failValueMaxLength(arrayValue, specValue)) {
+        else if (failsValueMaxLength(arrayValue, specValue)) {
             appendProblemDetailsParam({
                 param: {
                     name: paramName,
@@ -337,7 +335,7 @@ export async function processAction({ iri, req, spec, state, action, }) {
             return null;
         }
         const arrayValue = alwaysArray(parentValue);
-        if (failValueMinLength(arrayValue, specValue)) {
+        if (failsValueMinLength(arrayValue, specValue)) {
             appendProblemDetailsParam({
                 param: {
                     name: paramName,
@@ -348,7 +346,7 @@ export async function processAction({ iri, req, spec, state, action, }) {
             });
             return null;
         }
-        else if (failValueMaxLength(arrayValue, specValue)) {
+        else if (failsValueMaxLength(arrayValue, specValue)) {
             appendProblemDetailsParam({
                 param: {
                     name: paramName,

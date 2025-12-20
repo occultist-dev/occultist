@@ -40,12 +40,12 @@ export function getRequestIRIValues<
   iri: string;
   action: ImplementedAction<State, Spec>;
 }): RequestIRIResult<Spec> {
-  const pathValues: ParsedIRIValues = {};
-  const queryValues: ParsedIRIValues = {};
+  const pathValues: ParsedIRIValues = Object.create(null);
+  const queryValues: ParsedIRIValues = Object.create(null);
   // deno-lint-ignore no-explicit-any
-  const iriValues = {} as IRIValue<any>;
+  const iriValues = Object.create(null) as IRIValue<any>;
   const urlPatternResult = action.pattern.exec(iri);
-  const pathParams = urlPatternResult?.pathname.groups || {};
+  const pathParams = urlPatternResult?.pathname.groups || Object.create(null);
   const searchParams = new URL(iri).searchParams;
 
   const valueNames = Object.values<PropertySpec>(action.spec)

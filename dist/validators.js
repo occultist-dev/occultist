@@ -20,7 +20,7 @@ export function isArraySpec(spec) {
     return !isObject(spec.properties) && Boolean(spec.multipleValues);
 }
 export function failsRequiredRequirement(value, specValue) {
-    return specValue.valueRequired && (typeof value === 'undefined' || value === null);
+    return specValue.valueRequired && value == null;
 }
 export function failsTypeRequirement(value, specValue) {
     const dataType = specValue.dataType;
@@ -107,7 +107,7 @@ export function failsPatternValue(value, specValue) {
     const regexp = new RegExp(specValue.valuePattern);
     return !regexp.test(value);
 }
-export function failValueMinLength(value, specValue) {
+export function failsValueMinLength(value, specValue) {
     if (typeof specValue.valueMinLength !== 'number') {
         return false;
     }
@@ -116,7 +116,7 @@ export function failValueMinLength(value, specValue) {
     }
     return true;
 }
-export function failValueMaxLength(value, specValue) {
+export function failsValueMaxLength(value, specValue) {
     if (typeof specValue.valueMaxLength !== 'number') {
         return false;
     }

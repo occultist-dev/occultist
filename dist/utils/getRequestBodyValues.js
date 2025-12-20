@@ -1,7 +1,7 @@
 import { ProblemDetailsError } from "../errors.js";
 import jsonld from 'jsonld';
 export async function getRequestBodyValues({ req, action, }) {
-    let bodyValues = {};
+    let bodyValues = Object.create(null);
     const contentType = req.headers.get('content-type');
     const mappedTypes = Object.entries(action.spec)
         .reduce((acc, [term, propertySpec]) => {
@@ -118,5 +118,6 @@ export async function getRequestBodyValues({ req, action, }) {
         delete compacted['@context'];
         bodyValues = compacted;
     }
+    Object.freeze(bodyValues);
     return { bodyValues };
 }

@@ -23,7 +23,7 @@ export async function getRequestBodyValues<
   req: Request,
   action: ImplementedAction<State, Spec>,
 }): Promise<RequestBodyResult> {
-  let bodyValues: BodyValue = {};
+  let bodyValues: BodyValue = Object.create(null);
   const contentType = req.headers.get('content-type');
   const mappedTypes: Record<string, {
     term: string;
@@ -150,6 +150,8 @@ export async function getRequestBodyValues<
 
     bodyValues = compacted as JSONObject;
   }
+
+  Object.freeze(bodyValues);
 
   return { bodyValues };
 }

@@ -7,7 +7,7 @@ import { isNil } from "./utils/isNil.js";
 import { isObject } from "./utils/isObject.js";
 import { isPopulatedObject } from "./utils/isPopulatedObject.js";
 import { type ProblemDetailsParamsRefs, makeAppendProblemDetails } from "./utils/makeAppendProblemDetails.js";
-import { failsRequiredRequirement, failsTypeRequirement, failsContentTypeRequirement, failsMaxValue, failsMinValue, failValueMinLength, failValueMaxLength, failsStepValue, failsPatternValue, failsValidator, isObjectArraySpec, isObjectSpec, isArraySpec } from "./validators.js";
+import { failsRequiredRequirement, failsTypeRequirement, failsContentTypeRequirement, failsMaxValue, failsMinValue, failsValueMinLength, failsValueMaxLength, failsStepValue, failsPatternValue, failsValidator, isObjectArraySpec, isObjectSpec, isArraySpec } from "./validators.js";
 import { InvalidActionParamsError, ProblemDetailsError } from "./errors.js";
 import { alwaysArray } from "./utils/alwaysArray.js";
 import type { ImplementedAction } from "./actions/types.js";
@@ -46,12 +46,10 @@ export async function processAction<
   action,
 }: ProcessActionArgs<State, Spec>): Promise<ProcessActionResult<Spec>> {
   let httpStatus: number | null = null;
-  const payload: Partial<ActionPayload<Spec>> = {};
-  const transformers: Record<string, Promise<unknown>> = {};
-  const refs: ProblemDetailsParamsRefs = {};
+  const payload: Partial<ActionPayload<Spec>> = Object.create(null);
+  const transformers: Record<string, Promise<unknown>> = Object.create(null);
+  const refs: ProblemDetailsParamsRefs = Object.create(null);
   const appendProblemDetailsParam = makeAppendProblemDetails(refs);
-
-  console.log('SPEC', spec);
 
   let params: ParsedIRIValues;
   let query: ParsedIRIValues;
@@ -181,7 +179,7 @@ export async function processAction<
       });
 
       return null;
-    } else if (failValueMinLength(value, specValue)) {
+    } else if (failsValueMinLength(value, specValue)) {
       appendProblemDetailsParam({
         status: 400,
         param: {
@@ -192,7 +190,7 @@ export async function processAction<
       });
 
       return null;
-    } else if (failValueMaxLength(value, specValue)) {
+    } else if (failsValueMaxLength(value, specValue)) {
       appendProblemDetailsParam({
         status: 400,
         param: {
@@ -303,7 +301,6 @@ export async function processAction<
     }
 
     if (failsTypeRequirement(parentValue, specValue)) {
-      throw new Error('Nope');
       appendProblemDetailsParam({
         param: {
           name: paramName,
@@ -318,7 +315,7 @@ export async function processAction<
 
     const arrayValue = alwaysArray(parentValue);
 
-    if (failValueMinLength(arrayValue, specValue)) {
+    if (failsValueMinLength(arrayValue, specValue)) {
       appendProblemDetailsParam({
         param: {
           name: paramName,
@@ -329,7 +326,7 @@ export async function processAction<
       });
 
       return null;
-    } else if (failValueMaxLength(arrayValue, specValue)) {
+    } else if (failsValueMaxLength(arrayValue, specValue)) {
       appendProblemDetailsParam({
         param: {
           name: paramName,
@@ -464,7 +461,7 @@ export async function processAction<
 
     const arrayValue = alwaysArray(parentValue);
 
-    if (failValueMinLength(arrayValue, specValue)) {
+    if (failsValueMinLength(arrayValue, specValue)) {
       appendProblemDetailsParam({
         param: {
           name: paramName,
@@ -475,7 +472,7 @@ export async function processAction<
       });
 
       return null;
-    } else if (failValueMaxLength(arrayValue, specValue)) {
+    } else if (failsValueMaxLength(arrayValue, specValue)) {
       appendProblemDetailsParam({
         param: {
           name: paramName,

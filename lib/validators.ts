@@ -36,7 +36,7 @@ export function failsRequiredRequirement(
   value: JSONValue,
   specValue: PropertySpec,
 ) {
-  return specValue.valueRequired && (typeof value === 'undefined' || value === null);
+  return specValue.valueRequired && value == null;
 }
 
 export function failsTypeRequirement(
@@ -146,7 +146,7 @@ export function failsPatternValue(value: JSONValue, specValue: PropertySpec) {
   return !regexp.test(value);
 }
 
-export function failValueMinLength(value: JSONValue, specValue: PropertySpec) {
+export function failsValueMinLength(value: JSONValue, specValue: PropertySpec) {
   if (typeof specValue.valueMinLength !== 'number') {
     return false;
   }
@@ -158,7 +158,7 @@ export function failValueMinLength(value: JSONValue, specValue: PropertySpec) {
   return true;
 }
 
-export function failValueMaxLength(value: JSONValue, specValue: PropertySpec) {
+export function failsValueMaxLength(value: JSONValue, specValue: PropertySpec) {
   if (typeof specValue.valueMaxLength !== 'number') {
     return false;
   }
@@ -184,3 +184,4 @@ export function failsValidator(
 
   return !validator(value);
 }
+

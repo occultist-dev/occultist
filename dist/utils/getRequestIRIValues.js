@@ -1,12 +1,12 @@
 import { ProblemDetailsError } from "../errors.js";
 import { getParamLocation } from "./getParamLocation.js";
 export function getRequestIRIValues({ iri, action, }) {
-    const pathValues = {};
-    const queryValues = {};
+    const pathValues = Object.create(null);
+    const queryValues = Object.create(null);
     // deno-lint-ignore no-explicit-any
-    const iriValues = {};
+    const iriValues = Object.create(null);
     const urlPatternResult = action.pattern.exec(iri);
-    const pathParams = urlPatternResult?.pathname.groups || {};
+    const pathParams = urlPatternResult?.pathname.groups || Object.create(null);
     const searchParams = new URL(iri).searchParams;
     const valueNames = Object.values(action.spec)
         .filter((specItem) => typeof specItem.valueName === 'string')

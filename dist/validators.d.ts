@@ -11,6 +11,6 @@ export declare function failsMinValue(value: JSONValue, specValue: PropertySpec)
 export declare function failsMaxValue(value: JSONValue, specValue: PropertySpec): boolean;
 export declare function failsStepValue(value: JSONValue, specValue: PropertySpec): boolean;
 export declare function failsPatternValue(value: JSONValue, specValue: PropertySpec): boolean;
-export declare function failValueMinLength(value: JSONValue, specValue: PropertySpec): boolean;
-export declare function failValueMaxLength(value: JSONValue, specValue: PropertySpec): boolean;
+export declare function failsValueMinLength(value: JSONValue, specValue: PropertySpec): boolean;
+export declare function failsValueMaxLength(value: JSONValue, specValue: PropertySpec): boolean;
 export declare function failsValidator(value: JSONValue | File, specValue: PropertySpec): boolean;
