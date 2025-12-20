@@ -131,6 +131,14 @@ export class FinalizedAction {
     url() {
         return joinPaths(this.#meta.registry.rootIRI, this.#meta.path.normalized);
     }
+    /**
+     * Retrives the handler configured for the given content type.
+     *
+     * @param contentType   The content type.
+     */
+    handlerFor(contentType) {
+        return this.#handlers.get(contentType);
+    }
     jsonld() {
         const scope = this.#meta.scope;
         return FinalizedAction.toJSONLD(this, scope);
@@ -175,13 +183,16 @@ export class FinalizedAction {
         }
         return this;
     }
-    async handleRequest(args) {
+    handleRequest(args) {
         const handler = this.#handlers.get(args.contentType);
         return this.#meta.handleRequest({
             ...args,
             spec: this.#spec,
             handler,
         });
+    }
+    perform(req) {
+        return this.#meta.perform(req);
     }
 }
 export class DefinedAction {
@@ -239,6 +250,12 @@ export class DefinedAction {
     url() {
         return '';
     }
+    /**
+     * Retrives the handler configured for the given content type.
+     *
+     * @param contentType   The content type.
+     */
+    handlerFor(_contentType) { }
     get context() {
         return getActionContext({
             spec: this.#spec,
@@ -294,6 +311,9 @@ export class DefinedAction {
             ...args,
             spec: this.#spec,
         });
+    }
+    perform(req) {
+        return this.#meta.perform(req);
     }
 }
 export class Action {
@@ -355,6 +375,12 @@ export class Action {
     url() {
         return '';
     }
+    /**
+     * Retrives the handler configured for the given content type.
+     *
+     * @param contentType   The content type.
+     */
+    handlerFor(_contentType) { }
     jsonld() {
         return Promise.resolve(null);
     }
@@ -375,6 +401,9 @@ export class Action {
             ...args,
             spec: this.#spec,
         });
+    }
+    perform(req) {
+        return this.#meta.perform(req);
     }
 }
 export class PreAction {

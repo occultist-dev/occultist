@@ -6,7 +6,7 @@ import { HandlerDefinition } from './actions.js';
 import { Path } from "./path.js";
 import type { ActionSpec, ContextState, FileValue, TransformerFn } from './spec.js';
 import type { HintArgs, ImplementedAction } from './types.js';
-import type { HTTPWriter, ResponseTypes } from "./writer.js";
+import { type HTTPWriter, type ResponseTypes } from "./writer.js";
 export declare const BeforeDefinition = 0;
 export declare const AfterDefinition = 1;
 export declare class ActionMeta<State extends ContextState = ContextState, Spec extends ActionSpec = ActionSpec> {
@@ -34,6 +34,7 @@ export declare class ActionMeta<State extends ContextState = ContextState, Spec 
      * Called when the API is defined to compute all uncomputed values.
      */
     finalize(): void;
+    perform(req: Request): Promise<Response>;
     handleRequest({ startTime, contentType, language: _language, encoding: _encoding, url, req, writer, spec, handler, }: {
         startTime: number;
         contentType?: string;

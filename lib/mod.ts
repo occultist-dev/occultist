@@ -9,6 +9,8 @@ export * from './actions/context.js';
 export * from './actions/path.js';
 export * from './actions/actions.js';
 export * from './actions/actionSets.js';
+export * from './request.js';
+export * from './actions/writer.js';
 export * from './registry.js';
 export * from './makeTypeDefs.js';
 export * from './utils/joinPaths.js';

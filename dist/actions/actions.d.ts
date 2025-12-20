@@ -55,6 +55,12 @@ export declare class FinalizedAction<State extends ContextState = ContextState, 
     get contentTypes(): string[];
     get context(): JSONObject;
     url(): string;
+    /**
+     * Retrives the handler configured for the given content type.
+     *
+     * @param contentType   The content type.
+     */
+    handlerFor(contentType: string): HandlerDefinition<State, Spec> | undefined;
     jsonld(): Promise<JSONObject | null>;
     jsonldPartial(): {
         '@type': string;
@@ -63,6 +69,7 @@ export declare class FinalizedAction<State extends ContextState = ContextState, 
     handle(contentType: string | string[], handler: HandlerFn<State, Spec> | HandlerValue): FinalizedAction<State, Spec>;
     handle(args: HandlerObj<State, Spec>): FinalizedAction<State, Spec>;
     handleRequest(args: HandleRequestArgs): Promise<ResponseTypes>;
+    perform(req: Request): Promise<Response>;
 }
 export interface Applicable<ActionType> {
     use(): ActionType;
@@ -85,6 +92,12 @@ export declare class DefinedAction<State extends ContextState = ContextState, Te
     get handlers(): HandlerDefinition<State, Spec>[];
     get contentTypes(): string[];
     url(): string;
+    /**
+     * Retrives the handler configured for the given content type.
+     *
+     * @param contentType   The content type.
+     */
+    handlerFor(_contentType: string): undefined;
     get context(): JSONLDContext;
     jsonld(): Promise<JSONObject | null>;
     jsonldPartial(): {
@@ -104,6 +117,7 @@ export declare class DefinedAction<State extends ContextState = ContextState, Te
     handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Spec>): FinalizedAction<State, Spec>;
     handle(args: HandlerObj<State, Spec>): FinalizedAction<State, Spec>;
     handleRequest(args: HandleRequestArgs): Promise<ResponseTypes>;
+    perform(req: Request): Promise<Response>;
 }
 export declare class Action<State extends ContextState = ContextState> implements Applicable<Action>, Handleable<State>, ImplementedAction<State> {
     #private;
@@ -124,6 +138,12 @@ export declare class Action<State extends ContextState = ContextState> implement
     get contentTypes(): string[];
     get context(): JSONObject;
     url(): string;
+    /**
+     * Retrives the handler configured for the given content type.
+     *
+     * @param contentType   The content type.
+     */
+    handlerFor(_contentType: string): undefined;
     jsonld(): Promise<null>;
     jsonldPartial(): {
         '@type': string;
@@ -134,6 +154,7 @@ export declare class Action<State extends ContextState = ContextState> implement
     handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State>): FinalizedAction<State>;
     handle(args: HandlerObj<State>): FinalizedAction<State>;
     handleRequest(args: HandleRequestArgs): Promise<ResponseTypes>;
+    perform(req: Request): Promise<Response>;
 }
 export declare class PreAction<State extends ContextState = ContextState> implements Applicable<Action>, Handleable<State> {
     #private;

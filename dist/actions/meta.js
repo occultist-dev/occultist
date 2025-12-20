@@ -1,8 +1,12 @@
+import { Accept } from '../accept.js';
 import { CacheMiddleware } from '../cache/cache.js';
 import { processAction } from '../processAction.js';
+import { WrappedRequest } from '../request.js';
 import { joinPaths } from '../utils/joinPaths.js';
+import { ActionSet } from './actionSets.js';
 import { CacheContext, Context } from './context.js';
 import { Path } from "./path.js";
+import { ResponseWriter } from "./writer.js";
 export const BeforeDefinition = 0;
 export const AfterDefinition = 1;
 const cacheMiddleware = new CacheMiddleware();
@@ -40,6 +44,27 @@ export class ActionMeta {
      */
     finalize() {
         this.#setAcceptCache();
+    }
+    async perform(req) {
+        const actionSet = new ActionSet(this.rootIRI, this.method, this.path.normalized, [this]);
+        const wrapped = new WrappedRequest(this.rootIRI, req);
+        const writer = new ResponseWriter();
+        const accept = Accept.from(req);
+        const url = new URL(wrapped.url);
+        const result = actionSet.matches(wrapped.method, url.pathname, accept);
+        if (result.type === 'match') {
+            const handler = this.action.handlerFor(result.contentType);
+            return this.handleRequest({
+                startTime: performance.now(),
+                contentType: result.contentType,
+                url: url.toString(),
+                req: wrapped,
+                writer,
+                spec: this.action.spec,
+                handler,
+            });
+        }
+        return new Response(null, { status: 404 });
     }
     async handleRequest({ startTime, contentType, language: _language, encoding: _encoding, url, req, writer, spec, handler, }) {
         const state = {};

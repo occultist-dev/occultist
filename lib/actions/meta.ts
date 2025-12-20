@@ -1,16 +1,19 @@
+import {Accept} from '../accept.js';
 import {CacheMiddleware} from '../cache/cache.js';
 import {CacheEntryDescriptor, CacheInstanceArgs} from '../cache/types.js';
 import {JSONValue} from '../jsonld.js';
 import {processAction} from '../processAction.js';
 import type {Registry} from '../registry.js';
+import {WrappedRequest} from '../request.js';
 import type {Scope} from "../scopes.js";
 import {joinPaths} from '../utils/joinPaths.js';
 import {HandlerDefinition} from './actions.js';
+import {ActionSet} from './actionSets.js';
 import {CacheContext, Context} from './context.js';
 import {Path} from "./path.js";
 import type {ActionSpec, ContextState, FileValue, NextFn, TransformerFn} from './spec.js';
 import type {HintArgs, ImplementedAction} from './types.js';
-import type {HTTPWriter, ResponseTypes} from "./writer.js";
+import {ResponseWriter, type HTTPWriter, type ResponseTypes} from "./writer.js";
 
 
 export const BeforeDefinition = 0;
@@ -65,6 +68,31 @@ export class ActionMeta<
    */
   finalize() {
     this.#setAcceptCache();
+  }
+
+  async perform(req: Request): Promise<Response> {
+    const actionSet = new ActionSet(this.rootIRI, this.method, this.path.normalized, [this]);
+    const wrapped = new WrappedRequest(this.rootIRI, req);
+    const writer = new ResponseWriter();
+    const accept = Accept.from(req);
+    const url = new URL(wrapped.url);
+    const result = actionSet.matches(wrapped.method, url.pathname, accept);
+
+    if (result.type === 'match') {
+      const handler = this.action.handlerFor(result.contentType);
+
+      return this.handleRequest({
+        startTime: performance.now(),
+        contentType: result.contentType,
+        url: url.toString(),
+        req: wrapped,
+        writer,
+        spec: this.action.spec,
+        handler,
+      }) as Promise<Response>;
+    }
+    
+    return new Response(null, { status: 404 });
   }
 
   async handleRequest({

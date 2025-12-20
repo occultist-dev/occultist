@@ -118,11 +118,22 @@ export interface ImplementedAction<
   readonly context: JSONObject;
 
   /**
-   * @todo
-   *
    * Creates a URL compatible with this action.
    */
   url(): string;
+    
+  /**
+   * Retrives the handler configured for the given content type.
+   *
+   * @param contentType   The content type.
+   */
+  handlerFor(contentType: string): HandlerDefinition<State, Spec> | undefined;
+
+  /**
+   * Performs this action using the given fetch Request
+   * returning a Response.
+   */
+  perform(req: Request): Promise<Response>;
 
   /**
    * @todo

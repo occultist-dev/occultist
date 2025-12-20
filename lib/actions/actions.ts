@@ -1,6 +1,7 @@
 import {CacheInstanceArgs} from '../cache/types.js';
 import type {JSONLDContext, JSONObject, TypeDef} from "../jsonld.js";
 import type {Registry} from '../registry.js';
+import {WrappedRequest} from '../request.js';
 import type {Scope} from "../scopes.js";
 import {getActionContext} from "../utils/getActionContext.js";
 import {getPropertyValueSpecifications} from "../utils/getPropertyValueSpecifications.js";
@@ -9,7 +10,7 @@ import {joinPaths} from "../utils/joinPaths.js";
 import {AfterDefinition, BeforeDefinition, type ActionMeta} from "./meta.js";
 import type {ActionSpec, ContextState} from "./spec.js";
 import type {HandlerArgs, HandleRequestArgs, HandlerFn, HandlerMeta, HandlerObj, HandlerValue, HintArgs, ImplementedAction} from './types.js';
-import {ResponseTypes} from './writer.js';
+import {ResponseTypes, ResponseWriter} from './writer.js';
 
 
 export type DefineArgs<
@@ -274,6 +275,15 @@ export class FinalizedAction<
     return joinPaths(this.#meta.registry.rootIRI, this.#meta.path.normalized);
   }
 
+  /**
+   * Retrives the handler configured for the given content type.
+   *
+   * @param contentType   The content type.
+   */
+  handlerFor(contentType: string): HandlerDefinition<State, Spec> | undefined {
+    return this.#handlers.get(contentType);
+  }
+
   jsonld(): Promise<JSONObject | null> {
     const scope = this.#meta.scope;
 
@@ -355,7 +365,7 @@ export class FinalizedAction<
     return this;
   }
 
-  async handleRequest(args: HandleRequestArgs): Promise<ResponseTypes> {
+  handleRequest(args: HandleRequestArgs): Promise<ResponseTypes> {
     const handler = this.#handlers.get(args.contentType as string);
 
     return this.#meta.handleRequest({
@@ -363,6 +373,10 @@ export class FinalizedAction<
       spec: this.#spec,
       handler,
     });
+  }
+
+  perform(req: Request): Promise<Response> {
+    return this.#meta.perform(req);
   }
 }
 
@@ -455,6 +469,13 @@ export class DefinedAction<
     return '';
   }
 
+  /**
+   * Retrives the handler configured for the given content type.
+   *
+   * @param contentType   The content type.
+   */
+  handlerFor(_contentType: string): undefined {}
+
   get context(): JSONLDContext {
     return getActionContext({
       spec: this.#spec,
@@ -533,6 +554,10 @@ export class DefinedAction<
       ...args,
       spec: this.#spec,
     });
+  }
+
+  perform(req: Request): Promise<Response> {
+    return this.#meta.perform(req);
   }
 
 }
@@ -623,6 +648,13 @@ export class Action<
     return '';
   }
 
+  /**
+   * Retrives the handler configured for the given content type.
+   *
+   * @param contentType   The content type.
+   */
+  handlerFor(_contentType: string): undefined {}
+
   jsonld(): Promise<null> {
     return Promise.resolve(null);
   }
@@ -663,6 +695,10 @@ export class Action<
       ...args,
       spec: this.#spec,
     });
+  }
+
+  perform(req: Request): Promise<Response> {
+    return this.#meta.perform(req);
   }
 
 }
