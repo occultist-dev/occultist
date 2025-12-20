@@ -7,6 +7,7 @@ export declare class FileCacheMeta implements CacheMeta {
 }
 export declare class FileSystemCacheStorage implements CacheStorage {
     #private;
+    constructor(directory: string);
     hash(key: string): string;
     get(key: string): Promise<Blob>;
     set(key: string, value: Blob): Promise<void>;

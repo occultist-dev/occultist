@@ -41,6 +41,9 @@ export class FileCacheMeta {
 export class FileSystemCacheStorage {
     #directory;
     #hashes = new Map();
+    constructor(directory) {
+        this.#directory = directory;
+    }
     hash(key) {
         let hash = this.#hashes.get(key);
         if (hash != null)

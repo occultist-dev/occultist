@@ -2,6 +2,7 @@ import {createHash} from 'node:crypto';
 import type {CacheDetails, CacheHitHandle, CacheMeta, CacheStorage, CacheMissHandle} from './types.js';
 import {FileHandle, open, readFile, writeFile, rm} from 'node:fs/promises';
 import {join} from 'node:path';
+import {dir} from 'node:console';
 
 
 
@@ -57,6 +58,10 @@ export class FileSystemCacheStorage implements CacheStorage {
 
   #directory: string;
   #hashes: Map<string, string> = new Map();
+
+  constructor(directory: string) {
+    this.#directory = directory;
+  }
   
   hash(key: string): string {
     let hash = this.#hashes.get(key);
