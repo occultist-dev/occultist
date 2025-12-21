@@ -1,8 +1,7 @@
 import {createHash} from 'node:crypto';
 import type {CacheDetails, CacheHitHandle, CacheMeta, CacheStorage, CacheMissHandle} from './types.js';
-import {FileHandle, open, readFile, writeFile, rm} from 'node:fs/promises';
+import {type FileHandle, open, readFile, writeFile, rm} from 'node:fs/promises';
 import {join} from 'node:path';
-import {dir} from 'node:console';
 
 
 

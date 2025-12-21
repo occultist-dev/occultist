@@ -1,17 +1,17 @@
-import { JsonPointer } from 'json-ptr';
-import type { JSONValue } from "./jsonld.js";
-import { getInternalName } from "./utils/getInternalName.js";
-import { type BodyValue, getRequestBodyValues } from "./utils/getRequestBodyValues.js";
-import { type IRIValue, getRequestIRIValues } from "./utils/getRequestIRIValues.js";
-import { isNil } from "./utils/isNil.js";
-import { isObject } from "./utils/isObject.js";
-import { isPopulatedObject } from "./utils/isPopulatedObject.js";
-import { type ProblemDetailsParamsRefs, makeAppendProblemDetails } from "./utils/makeAppendProblemDetails.js";
-import { failsRequiredRequirement, failsTypeRequirement, failsContentTypeRequirement, failsMaxValue, failsMinValue, failsValueMinLength, failsValueMaxLength, failsStepValue, failsPatternValue, failsValidator, isObjectArraySpec, isObjectSpec, isArraySpec } from "./validators.js";
-import { InvalidActionParamsError, ProblemDetailsError } from "./errors.js";
-import { alwaysArray } from "./utils/alwaysArray.js";
-import type { ImplementedAction } from "./actions/types.js";
-import type { ActionPayload, ActionSpec, ArraySpec, ContextState, ObjectArraySpec, ObjectSpec, ParsedIRIValues, PropertySpec, SpecValue, ValueSpec } from "./actions/spec.js";
+import { JsonPointer } from "json-ptr";
+import type { JSONValue } from "../jsonld.ts";
+import { getInternalName } from "./utils/getInternalName.ts";
+import { type BodyValue, getRequestBodyValues } from "./utils/getRequestBodyValues.ts";
+import { type IRIValue, getRequestIRIValues } from "./utils/getRequestIRIValues.ts";
+import { isNil } from "./utils/isNil.ts";
+import { isObject } from "./utils/isObject.ts";
+import { isPopulatedObject } from "./utils/isPopulatedObject.ts";
+import { type ProblemDetailsParamsRefs, makeAppendProblemDetails } from "./utils/makeAppendProblemDetails.ts";
+import { failsRequiredRequirement, failsTypeRequirement, failsContentTypeRequirement, failsMaxValue, failsMinValue, failsValueMinLength, failsValueMaxLength, failsStepValue, failsPatternValue, failsValidator, isObjectArraySpec, isObjectSpec, isArraySpec } from "./validators.ts";
+import { InvalidActionParamsError, ProblemDetailsError } from "./errors.ts";
+import { alwaysArray } from "./utils/alwaysArray.ts";
+import type { ImplementedAction } from "./actions/types.ts";
+import type { ActionPayload, ActionSpec, ArraySpec, ContextState, ObjectArraySpec, ObjectSpec, ParsedIRIValues, PropertySpec, SpecValue, ValueSpec } from "./actions/spec.ts";
 
 
 

@@ -1,16 +1,15 @@
-import {CacheInstanceArgs} from '../cache/types.js';
-import type {JSONLDContext, JSONObject, TypeDef} from "../jsonld.js";
-import type {Registry} from '../registry.js';
-import {WrappedRequest} from '../request.js';
-import type {Scope} from "../scopes.js";
-import {getActionContext} from "../utils/getActionContext.js";
-import {getPropertyValueSpecifications} from "../utils/getPropertyValueSpecifications.js";
-import {isPopulatedObject} from '../utils/isPopulatedObject.js';
-import {joinPaths} from "../utils/joinPaths.js";
-import {AfterDefinition, BeforeDefinition, type ActionMeta} from "./meta.js";
-import type {ActionSpec, ContextState} from "./spec.js";
-import type {HandlerArgs, HandleRequestArgs, HandlerFn, HandlerMeta, HandlerObj, HandlerValue, HintArgs, ImplementedAction} from './types.js';
-import {ResponseTypes, ResponseWriter} from './writer.js';
+import type {CacheInstanceArgs} from '../cache/types.ts';
+import type {JSONLDContext, JSONObject, TypeDef} from "../jsonld.ts";
+import type {Registry} from '../registry.ts';
+import type {Scope} from "../scopes.ts";
+import {getActionContext} from "../utils/getActionContext.ts";
+import {getPropertyValueSpecifications} from "../utils/getPropertyValueSpecifications.ts";
+import {isPopulatedObject} from '../utils/isPopulatedObject.ts';
+import {joinPaths} from "../utils/joinPaths.ts";
+import {AfterDefinition, BeforeDefinition, type ActionMeta} from "./meta.ts";
+import type {ActionSpec, ContextState} from "./spec.ts";
+import type {AuthMiddleware, AuthState, HandleRequestArgs, HandlerFn, HandlerMeta, HandlerObj, HandlerValue, HintArgs, ImplementedAction} from './types.ts';
+import {type ResponseTypes} from './writer.ts';
 
 
 export type DefineArgs<
@@ -24,8 +23,9 @@ export type DefineArgs<
 
 function isHandlerObj<
   State extends ContextState = ContextState,
+  Auth extends AuthState = AuthState,
   Spec extends ActionSpec = ActionSpec
->(handler: unknown): handler is HandlerObj<State, Spec> {
+>(handler: unknown): handler is HandlerObj<State, Auth, Spec> {
   return isPopulatedObject(handler);
 }
 
@@ -35,13 +35,14 @@ function isHandlerObj<
  */
 export class HandlerDefinition<
   State extends ContextState = ContextState,
+  Auth extends AuthState = AuthState,
   Spec extends ActionSpec = ActionSpec,
 > {
   name: string;
   contentType: string;
   handler: HandlerFn | HandlerValue;
   meta: HandlerMeta;
-  action: ImplementedAction<State, Spec>;
+  action: ImplementedAction<State, Auth, Spec>;
   cache: ReadonlyArray<CacheInstanceArgs>;
   
   constructor(
@@ -49,7 +50,7 @@ export class HandlerDefinition<
     contentType: string,
     handler: HandlerFn | HandlerValue,
     meta: HandlerMeta,
-    action: ImplementedAction<State, Spec>,
+    action: ImplementedAction<State, Auth, Spec>,
     actionMeta: ActionMeta,
   ) {
     this.name = name;
@@ -76,6 +77,7 @@ export class HandlerDefinition<
 
 export interface Handleable<
   State extends ContextState = ContextState,
+  Auth extends AuthState = AuthState,
   Spec extends ActionSpec = ActionSpec,
 > {
   
@@ -87,39 +89,40 @@ export interface Handleable<
    */
   handle(
     contentType: string | string[],
-    handler: HandlerValue | HandlerFn<State, Spec>,
-  ): FinalizedAction<State, Spec>;
+    handler: HandlerValue | HandlerFn<State, Auth, Spec>,
+  ): FinalizedAction<State, Auth, Spec>;
 
   handle(
-    args: HandlerObj<State, Spec>,
-  ): FinalizedAction<State, Spec>;
+    args: HandlerObj<State, Auth, Spec>,
+  ): FinalizedAction<State, Auth, Spec>;
 }
 
 export class FinalizedAction<
   State extends ContextState = ContextState,
+  Auth extends AuthState = AuthState,
   Spec extends ActionSpec = ActionSpec,
 > implements
-  Handleable<State, Spec>,
-  ImplementedAction<State, Spec>
+  Handleable<State, Auth, Spec>,
+  ImplementedAction<State, Auth, Spec>
 {
   #spec: Spec;
-  #meta: ActionMeta<State, Spec>;
+  #meta: ActionMeta<State, Auth, Spec>;
   #typeDef?: TypeDef;
-  #handlers: Map<string, HandlerDefinition<State, Spec>>;
+  #handlers: Map<string, HandlerDefinition<State, Auth, Spec>>;
 
   constructor(
     typeDef: TypeDef | undefined,
     spec: Spec,
-    meta: ActionMeta<State, Spec>,
-    handlerArgs: HandlerObj<State, Spec>,
+    meta: ActionMeta<State, Auth, Spec>,
+    handlerArgs: HandlerObj<State, Auth, Spec>,
   ) {
     this.#typeDef = typeDef;
     this.#spec = spec ?? {} as Spec;
     this.#meta = meta;
 
-    this.#meta.action = this as unknown as ImplementedAction<State, Spec>;
+    this.#meta.action = this as unknown as ImplementedAction<State, Auth, Spec>;
 
-    const handlers: Map<string, HandlerDefinition<State, Spec>> = new Map();
+    const handlers: Map<string, HandlerDefinition<State, Auth, Spec>> = new Map();
 
     if (typeof handlerArgs.contentType === 'string') {
       handlers.set(handlerArgs.contentType, new HandlerDefinition(
@@ -127,7 +130,7 @@ export class FinalizedAction<
         handlerArgs.contentType,
         handlerArgs.handler,
         handlerArgs.meta,
-        this as unknown as ImplementedAction<State, Spec>,
+        this as unknown as ImplementedAction<State, Auth, Spec>,
         this.#meta,
       ));
     } else if (isPopulatedObject(handlerArgs)) {
@@ -137,7 +140,7 @@ export class FinalizedAction<
           handlerArgs.contentType[i],
           handlerArgs.handler,
           handlerArgs.meta,
-          this as unknown as ImplementedAction<State, Spec>,
+          this as unknown as ImplementedAction<State, Auth, Spec>,
           this.#meta,
         ));
       }
@@ -148,37 +151,40 @@ export class FinalizedAction<
 
   static fromHandlers<
     State extends ContextState = ContextState,
+    Auth extends AuthState = AuthState,
     Spec extends ActionSpec = ActionSpec,
   >(
     typeDef: TypeDef | undefined,
     spec: Spec,
-    meta: ActionMeta<State, Spec>,
+    meta: ActionMeta<State, Auth, Spec>,
     contextType: string | string[],
-    handler: HandlerValue | HandlerFn<State, Spec>,
-  ): FinalizedAction<State, Spec>;
+    handler: HandlerValue | HandlerFn<State, Auth, Spec>,
+  ): FinalizedAction<State, Auth, Spec>;
 
   static fromHandlers<
     State extends ContextState = ContextState,
+    Auth extends AuthState = AuthState,
     Spec extends ActionSpec = ActionSpec,
   >(
     typeDef: TypeDef | undefined,
     spec: Spec,
-    meta: ActionMeta<State, Spec>,
-    handlerArgs: HandlerObj<State, Spec>,
-  ): FinalizedAction<State, Spec>;
+    meta: ActionMeta<State, Auth, Spec>,
+    handlerArgs: HandlerObj<State, Auth, Spec>,
+  ): FinalizedAction<State, Auth, Spec>;
 
   static fromHandlers<
     State extends ContextState = ContextState,
+    Auth extends AuthState = AuthState,
     Spec extends ActionSpec = ActionSpec,
   >(
     typeDef: TypeDef | undefined,
     spec: Spec,
-    meta: ActionMeta<State, Spec>,
-    arg3: string | string[] | HandlerObj<State, Spec>,
-    arg4?: HandlerValue | HandlerFn<State, Spec>,
-  ): FinalizedAction<State, Spec> {
+    meta: ActionMeta<State, Auth, Spec>,
+    arg3: string | string[] | HandlerObj<State, Auth, Spec>,
+    arg4?: HandlerValue | HandlerFn<State, Auth, Spec>,
+  ): FinalizedAction<State, Auth, Spec> {
     if (Array.isArray(arg3) || typeof arg3 === 'string') {
-      return new FinalizedAction<State, Spec>(typeDef, spec, meta, {
+      return new FinalizedAction<State, Auth, Spec>(typeDef, spec, meta, {
         contentType: arg3,
         handler: arg4,
       });
@@ -255,7 +261,7 @@ export class FinalizedAction<
     return this.#meta.registry;
   }
   
-  get handlers(): HandlerDefinition<State, Spec>[] {
+  get handlers(): HandlerDefinition<State, Auth, Spec>[] {
     return Array.from(this.#handlers.values());
   }
 
@@ -280,7 +286,7 @@ export class FinalizedAction<
    *
    * @param contentType   The content type.
    */
-  handlerFor(contentType: string): HandlerDefinition<State, Spec> | undefined {
+  handlerFor(contentType: string): HandlerDefinition<State, Auth, Spec> | undefined {
     return this.#handlers.get(contentType);
   }
 
@@ -309,19 +315,19 @@ export class FinalizedAction<
 
   handle(
     contentType: string | string[],
-    handler: HandlerFn<State, Spec> | HandlerValue,
-  ): FinalizedAction<State, Spec>;
+    handler: HandlerFn<State, Auth, Spec> | HandlerValue,
+  ): FinalizedAction<State, Auth, Spec>;
 
   handle(
-    args: HandlerObj<State, Spec>,
-  ): FinalizedAction<State, Spec>;
+    args: HandlerObj<State, Auth, Spec>,
+  ): FinalizedAction<State, Auth, Spec>;
   
   handle(
-    arg1: string | string[] | HandlerObj<State, Spec>,
-    arg2?: HandlerFn<State, Spec>,
-  ): FinalizedAction<State, Spec> {
+    arg1: string | string[] | HandlerObj<State, Auth, Spec>,
+    arg2?: HandlerFn<State, Auth, Spec>,
+  ): FinalizedAction<State, Auth, Spec> {
     let contentType: string | string[];
-    let handler: HandlerFn<State, Spec> | HandlerValue;
+    let handler: HandlerFn<State, Auth, Spec> | HandlerValue;
     let meta: HandlerMeta;
 
     if (isHandlerObj(arg1)) {
@@ -346,7 +352,7 @@ export class FinalizedAction<
         contentType,
         handler,
         meta,
-        this as unknown as ImplementedAction<State, Spec>,
+        this as unknown as ImplementedAction<State, Auth, Spec>,
         this.#meta,
       ));
     } else {
@@ -356,7 +362,7 @@ export class FinalizedAction<
           contentType[i],
           handler,
           meta,
-          this as unknown as ImplementedAction<State, Spec>,
+          this as unknown as ImplementedAction<State, Auth, Spec>,
           this.#meta,
         ));
       }
@@ -386,27 +392,28 @@ export interface Applicable<ActionType> {
 
 export class DefinedAction<
   State extends ContextState = ContextState,
+  Auth extends AuthState = AuthState,
   Term extends string = string,
   Spec extends ActionSpec = ActionSpec,
 > implements
-  Applicable<DefinedAction<State, Term, Spec>>,
-  Handleable<State, Spec>,
-  ImplementedAction<State, Spec>
+  Applicable<DefinedAction<State, Auth, Term, Spec>>,
+  Handleable<State, Auth, Spec>,
+  ImplementedAction<State, Auth, Spec>
 {
   #spec: Spec;
-  #meta: ActionMeta<State, Spec>;
+  #meta: ActionMeta<State, Auth, Spec>;
   #typeDef?: TypeDef;
 
   constructor(
     typeDef: TypeDef | undefined,
     spec: Spec,
-    meta: ActionMeta<State, Spec>,
+    meta: ActionMeta<State, Auth, Spec>,
   ) {
     this.#spec = spec ?? {} as Spec;
     this.#meta = meta;
     this.#typeDef = typeDef;
 
-    this.#meta.action = this as unknown as ImplementedAction<State, Spec>;
+    this.#meta.action = this as unknown as ImplementedAction<State, Auth, Spec>;
   }
 
   get public(): boolean {
@@ -457,7 +464,7 @@ export class DefinedAction<
     return this.#meta.registry;
   }
 
-  get handlers(): HandlerDefinition<State, Spec>[] {
+  get handlers(): HandlerDefinition<State, Auth, Spec>[] {
     return [];
   }
 
@@ -537,15 +544,15 @@ export class DefinedAction<
     return this;
   }
   
-  handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Spec>): FinalizedAction<State, Spec>;
-  handle(args: HandlerObj<State, Spec>): FinalizedAction<State, Spec>;
-  handle(arg1: unknown, arg2?: unknown): FinalizedAction<State, Spec> {
+  handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
+  handle(args: HandlerObj<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
+  handle(arg1: unknown, arg2?: unknown): FinalizedAction<State, Auth, Spec> {
     return FinalizedAction.fromHandlers(
       this.#typeDef,
       this.#spec,
       this.#meta,
       arg1 as string | string[],
-      arg2 as HandlerFn<State, Spec>,
+      arg2 as HandlerFn<State, Auth, Spec>,
     );
   }
 
@@ -564,6 +571,7 @@ export class DefinedAction<
 
 export class Action<
   State extends ContextState = ContextState,
+  Auth extends AuthState = AuthState,
 > implements
   Applicable<Action>,
   Handleable<State>,
@@ -674,7 +682,7 @@ export class Action<
     return new DefinedAction<State, Term, Spec>(
       args.typeDef,
       args.spec ?? {} as Spec,
-      this.#meta as unknown as ActionMeta<State, Spec>,
+      this.#meta as unknown as ActionMeta<State, Auth, Spec>,
     );
   }
   
@@ -705,9 +713,10 @@ export class Action<
 
 export class PreAction<
   State extends ContextState = ContextState,
+  Auth extends AuthState = AuthState,
 > implements
   Applicable<Action>,
-  Handleable<State>
+  Handleable<State, Auth>
 {
   #meta: ActionMeta<State>;
 
@@ -730,13 +739,13 @@ export class PreAction<
     return new DefinedAction<State, Term, Spec>(
       args.typeDef,
       args.spec,
-      this.#meta as unknown as ActionMeta<State, Spec>,
+      this.#meta as unknown as ActionMeta<State, Auth, Spec>,
     );
   }
   
-  handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State>): FinalizedAction<State>;
-  handle(args: HandlerObj<State>): FinalizedAction<State>;
-  handle(arg1: unknown, arg2?: unknown): FinalizedAction<State> {
+  handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Auth>): FinalizedAction<State, Auth>;
+  handle(args: HandlerObj<State>): FinalizedAction<State, Auth>;
+  handle(arg1: unknown, arg2?: unknown): FinalizedAction<State, Auth> {
     return FinalizedAction.fromHandlers(
       null,
       {},
@@ -749,29 +758,30 @@ export class PreAction<
 
 export class Endpoint<
   State extends ContextState = ContextState,
+  Auth extends AuthState = AuthState,
 > implements
   Applicable<Action>,
-  Handleable<State>
+  Handleable<State, Auth>
 {
-  #meta: ActionMeta<State>;
+  #meta: ActionMeta<State, Auth>;
 
   constructor(
-    meta: ActionMeta<State>,
+    meta: ActionMeta<State, Auth>,
   ) {
     this.#meta = meta;
   }
   
-  hint(hints: HintArgs): Endpoint<State> {
+  hint(hints: HintArgs): Endpoint<State, Auth> {
     this.#meta.hints.push(hints);
 
     return this;
   }
 
-  compress(): Endpoint<State> {
+  compress(): Endpoint<State, Auth> {
     return this;
   }
   
-  cache(args: CacheInstanceArgs) {
+  cache(args: CacheInstanceArgs): Endpoint<State, Auth> {
     this.#meta.cache.push(args);
 
     return this;
@@ -781,30 +791,30 @@ export class Endpoint<
     return this;
   }
 
-  use(): Action<State> {
-    return new Action<State>(this.#meta);
+  use(): Action<State, Auth> {
+    return new Action<State, Auth>(this.#meta);
   }
 
   define<
     Term extends string = string,
     Spec extends ActionSpec = ActionSpec,
-  >(args: DefineArgs<Term, Spec>): DefinedAction<State, Term, Spec> {
-    return new DefinedAction<State, Term, Spec>(
+  >(args: DefineArgs<Term, Spec>): DefinedAction<State, Auth, Term, Spec> {
+    return new DefinedAction<State, Auth, Term, Spec>(
       args.typeDef,
       args.spec,
-      this.#meta as ActionMeta<State, Spec>,
+      this.#meta as ActionMeta<State, Auth, Spec>,
     );
   }
 
-  handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State>): FinalizedAction<State>;
-  handle(args: HandlerObj<State>): FinalizedAction<State>;
-  handle(arg1: unknown, arg2?: unknown): FinalizedAction<State> {
+  handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State>): FinalizedAction<State, Auth>;
+  handle(args: HandlerObj<State, Auth>): FinalizedAction<State, Auth>;
+  handle(arg1: unknown, arg2?: unknown): FinalizedAction<State, Auth> {
     return FinalizedAction.fromHandlers(
       undefined,
       {},
       this.#meta,
       arg1 as string | string[],
-      arg2 as HandlerFn<State>,
+      arg2 as HandlerFn<State, Auth>,
     );
   }
 }
@@ -818,14 +828,27 @@ export class ActionAuth<
     this.#meta = meta;
   }
 
-  public(): Endpoint<State> {
+  public<
+    Auth extends AuthState = AuthState,
+  >(authMiddleware?: AuthMiddleware<Auth>): Endpoint<State, Auth> {
+    if (authMiddleware != null && typeof authMiddleware !== 'function')
+      throw new Error('Public action given invalid auth middleware');
+
     this.#meta.public = true;
-    
-    return new Endpoint(this.#meta);
+    this.#meta.auth = authMiddleware;
+
+    return new Endpoint(this.#meta as ActionMeta<State, Auth>);
   }
 
-  private(): Endpoint<State> {
-    return new Endpoint(this.#meta);
+  private<
+    Auth extends AuthState = AuthState,
+  >(authMiddleware: AuthMiddleware<Auth>): Endpoint<State, Auth> {
+    if (typeof authMiddleware !== 'function')
+      throw new Error('Private action given invalid auth middleware');
+
+    this.#meta.auth = authMiddleware;
+
+    return new Endpoint(this.#meta as ActionMeta<State, Auth>);
   }
 }
 

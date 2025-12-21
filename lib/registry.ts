@@ -1,15 +1,15 @@
-import { Accept } from "./accept.js";
-import { ActionAuth, HandlerDefinition } from "./actions/actions.js";
-import { type ActionMatchResult, ActionSet } from "./actions/actionSets.js";
-import { ActionMeta } from "./actions/meta.js";
-import type { ImplementedAction } from "./actions/types.js";
-import { ResponseWriter } from "./actions/writer.js";
-import { Scope } from './scopes.js';
+import { Accept } from "./accept.ts";
+import { ActionAuth, HandlerDefinition } from "./actions/actions.ts";
+import { type ActionMatchResult, ActionSet } from "./actions/actionSets.ts";
+import { ActionMeta } from "./actions/meta.ts";
+import type { CacheHitHeader, ImplementedAction } from "./actions/types.ts";
+import { ResponseWriter } from "./actions/writer.ts";
+import { Scope } from './scopes.ts';
 import { IncomingMessage, type ServerResponse } from "node:http";
-import type { Merge } from "./actions/spec.js";
-import type { ContextState, Middleware } from "./actions/spec.js";
-import {ProblemDetailsError} from "./errors.js"
-import {WrappedRequest} from "./request.js";
+import type { Merge } from "./actions/spec.ts";
+import type { ContextState, Middleware } from "./actions/spec.ts";
+import {ProblemDetailsError} from "./errors.ts"
+import {WrappedRequest} from "./request.ts";
 
 
 export interface Callable<
@@ -26,10 +26,6 @@ export class HTTP<
 
   constructor(callable: Callable<State>) {
     this.#callable = callable;
-  }
-
-  trace(name: string, path: string): ActionAuth<State> {
-    return this.#callable.method('trace', name, path);
   }
 
   options(name: string, path: string): ActionAuth<State> {
@@ -58,6 +54,10 @@ export class HTTP<
 
   delete(name: string, path: string): ActionAuth<State> {
     return this.#callable.method('delete', name, path);
+  }
+
+  query(name: string, path: string): ActionAuth<State> {
+    return this.#callable.method('query', name, path);
   }
 
 }
@@ -97,6 +97,11 @@ export type RegistryEvents =
 export type RegistryArgs = {
   rootIRI: string;
   serverTiming?: boolean;
+
+  /**
+   * A header to set if cache is hit when handling this request.
+   */
+  cacheHitHeader?: CacheHitHeader;
 };
 
 export class Registry<
@@ -107,6 +112,7 @@ export class Registry<
   #path: string;
   #rootIRI: string;
   #serverTiming: boolean;
+  #cacheHitHeader: CacheHitHeader;
   #http: HTTP<State>;
   #scopes: Scope[] = [];
   #children: ActionMeta[] = [];
@@ -123,6 +129,7 @@ export class Registry<
     this.#rootIRI = args.rootIRI;
     this.#path = url.pathname;
     this.#serverTiming = args.serverTiming ?? false;
+    this.#cacheHitHeader = args.cacheHitHeader ?? false;
     this.#http = new HTTP<State>(this);
   }
 
@@ -395,6 +402,10 @@ export class Registry<
     req: Request | IncomingMessage,
     res?: ServerResponse,
   ): Promise<Response | ServerResponse> {
+    if (!this.#finalized) {
+      this.finalize();
+    }
+
     const startTime = performance.now();
     const wrapped = new WrappedRequest(this.#rootIRI, req);
     const writer = new ResponseWriter(res);
@@ -415,12 +426,14 @@ export class Registry<
           req: wrapped,
           writer,
           startTime,
+          cacheHitHeader: this.#cacheHitHeader,
         });
       }
     } catch (err2) {
       if (err2 instanceof ProblemDetailsError) {
         err = err2;
       } else {
+        console.log(err2);
         err = new ProblemDetailsError(500, 'Internal server error');
       }
     }
@@ -430,17 +443,17 @@ export class Registry<
     }
       
     if (err instanceof ProblemDetailsError && req instanceof Request) {
-      return new Response(err.toContent('application/problem+json'), {
+      return new Response(err.toContent('application/problem.json'), {
         status: err.status,
         headers: {
-          'Content-Type': 'application/problem+json',
+          'Content-Type': 'application/problem.json',
         },
       });
     } else if (err instanceof ProblemDetailsError && res != null) {
       res.writeHead(err.status, {
-        'Content-Type': 'application/problem+json',
+        'Content-Type': 'application/problem.json',
       });
-      res.end(err.toContent('application/problem+json'));
+      res.end(err.toContent('application/problem.json'));
       return res;
     }
   }

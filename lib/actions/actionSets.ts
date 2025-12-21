@@ -1,7 +1,7 @@
-import { ContentTypeCache, type Accept } from "../accept.js";
-import { makeURLPattern } from "../utils/makeURLPattern.js";
-import type { ActionMeta } from "./meta.js";
-import type { ImplementedAction } from "./types.js";
+import { ContentTypeCache, type Accept } from "../accept.ts";
+import { makeURLPattern } from "../utils/makeURLPattern.ts";
+import type { ActionMeta } from "./meta.ts";
+import type { ImplementedAction } from "./types.ts";
 
 
 export type UnsupportedContentTypeMatch = {

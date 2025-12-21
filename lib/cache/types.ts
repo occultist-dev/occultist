@@ -1,5 +1,5 @@
-import {ImplementedAction} from "../actions/types.js";
-import {CacheContext} from "../mod.js";
+import type {AuthState, ImplementedAction} from "../actions/types.ts";
+import type {CacheContext} from "../mod.ts";
 
 export type CacheStrategyType =
   | 'http'
@@ -7,15 +7,28 @@ export type CacheStrategyType =
   | 'store'
 ;
 
+export type CacheSemantics =
+  | 'options'
+  | 'head'
+  | 'get'
+  | 'post'
+  | 'put'
+  | 'delete'
+  | 'query'
+;
+
 export interface CacheEntryDescriptor {
   contentType: string;
+  semantics: CacheSemantics;
   action: ImplementedAction;
   request: Request;
   args: CacheInstanceArgs;
 };
 
-export type CacheWhenFn = (
-  ctx: CacheContext,
+export type CacheWhenFn<
+  Auth extends AuthState = AuthState,
+> = (
+  ctx: CacheContext<Auth>,
 ) => boolean;
 
 export type CacheRuleArgs = {
@@ -37,6 +50,11 @@ export type CacheRuleArgs = {
   varyOnCapabilities?: string | string[];
 
   /**
+   * Overrides the semantics of the cache.
+   */
+  semantics?: CacheSemantics;
+
+  /**
    * Defaults to false when a querystring is present
    * or the request is authenticated.
    *
@@ -47,7 +65,7 @@ export type CacheRuleArgs = {
 
 export type CacheControlArgs = {
   private?: boolean;
-  public?: true;
+  publicWhenAuthenticated?: true;
   noCache?: true;
   noStore?: true;
   mustRevalidate?: true;
@@ -62,7 +80,6 @@ export type CacheControlArgs = {
 
 export type CacheHTTPArgs =
   & {
-    strategy: 'http';
     strong?: undefined;
     fromRequest?: undefined;
   }
@@ -77,7 +94,6 @@ export type CacheHTTPInstanceArgs =
 
 export type CacheETagArgs =
   & {
-    strategy: 'etag';
     strong?: boolean;
     fromRequest?: boolean;
     etag?: undefined;
@@ -88,12 +104,11 @@ export type CacheETagArgs =
 
 export type CacheETagInstanceArgs =
   & CacheETagArgs
-  & { stratey: 'etag', cache: CacheBuilder }
+  & { strategy: 'etag', cache: CacheBuilder }
 ;
 
 export type CacheStoreArgs =
   & {
-    strategy: 'store';
     strong?: boolean;
     fromRequest?: boolean;
     etag?: undefined;
@@ -183,6 +198,14 @@ export interface CacheMeta {
    * @param key   A unique key for this representation.
    */
   getOrLock?(key: string): Promise<CacheHitHandle | LockedCacheMissHandle>;
+
+  /**
+   * Deletes an item.
+   *
+   * @param key The cache key of the item to delete.
+   */
+  invalidate(key: string): void | Promise<void>;
+
 }
 
 export interface UpstreamCache {
@@ -200,6 +223,7 @@ export interface UpstreamCache {
    * Invalidates a representation in the upstream cache.
    */
   invalidate(url: string): Promise<void>;
+
 };
 
 export interface CacheStorage {
@@ -215,7 +239,7 @@ export interface CacheStorage {
   set(key: string, data: Blob): void | Promise<void>;
 
   /**
-   * Invalidates a cache entry.
+   * Deletes a cache entry.
    */
   invalidate(key: string): void | Promise<void>;
 };
@@ -233,7 +257,10 @@ export interface CacheBuilder {
 
   store(args?: CacheStoreArgs): CacheInstanceArgs;
 
-  invalidate?(request: Request): Promise<void>;
+  /**
+   * Removes an item from the cache.
+   */
+  invalidate(key: string, url: string): void | Promise<void>;
 
   push?(request: Request): Promise<void>;
 }

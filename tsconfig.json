@@ -1,12 +1,19 @@
 {
   "compilerOptions": {
-    "outDir": "dist",
-    "target": "esnext",
+    "rootDir": ".",
+    "noEmit": true,
+    "declaration": true,
+    "declarationDir": "./dist",
+    "target": "es2024",
     "moduleResolution": "nodenext",
     "module": "nodenext",
-    "declaration": true
+    "allowImportingTsExtensions": true
   },
   "include": [
-    "lib/**/*.ts"
+    "lib/**/*.ts",
+    "test/**/*.ts"
+  ],
+  "exclude": [
+    "test/cache"
   ]
 }

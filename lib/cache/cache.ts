@@ -1,8 +1,17 @@
 import {createHash} from 'node:crypto';
-import {CacheContext, NextFn, Registry} from '../mod.js';
-import {EtagConditions} from './etag.js';
-import type {CacheBuilder, CacheEntryDescriptor, CacheETagArgs, CacheETagInstanceArgs, CacheHitHandle, CacheHTTPArgs, CacheHTTPInstanceArgs, CacheMeta, CacheMissHandle, CacheStorage, CacheStoreArgs, CacheStoreInstanceArgs, LockedCacheMissHandle, UpstreamCache} from './types.js';
+import {CacheContext, type NextFn, Registry} from '../mod.ts';
+import {EtagConditions} from './etag.ts';
+import type {CacheBuilder, CacheEntryDescriptor, CacheETagArgs, CacheETagInstanceArgs, CacheHitHandle, CacheHTTPArgs, CacheHTTPInstanceArgs, CacheMeta, CacheMissHandle, CacheSemantics, CacheStorage, CacheStoreArgs, CacheStoreInstanceArgs, LockedCacheMissHandle, UpstreamCache} from './types.ts';
 
+const supportedSemantics: CacheSemantics[] = [
+  'options',
+  'head',
+  'get',
+  'post',
+  'put',
+  'delete',
+  'query',
+];
 
 export class Cache implements CacheBuilder {
   #registry: Registry;
@@ -74,8 +83,16 @@ export class Cache implements CacheBuilder {
 
   }
 
-  async invalidate(_req: Request): Promise<void> {
+  async invalidate(key: string, url: string): Promise<void> {
+    const promises = [
+      this.#cacheMeta.invalidate(key),
+      this.#storage.invalidate(key),
+    ];
 
+    if (this.#upstream != null)
+      promises.push(this.upstream.invalidate(url));
+
+    await Promise.all(promises);
   }
 }
 
@@ -103,8 +120,13 @@ export class CacheMiddleware {
       return false;
     });
 
-    if (descriptor == null) {
+    if (descriptor == null || !supportedSemantics.includes(descriptor.semantics)) {
       return await next();
+    }
+
+    if (descriptor.semantics === 'put' || descriptor.semantics === 'delete') {
+      this.#useInvalidate(descriptor, ctx, next);
+      return;
     }
 
     switch (descriptor.args.strategy) {
@@ -126,22 +148,69 @@ export class CacheMiddleware {
   /**
    * @todo Implement vary rules.
    */
-  #makeKey(descriptor: CacheEntryDescriptor): string {
+  #makeKey(
+    descriptor: CacheEntryDescriptor,
+    ctx: CacheContext,
+  ): string {
+    const { authKey } = ctx;
     const { contentType } = descriptor;
     const { version } = descriptor.args;
     const { name } = descriptor.action;
     const { url } = descriptor.request;
 
-    return 'v' + (version ?? 0) + '|' + name + '|' + contentType.toLowerCase() + '|' + url.toString();
+    if (authKey == null)
+      return 'v' + (version ?? 0) + '|' + name + '|' + contentType.toLowerCase() + '|' + url.toString();
+    
+    return 'v' + (version ?? 0) + '|' + name + '|' + contentType.toLowerCase() + '|' + url.toString() + '|' + authKey;
   }
 
+
+  /**
+   * Sets response headers based of the cache args and authorization status.
+   */
   #setHeaders(
     descriptor: CacheEntryDescriptor,
     ctx: CacheContext,
   ): void {
-    const {
-      
-    } = descriptor.args;
+    const args = descriptor.args;
+    const cacheControl: string[] = [];
+
+    if (ctx.authKey != null && args.publicWhenAuthenticated) {
+      cacheControl.push('public');
+    } else if (ctx.authKey != null || args.private) {
+      cacheControl.push('private');
+    } else if (ctx.public) {
+      cacheControl.push('public');
+    }
+
+    if (cacheControl.length !== 0) {
+      ctx.headers.set('Cache-Control', cacheControl.join(', '));
+    }
+  }
+
+  /**
+   * Used for PUT and DELETE requests which should invalidate the cache
+   * when successful.
+   */
+  async #useInvalidate(
+    descriptor: CacheEntryDescriptor,
+    ctx: CacheContext,
+    next: NextFn,
+  ): Promise<void> {
+    await next();
+
+    if (ctx.status != null || ctx.status.toString()[0] !== '2') {
+      return;
+    }
+
+    const key = this.#makeKey(descriptor, ctx);
+    const args = descriptor.args;
+    const cache = args.cache;
+    
+    await cache.invalidate(
+      key,
+      ctx.url,
+    );
   }
 
   async #useHTTP(
@@ -159,9 +228,11 @@ export class CacheMiddleware {
     ctx: CacheContext,
     next: NextFn,
   ): Promise<void> {
-    const key = this.#makeKey(descriptor);
+    const key = this.#makeKey(descriptor, ctx);
     const rules = new EtagConditions(ctx.req.headers);
     const resourceState = await descriptor.args.cache.meta.get(key);
+
+    this.#setHeaders(descriptor, ctx);
 
     if (resourceState.type === 'cache-hit') {
       if (rules.ifMatch(resourceState.etag)) {
@@ -174,8 +245,6 @@ export class CacheMiddleware {
       }
     }
 
-    this.#setHeaders(descriptor, ctx);
-
     await next();
   }
 
@@ -184,50 +253,58 @@ export class CacheMiddleware {
     ctx: CacheContext,
     next: NextFn,
   ): Promise<void> {
-    const key = this.#makeKey(descriptor);
+    const key = this.#makeKey(descriptor, ctx);
     let resourceState:  CacheHitHandle | CacheMissHandle | LockedCacheMissHandle | undefined;
+    const args = descriptor.args;
+    const cache = args.cache;
 
-    if (
-      typeof descriptor.args.cache.meta.getOrLock === 'function' &&
-      descriptor.args.lock
+    this.#setHeaders(descriptor, ctx);
+
+    if (descriptor.semantics === 'get' ||
+        descriptor.semantics === 'head' ||
+        descriptor.semantics === 'options' ||
+        descriptor.semantics === 'query'
     ) {
-      try {
-        resourceState = await descriptor.args.cache.meta.getOrLock(key);
-      } catch (err) {
-        resourceState = await descriptor.args.cache.meta.get(key);
-      }
-    } else {
-      resourceState = await descriptor.args.cache.meta.get(key);
-    }
-
-    if (resourceState?.type === 'cache-hit') {
-      if (this.#isNotModified(ctx.req.headers, resourceState.etag)) {
-        ctx.hit = true;
-        ctx.status = 304;
-
-        return;
-      }
-
-      if (resourceState.hasContent) {
+      if (
+        typeof cache.meta.getOrLock === 'function' &&
+        args.lock
+      ) {
         try {
-          ctx.hit = true;
-          ctx.status = resourceState.status;
-          ctx.body = await descriptor.args.cache.storage.get(key);
+          resourceState = await cache.meta.getOrLock(key);
+        } catch (err) {
+          resourceState = await cache.meta.get(key);
+        }
+      } else {
+        resourceState = await cache.meta.get(key);
+      }
 
-          for (const [key, value] of resourceState.headers.entries()) {
-            ctx.headers.set(key, value);
-          }
+      if (resourceState?.type === 'cache-hit') {
+        if (this.#isNotModified(ctx.req.headers, resourceState.etag)) {
+          ctx.hit = true;
+          ctx.status = 304;
 
           return;
-        } catch (err) {
-          console.log(err);
+        }
+
+        if (resourceState.hasContent) {
+          try {
+            ctx.hit = true;
+            ctx.status = resourceState.status;
+            ctx.body = await cache.storage.get(key);
+
+            for (const [key, value] of resourceState.headers.entries()) {
+              ctx.headers.set(key, value);
+            }
+
+            return;
+          } catch (err) {
+            console.log(err);
+          }
         }
       }
     }
 
     try {
-      this.#setHeaders(descriptor, ctx);
-
       await next();
 
       const body = await new Response(ctx.body).blob();
@@ -236,7 +313,7 @@ export class CacheMiddleware {
       ctx.etag = etag;
       ctx.headers.set('Etag', etag);
 
-      await descriptor.args.cache.meta.set(key, {
+      await cache.meta.set(key, {
         key,
         authKey: ctx.authKey,
         iri: ctx.url,
@@ -248,7 +325,7 @@ export class CacheMiddleware {
       });
 
       if (ctx.body != null) {
-        await descriptor.args.cache.storage.set(key, body);
+        await cache.storage.set(key, body);
       }
 
       if (resourceState.type === 'locked-cache-miss') {
@@ -259,7 +336,6 @@ export class CacheMiddleware {
         ctx.hit = true;
         ctx.status = 304;
         ctx.body = null;
-        ctx.headers.delete('Etag');
         
         return;
       }
@@ -280,12 +356,14 @@ export class CacheMiddleware {
     return rules.isNotModified(etag);
   }
 
-  async #createEtag(body: Blob, weak: boolean = true): Promise<string> {
+  /**
+   * Creates a strong etag using a sha1 hashing algorithim.
+   */
+  async #createEtag(body: Blob): Promise<string> {
     const buff = await body.bytes();
     const hash = createHash('sha1').update(buff).digest('hex');
-    const quoted = `"${hash}"`;
 
-    return weak ? `W/${quoted}` : quoted;
+    return `"${hash}"`;
   }
 
 }

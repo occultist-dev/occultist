@@ -1,12 +1,12 @@
-import {
+import type {
   ArraySpec,
   ObjectArraySpec,
   ObjectSpec,
   PropertySpec,
-} from './actions/spec.js';
-import { isObject } from './utils/isObject.js';
-import { preferredMediaTypes } from './utils/preferredMediaTypes.js';
-import { JSONValue } from "./jsonld.js";
+} from './actions/spec.ts';
+import { isObject } from './utils/isObject.ts';
+import { preferredMediaTypes } from './utils/preferredMediaTypes.ts';
+import type { JSONValue } from "./jsonld.ts";
 
 
 // deno-lint-ignore no-explicit-any

@@ -1,10 +1,12 @@
-import type {CacheDetails, CacheHitHandle, CacheMeta, CacheStorage, CacheMissHandle} from './types.js';
+import {Registry} from '../registry.ts';
+import type {CacheDetails, CacheHitHandle, CacheMeta, CacheStorage, CacheMissHandle, UpstreamCache} from './types.js';
+import {Cache} from './cache.ts';
 
 
 export class InMemoryCacheMeta implements CacheMeta {
   #details: Map<string, CacheDetails> = new Map();
 
-  async get(key: string): Promise<CacheHitHandle| CacheMissHandle> {
+  get(key: string): CacheHitHandle | CacheMissHandle {
     const details = this.#details.get(key);
     async function set(details: CacheDetails) {
       this.#details.set(key, details);
@@ -24,10 +26,13 @@ export class InMemoryCacheMeta implements CacheMeta {
     };
   }
 
-  async set(key: string, details: CacheDetails) {
+  set(key: string, details: CacheDetails): void {
     this.#details.set(key, details);
   }
 
+  invalidate(key: string): void {
+    this.#details.delete(key);
+  }
 }
 
 export class InMemoryCacheStorage implements CacheStorage {
@@ -49,4 +54,13 @@ export class InMemoryCacheStorage implements CacheStorage {
 
 }
 
-
+export class InMemoryCache extends Cache {
+  constructor(registry: Registry, upstream?: UpstreamCache) {
+    super(
+      registry,
+      new InMemoryCacheMeta(),
+      new InMemoryCacheStorage(),
+      upstream,
+    );
+  }
+}

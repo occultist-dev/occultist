@@ -1,6 +1,6 @@
 import {IncomingMessage} from "node:http";
 import {Readable} from "node:stream";
-import {normalizeURL} from "./utils/normalizeURL.js";
+import {normalizeURL} from "./utils/normalizeURL.ts";
 
 
 export class WrappedRequest implements Request {

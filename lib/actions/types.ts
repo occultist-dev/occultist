@@ -7,6 +7,35 @@ import type { ServerResponse } from "node:http";
 import type { JSONObject, TypeDef } from "../jsonld.js";
 import type {HandlerDefinition} from "../mod.js";
 
+export type CacheHitHeader = boolean | string | [header: string, value: string];
+
+export type AuthState = Record<string, unknown>;
+
+/**
+ * Middleware that identifies the authenticating agent from the request
+ * and confirms they have access to the resource.
+ * 
+ * When successfully authenticated the middleware should return with
+ * an array of two values. The first being a key unique to the user, or
+ * group, which can access this resource. This key is used for varying
+ * private cache so should alway vary on the user if personalized information
+ * would be returned in the response.
+ *
+ * The second response item is optional and should be an object holding identifying
+ * information such as permissions or details of the user or group that might be used
+ * when forming the response.
+ *
+ * @param req The request.
+ */
+export type AuthMiddleware<
+  Auth extends AuthState = AuthState,
+> =  (req: Request) => 
+  | void
+  | Promise<void>
+  | [authKey: string, auth?: Auth]
+  | Promise<[authKey: string, auth?: Auth]>
+;
+
 export type HintLink = {
   href: string;
   rel?: string | string[];
@@ -57,8 +86,9 @@ export type HandlerValue = Exclude<BodyInit, ReadableStream>;
  */
 export type HandlerFn<
   State extends ContextState = ContextState,
+  Auth extends AuthState = AuthState,
   Spec extends ActionSpec = ActionSpec,
-> = (ctx: Context<State, Spec>) => void | Promise<void>;
+> = (ctx: Context<State, Auth, Spec>) => void | Promise<void>;
 
 /**
  * A handler object argument.
@@ -68,10 +98,11 @@ export type HandlerFn<
  */
 export interface HandlerObj<
   State extends ContextState = ContextState,
+  Auth extends AuthState = AuthState,
   Spec extends ActionSpec = ActionSpec,
 > {
   contentType: string | string[];
-  handler: HandlerFn<State, Spec> | HandlerValue;
+  handler: HandlerFn<State, Auth, Spec> | HandlerValue;
   meta?: HandlerMeta;
   hints?: HintArgs;
 };
@@ -81,25 +112,28 @@ export interface HandlerObj<
  */
 export type HandlerArgs<
   State extends ContextState = ContextState,
+  Auth extends AuthState = AuthState,
   Spec extends ActionSpec = ActionSpec,
 > =
   | HandlerValue
-  | HandlerFn<State, Spec>
-  | HandlerObj<State, Spec>
+  | HandlerFn<State, Auth, Spec>
+  | HandlerObj<State, Auth, Spec>
 ;
 
 export type HandleRequestArgs = {
-  startTime: number;
   contentType?: string;
   language?: string;
   encoding?: string;
   url: string;
   req: Request;
   writer: HTTPWriter;
+  startTime?: number;
+  cacheHitHeader?: CacheHitHeader;
 };
 
 export interface ImplementedAction<
   State extends ContextState = ContextState,
+  Auth extends AuthState = AuthState,
   Spec extends ActionSpec = ActionSpec,
 > {
   readonly public: boolean;
@@ -113,7 +147,7 @@ export interface ImplementedAction<
   readonly spec: Spec;
   readonly registry: Registry;
   readonly scope?: Scope;
-  readonly handlers: HandlerDefinition<State, Spec>[];
+  readonly handlers: HandlerDefinition<State, Auth, Spec>[];
   readonly contentTypes: string[];
   readonly context: JSONObject;
 
@@ -127,7 +161,7 @@ export interface ImplementedAction<
    *
    * @param contentType   The content type.
    */
-  handlerFor(contentType: string): HandlerDefinition<State, Spec> | undefined;
+  handlerFor(contentType: string): HandlerDefinition<State, Auth, Spec> | undefined;
 
   /**
    * Performs this action using the given fetch Request

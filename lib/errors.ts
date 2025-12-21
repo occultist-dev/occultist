@@ -1,4 +1,4 @@
-import {ProblemDetails} from "./types.js";
+import type {ProblemDetails} from "./types.ts";
 
 // https://datatracker.ietf.org/doc/html/rfc9457
 export class ProblemDetailsError extends Error {
