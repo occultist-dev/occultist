@@ -1,8 +1,8 @@
-import { ProblemDetailsError } from "../errors.js";
-import type { JSONValue, ContextDefinition, JSONObject } from "../jsonld.js";
-import type { ContextState, ActionSpec, PropertySpec } from "../actions/spec.js";
+import { ProblemDetailsError } from "../errors.ts";
+import type { JSONValue, ContextDefinition, JSONObject } from "../jsonld.ts";
+import type { ContextState, ActionSpec, PropertySpec } from "../actions/spec.ts";
 import jsonld from 'jsonld';
-import type { ImplementedAction } from "../actions/types.js";
+import type { ImplementedAction } from "../actions/types.ts";
 
 
 // export type BodyValue = Record<string, FileInput | FileInput[] | JSONValue>;

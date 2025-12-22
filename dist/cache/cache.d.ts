@@ -1,5 +1,5 @@
-import { CacheContext, NextFn, Registry } from '../mod.js';
-import type { CacheBuilder, CacheEntryDescriptor, CacheETagArgs, CacheETagInstanceArgs, CacheHTTPArgs, CacheHTTPInstanceArgs, CacheMeta, CacheStorage, CacheStoreArgs, CacheStoreInstanceArgs, UpstreamCache } from './types.js';
+import { CacheContext, type NextFn, Registry } from '../mod.ts';
+import type { CacheBuilder, CacheEntryDescriptor, CacheETagArgs, CacheETagInstanceArgs, CacheHTTPArgs, CacheHTTPInstanceArgs, CacheMeta, CacheStorage, CacheStoreArgs, CacheStoreInstanceArgs, UpstreamCache } from './types.ts';
 export declare class Cache implements CacheBuilder {
     #private;
     constructor(registry: Registry, cacheMeta: CacheMeta, storage: CacheStorage, upstream?: UpstreamCache);
@@ -22,7 +22,7 @@ export declare class Cache implements CacheBuilder {
      */
     store(args?: CacheStoreArgs): CacheStoreInstanceArgs;
     push(_req: Request): Promise<void>;
-    invalidate(_req: Request): Promise<void>;
+    invalidate(key: string, url: string): Promise<void>;
 }
 export declare class CacheMiddleware {
     #private;

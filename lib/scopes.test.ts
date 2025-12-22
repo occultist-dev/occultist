@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Registry } from "./registry.js";
-import { makeTypeDef, makeTypeDefs } from "./makeTypeDefs.js";
+import { Registry } from "./registry.ts";
+import { makeTypeDef, makeTypeDefs } from "./makeTypeDefs.ts";
 
 
 const typeDefs = makeTypeDefs([

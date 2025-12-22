@@ -1,7 +1,7 @@
-import type { JSONLDContext, TypeDef } from "../jsonld.js";
-import { makeTypeDef, makeTypeDefs } from "../makeTypeDefs.js";
-import { contextBuilder } from "./contextBuilder.js";
-import type { ActionSpec, PropertySpec } from '../actions/spec.js';
+import type { JSONLDContext, TypeDef } from "../jsonld.ts";
+import { makeTypeDef, makeTypeDefs } from "../makeTypeDefs.ts";
+import { contextBuilder } from "./contextBuilder.ts";
+import type { ActionSpec, PropertySpec } from '../actions/spec.ts';
 
 const defaultTypeDefs = makeTypeDefs([
   makeTypeDef({ schema: 'https://schema.org/', term: 'Entrypoint' }),

@@ -1,7 +1,7 @@
-import type { ImplementedAction } from "../actions/types.js";
-import { ProblemDetailsError } from "../errors.js";
-import type { ActionSpec, ContextState, FileSingleSpec, FileMultiSpec, BooleanSingleSpec, BooleanMultiSpec, NumberSingleSpec, NumberMultiSpec, StringSingleSpec, StringMultiSpec, ParsedIRIValues, PropertySpec } from "../actions/spec.js";
-import { getParamLocation } from "./getParamLocation.js";
+import type { ImplementedAction } from "../actions/types.ts";
+import { ProblemDetailsError } from "../errors.ts";
+import type { ActionSpec, ContextState, FileSingleSpec, FileMultiSpec, BooleanSingleSpec, BooleanMultiSpec, NumberSingleSpec, NumberMultiSpec, StringSingleSpec, StringMultiSpec, ParsedIRIValues, PropertySpec } from "../actions/spec.ts";
+import { getParamLocation } from "./getParamLocation.ts";
 
 
 export type IRIValue<

@@ -1,5 +1,5 @@
-import type { ImplementedAction } from "./actions/types.js";
-import type { ActionPayload, ActionSpec, ContextState, ParsedIRIValues } from "./actions/spec.js";
+import type { ImplementedAction } from "./actions/types.ts";
+import type { ActionPayload, ActionSpec, ContextState, ParsedIRIValues } from "./actions/spec.ts";
 export type ProcessActionArgs<State extends ContextState = ContextState, Spec extends ActionSpec<ContextState> = ActionSpec<ContextState>> = {
     iri: string;
     req: Request;

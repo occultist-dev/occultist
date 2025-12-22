@@ -1,4 +1,4 @@
-import type {ProblemDetailsParam, ProblemDetails} from '../types.js';
+import type {ProblemDetailsParam, ProblemDetails} from '../types.ts';
 
 export type AppendProblemDetails = (args: {
   status: number;

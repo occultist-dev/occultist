@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { EtagConditions } from './etag.js';
+import { EtagConditions } from "./etag.js";
 test.describe('conditions.ifMatch()', () => {
     test('returns true when the header has the value of "*" and an etag is present', () => {
         const conditions = new EtagConditions(new Headers({

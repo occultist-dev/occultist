@@ -1,13 +1,15 @@
-import { ImplementedAction } from "../actions/types.js";
-import { CacheContext } from "../mod.js";
+import type { AuthState, ImplementedAction } from "../actions/types.ts";
+import type { CacheContext } from "../mod.ts";
 export type CacheStrategyType = 'http' | 'etag' | 'store';
+export type CacheSemantics = 'options' | 'head' | 'get' | 'post' | 'put' | 'delete' | 'query';
 export interface CacheEntryDescriptor {
     contentType: string;
+    semantics: CacheSemantics;
     action: ImplementedAction;
     request: Request;
     args: CacheInstanceArgs;
 }
-export type CacheWhenFn = (ctx: CacheContext) => boolean;
+export type CacheWhenFn<Auth extends AuthState = AuthState> = (ctx: CacheContext<Auth>) => boolean;
 export type CacheRuleArgs = {
     /**
      * A version which should increment every when a new release
@@ -23,6 +25,10 @@ export type CacheRuleArgs = {
     varyOnAuth?: boolean;
     varyOnCapabilities?: string | string[];
     /**
+     * Overrides the semantics of the cache.
+     */
+    semantics?: CacheSemantics;
+    /**
      * Defaults to false when a querystring is present
      * or the request is authenticated.
      *
@@ -32,7 +38,7 @@ export type CacheRuleArgs = {
 };
 export type CacheControlArgs = {
     private?: boolean;
-    public?: true;
+    publicWhenAuthenticated?: true;
     noCache?: true;
     noStore?: true;
     mustRevalidate?: true;
@@ -45,7 +51,6 @@ export type CacheControlArgs = {
     etag?: string;
 };
 export type CacheHTTPArgs = {
-    strategy: 'http';
     strong?: undefined;
     fromRequest?: undefined;
 } & CacheRuleArgs & CacheControlArgs;
@@ -54,17 +59,15 @@ export type CacheHTTPInstanceArgs = CacheHTTPArgs & {
     cache: CacheBuilder;
 };
 export type CacheETagArgs = {
-    strategy: 'etag';
     strong?: boolean;
     fromRequest?: boolean;
     etag?: undefined;
 } & CacheRuleArgs & Omit<CacheControlArgs, 'etag'>;
 export type CacheETagInstanceArgs = CacheETagArgs & {
-    stratey: 'etag';
+    strategy: 'etag';
     cache: CacheBuilder;
 };
 export type CacheStoreArgs = {
-    strategy: 'store';
     strong?: boolean;
     fromRequest?: boolean;
     etag?: undefined;
@@ -81,7 +84,7 @@ export type CacheDetails = {
     hasContent: boolean;
     authKey: string;
     etag: string;
-    headers: Headers;
+    headers: Record<string, string | string[]>;
     contentType: string;
     contentLength?: number;
     contentEncoding?: string;
@@ -90,16 +93,16 @@ export type CacheDetails = {
 };
 export type CacheHitHandle = CacheDetails & {
     type: 'cache-hit';
-    set(details: CacheDetails): Promise<void>;
+    set(details: CacheDetails): void | Promise<void>;
 };
 export type CacheMissHandle = {
     type: 'cache-miss';
-    set(details: CacheDetails): Promise<void>;
+    set(details: CacheDetails): void | Promise<void>;
 };
 export type LockedCacheMissHandle = {
     type: 'locked-cache-miss';
-    set(details: CacheDetails): Promise<void>;
-    release(): Promise<void>;
+    set(details: CacheDetails): void | Promise<void>;
+    release(): void | Promise<void>;
 };
 /**
  * The cache meta knows how to query a storage for current freshness
@@ -114,26 +117,47 @@ export interface CacheMeta {
     /**
      * Sets the cache details for a representation.
      *
-     * @param key       A unique key for this representation.
-     * @param details   The cache details.
+     * @param key Unique key for this cached value.
+     * @param details Details of the cache to store.
      */
     set(key: string, details: CacheDetails): void | Promise<void>;
     /**
      * Retrieves the cache details of a representation.
      *
-     * @param key       A unique key for this representation.
+     * @param key Unique key for this cached value.
      */
     get(key: string): CacheHitHandle | CacheMissHandle | Promise<CacheHitHandle | CacheMissHandle>;
     /**
      * Retrieves the cache details of a representation and takes a lock
-     * for update if the representation is not current.
+     * for update if the representation is not current. All concurrent requests
+     * targeting the same cached value will wait for the cache to be populated
+     * and respond from cache. This can occur across processes if the locking
+     * mechanism allows for it.
      *
-     * Any other requests for this representation will wait for the request
-     * holding the lock to populate the cache before proceeding.
+     * This is an experimental API and its benifits are untested. APIs that
+     * have a high failure rate could see degredation in services as requests
+     * will queue to take the lock, but fail to set a new cache value causing
+     * the queued requests to continue locking.
      *
-     * @param key   A unique key for this representation.
+     * However, this could help protect downstream services from thundering herd
+     * like scenarios as only one requester will build the representation that all
+     * requesters use.
+     *
+     * @param key Unique key for this cached value.
      */
     getOrLock?(key: string): Promise<CacheHitHandle | LockedCacheMissHandle>;
+    /**
+     * Invalidates a cached value by key.
+     *
+     * @param key Unique key for this cached value.
+     */
+    invalidate(key: string): void | Promise<void>;
+    /**
+     * Flushes the entire cache of values.
+     *
+     * @param key Unique key for this cached value.
+     */
+    flush(): void | Promise<void>;
 }
 export interface UpstreamCache {
     /**
@@ -159,7 +183,7 @@ export interface CacheStorage {
      */
     set(key: string, data: Blob): void | Promise<void>;
     /**
-     * Invalidates a cache entry.
+     * Deletes a cache entry.
      */
     invalidate(key: string): void | Promise<void>;
 }
@@ -170,6 +194,9 @@ export interface CacheBuilder {
     http(args?: CacheHTTPArgs): CacheInstanceArgs;
     etag(args?: CacheETagArgs): CacheInstanceArgs;
     store(args?: CacheStoreArgs): CacheInstanceArgs;
-    invalidate?(request: Request): Promise<void>;
+    /**
+     * Removes an item from the cache.
+     */
+    invalidate(key: string, url: string): void | Promise<void>;
     push?(request: Request): Promise<void>;
 }

@@ -1,8 +1,8 @@
-import type {HandlerDefinition} from "../mod.js";
-import type {Registry} from "../registry.js";
-import type {ActionPayload, ActionSpec, ContextState, ParsedIRIValues} from "./spec.js";
-import type {ImplementedAction} from "./types.js";
-import type {ResponseBody} from "./writer.js";
+import type {HandlerDefinition} from "../mod.ts";
+import type {Registry} from "../registry.ts";
+import type {ActionPayload, ActionSpec, ContextState, ParsedIRIValues} from "./spec.ts";
+import type {AuthState, ImplementedAction} from "./types.ts";
+import type {ResponseBody} from "./writer.ts";
 
 
 class EditableContext {
@@ -12,22 +12,26 @@ class EditableContext {
   body?: ResponseBody;
 };
 
-export type CacheContextArgs = {
+export type CacheContextArgs<
+  Auth extends AuthState = AuthState,
+> = {
   req: Request;
   url: string;
   contentType: string;
   public: boolean;
   authKey?: string;
+  auth: Auth;
   handler: HandlerDefinition;
   params: ParsedIRIValues;
   query: ParsedIRIValues;
 };
 
-
 /**
  * Request context object.
  */
-export class CacheContext {
+export class CacheContext<
+  Auth extends AuthState = AuthState,
+> {
   #editable = new EditableContext();
   req: Request;
   method: string;
@@ -35,18 +39,20 @@ export class CacheContext {
   contentType: string;
   public: boolean = false
   authKey?: string;
+  auth: Auth;
   action: ImplementedAction;
   registry: Registry;
   params: ParsedIRIValues;
   query: ParsedIRIValues;
   headers: Headers = new Headers();
 
-  constructor(args: CacheContextArgs) {
+  constructor(args: CacheContextArgs<Auth>) {
     this.req = args.req;
     this.url = args.url;
     this.contentType = args.contentType;
     this.public = args.public;
     this.authKey = args.authKey;
+    this.auth = args.auth;
     this.action = args.handler.action;
     this.method = args.handler.action.method;
     this.registry = args.handler.action.registry;
@@ -96,6 +102,7 @@ export class CacheContext {
 
 export type ContextArgs<
   State extends ContextState = ContextState,
+  Auth extends AuthState = AuthState,
   Spec extends ActionSpec = ActionSpec,
 > = {
   req: Request;
@@ -103,6 +110,7 @@ export type ContextArgs<
   contentType: string;
   public: boolean;
   authKey?: string;
+  auth: Auth;
   handler: HandlerDefinition<State, Spec>;
   params: ParsedIRIValues;
   query: ParsedIRIValues;
@@ -114,6 +122,7 @@ export type ContextArgs<
  */
 export class Context<
   State extends ContextState = ContextState,
+  Auth extends AuthState = AuthState,
   Spec extends ActionSpec = ActionSpec,
 > {
   #editable = new EditableContext();
@@ -123,6 +132,7 @@ export class Context<
   contentType: string;
   public: boolean = false
   authKey?: string;
+  auth: Auth;
   state: State = {} as State;
   action: ImplementedAction<State, Spec>;
   registry: Registry;
@@ -131,12 +141,13 @@ export class Context<
   payload: ActionPayload<Spec>;
   headers: Headers = new Headers();
 
-  constructor(args: ContextArgs<State, Spec>) {
+  constructor(args: ContextArgs<State, Auth, Spec>) {
     this.req = args.req;
     this.url = args.url;
     this.contentType = args.contentType;
     this.public = args.public;
     this.authKey = args.authKey;
+    this.auth = args.auth;
     this.action = args.handler.action;
     this.method = args.handler.action.method;
     this.registry = args.handler.action.registry;
@@ -145,6 +156,7 @@ export class Context<
     this.payload = args.payload;
 
     Object.freeze(this);
+    Object.freeze(this.auth);
   }
 
   get status(): undefined | number {

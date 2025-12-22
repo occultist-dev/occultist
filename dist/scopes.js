@@ -1,7 +1,7 @@
 import { joinPaths } from "./utils/joinPaths.js";
 import { ActionAuth } from "./actions/actions.js";
 import { ActionMeta } from "./actions/meta.js";
-import { HTTP } from './registry.js';
+import { HTTP } from "./registry.js";
 export class Scope {
     #path;
     #serverTiming = false;

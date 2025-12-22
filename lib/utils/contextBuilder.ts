@@ -1,6 +1,6 @@
-import type { JSONLDContext, ContextVersion, TypeDef } from "../jsonld.js";
-import { isNil } from "./isNil.js";
-import { isPopulatedObject } from "./isPopulatedObject.js";
+import type { JSONLDContext, ContextVersion, TypeDef } from "../jsonld.ts";
+import { isNil } from "./isNil.ts";
+import { isPopulatedObject } from "./isPopulatedObject.ts";
 
 export function contextBuilder({
   vocab,

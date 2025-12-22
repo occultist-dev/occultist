@@ -1,4 +1,4 @@
-import { JsonPointer } from 'json-ptr';
+import { JsonPointer } from "json-ptr";
 import { getInternalName } from "./utils/getInternalName.js";
 import { getRequestBodyValues } from "./utils/getRequestBodyValues.js";
 import { getRequestIRIValues } from "./utils/getRequestIRIValues.js";

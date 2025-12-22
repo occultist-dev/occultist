@@ -1,4 +1,4 @@
-import { isPopulatedString } from "./isPopulatedString.js";
+import { isPopulatedString } from "./isPopulatedString.ts";
 
 export function getInternalName({
   paramName,

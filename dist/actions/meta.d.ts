@@ -1,15 +1,15 @@
-import { CacheInstanceArgs } from '../cache/types.js';
-import { JSONValue } from '../jsonld.js';
-import type { Registry } from '../registry.js';
-import type { Scope } from "../scopes.js";
-import { HandlerDefinition } from './actions.js';
-import { Path } from "./path.js";
-import type { ActionSpec, ContextState, FileValue, TransformerFn } from './spec.js';
-import type { HintArgs, ImplementedAction } from './types.js';
-import { type HTTPWriter, type ResponseTypes } from "./writer.js";
+import type { CacheInstanceArgs } from '../cache/types.ts';
+import type { JSONValue } from '../jsonld.ts';
+import type { Registry } from '../registry.ts';
+import type { Scope } from "../scopes.ts";
+import { HandlerDefinition } from './actions.ts';
+import { Path } from "./path.ts";
+import type { ActionSpec, ContextState, FileValue, TransformerFn } from './spec.ts';
+import type { AuthMiddleware, AuthState, CacheHitHeader, HintArgs, ImplementedAction } from './types.ts';
+import { type HTTPWriter, type ResponseTypes } from "./writer.ts";
 export declare const BeforeDefinition = 0;
 export declare const AfterDefinition = 1;
-export declare class ActionMeta<State extends ContextState = ContextState, Spec extends ActionSpec = ActionSpec> {
+export declare class ActionMeta<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Spec extends ActionSpec = ActionSpec> {
     #private;
     rootIRI: string;
     method: string;
@@ -27,6 +27,7 @@ export declare class ActionMeta<State extends ContextState = ContextState, Spec 
     acceptCache: Set<string>;
     compressBeforeCache: boolean;
     cacheOccurance: 0 | 1;
+    auth?: AuthMiddleware<Auth>;
     cache: CacheInstanceArgs[];
     serverTiming: boolean;
     constructor(rootIRI: string, method: string, name: string, uriTemplate: string, registry: Registry, writer: HTTPWriter, scope?: Scope);
@@ -35,8 +36,10 @@ export declare class ActionMeta<State extends ContextState = ContextState, Spec 
      */
     finalize(): void;
     perform(req: Request): Promise<Response>;
-    handleRequest({ startTime, contentType, language: _language, encoding: _encoding, url, req, writer, spec, handler, }: {
-        startTime: number;
+    /**
+     *
+     */
+    handleRequest({ contentType, url, req, writer, spec, handler, cacheHitHeader, startTime, }: {
         contentType?: string;
         language?: string;
         encoding?: string;
@@ -45,6 +48,8 @@ export declare class ActionMeta<State extends ContextState = ContextState, Spec 
         writer: HTTPWriter;
         spec?: Spec;
         handler?: HandlerDefinition<State, Spec>;
+        cacheHitHeader?: CacheHitHeader;
+        startTime?: number;
     }): Promise<ResponseTypes>;
     get [Symbol.toStringTag](): string;
 }

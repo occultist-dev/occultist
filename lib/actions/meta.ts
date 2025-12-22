@@ -1,19 +1,20 @@
-import {Accept} from '../accept.js';
-import {CacheMiddleware} from '../cache/cache.js';
-import {CacheEntryDescriptor, CacheInstanceArgs} from '../cache/types.js';
-import {JSONValue} from '../jsonld.js';
-import {processAction} from '../processAction.js';
-import type {Registry} from '../registry.js';
-import {WrappedRequest} from '../request.js';
-import type {Scope} from "../scopes.js";
-import {joinPaths} from '../utils/joinPaths.js';
-import {HandlerDefinition} from './actions.js';
-import {ActionSet} from './actionSets.js';
-import {CacheContext, Context} from './context.js';
-import {Path} from "./path.js";
-import type {ActionSpec, ContextState, FileValue, NextFn, TransformerFn} from './spec.js';
-import type {HintArgs, ImplementedAction} from './types.js';
-import {ResponseWriter, type HTTPWriter, type ResponseTypes} from "./writer.js";
+import {Accept} from '../accept.ts';
+import {CacheMiddleware} from '../cache/cache.ts';
+import type {CacheEntryDescriptor, CacheInstanceArgs, CacheSemantics} from '../cache/types.ts';
+import {ProblemDetailsError} from '../errors.ts';
+import type {JSONValue} from '../jsonld.ts';
+import {processAction, type ProcessActionResult} from '../processAction.ts';
+import type {Registry} from '../registry.ts';
+import {WrappedRequest} from '../request.ts';
+import type {Scope} from "../scopes.ts";
+import {joinPaths} from '../utils/joinPaths.ts';
+import {HandlerDefinition} from './actions.ts';
+import {ActionSet} from './actionSets.ts';
+import {CacheContext, Context} from './context.ts';
+import {Path} from "./path.ts";
+import type {ActionSpec, ContextState, FileValue, NextFn, TransformerFn} from './spec.ts';
+import type {AuthMiddleware, AuthState, CacheHitHeader, HintArgs, ImplementedAction} from './types.ts';
+import {ResponseWriter, type HTTPWriter, type ResponseTypes} from "./writer.ts";
 
 
 export const BeforeDefinition = 0;
@@ -23,6 +24,7 @@ const cacheMiddleware = new CacheMiddleware();
 
 export class ActionMeta<
   State extends ContextState = ContextState,
+  Auth extends AuthState = AuthState,
   Spec extends ActionSpec = ActionSpec,
 > {
   rootIRI: string;
@@ -41,6 +43,7 @@ export class ActionMeta<
   acceptCache = new Set<string>();
   compressBeforeCache: boolean = false;
   cacheOccurance: 0 | 1 = BeforeDefinition;
+  auth?: AuthMiddleware<Auth>;
   cache: CacheInstanceArgs[] = [];
   serverTiming: boolean = false;
 
@@ -95,18 +98,19 @@ export class ActionMeta<
     return new Response(null, { status: 404 });
   }
 
+  /**
+   *
+   */
   async handleRequest({
-    startTime,
     contentType,
-    language: _language,
-    encoding: _encoding,
     url,
     req,
     writer,
     spec,
     handler,
+    cacheHitHeader,
+    startTime,
   }: {
-    startTime: number;
     contentType?: string;
     language?: string;
     encoding?: string;
@@ -115,22 +119,28 @@ export class ActionMeta<
     writer: HTTPWriter;
     spec?: Spec;
     handler?: HandlerDefinition<State, Spec>,
+    cacheHitHeader?: CacheHitHeader;
+    startTime?: number;
   }): Promise<ResponseTypes> {
     const state: State = {} as State;
     const headers = new Headers();
-    let ctx: CacheContext | Context<State, Spec>;
-    let cacheCtx: CacheContext;
+
+    let authKey: string | undefined;
+    let auth: Auth = {} as Auth;
+    let ctx: CacheContext<Auth> | Context<State, Auth, Spec>;
+    let cacheCtx: CacheContext<Auth>;
     let prevTime = startTime;
+    let performServerTiming = this.serverTiming && startTime != null;
 
     const serverTiming = (name: string) => {
       const nextTime = performance.now();
       const duration = nextTime - prevTime;
 
-      headers.append('Server-Timing', `${name};dur=${duration.toPrecision(2)}`);
+      headers.append('Server-Timing', `${name};dur=${duration.toFixed(2)}`);
       prevTime = nextTime;
     }
 
-    if (this.serverTiming) serverTiming('enter');
+    if (performServerTiming) serverTiming('enter');
 
     // add auth check
     if (this.hints.length !== 0) {
@@ -141,72 +151,86 @@ export class ActionMeta<
 
     let next: NextFn = async () => {
       if (typeof handler.handler === 'function') {
-        await handler.handler(ctx as Context<State, Spec>);
+        await handler.handler(ctx as Context<State, Auth, Spec>);
       } else {
         ctx.status = 200;
         ctx.body = handler.handler;
       }
 
-      if (this.serverTiming) serverTiming('handle');
+      if (performServerTiming) serverTiming('handle');
     };
 
     {
       const upstream: NextFn = next;
       next = async () => {
-        const res = await processAction<State, Spec>({
-          iri: url,
-          req,
-          spec: spec ?? {} as Spec,
-          state,
-          action: this.action,
-        });
+        let processed: ProcessActionResult<Spec>;
 
-        ctx = new Context<State, Spec>({
+        if (spec != null) {
+          processed = await processAction<State, Spec>({
+            iri: url,
+            req,
+            spec: spec ?? {} as Spec,
+            state,
+            action: this.action,
+          });
+        }
+
+        ctx = new Context<State, Auth, Spec>({
           req,
           url,
           contentType,
-          public: this.public,
+          public: this.public && authKey == null,
+          auth,
+          authKey,
           handler,
-          params: res.params,
-          query: res.query,
-          payload: res.payload,
+          params: processed.params ?? {},
+          query: processed.query ?? {},
+          payload: processed.payload ?? {} as ProcessActionResult<Spec>['payload'],
         });
 
         if (contentType != null) {
           ctx.headers.set('Content-Type', contentType)
         }
 
-        if (this.serverTiming) serverTiming('payload');
+        if (performServerTiming) serverTiming('payload');
 
         await upstream();
       }
     }
 
     if (this.cache.length > 0) {
-      cacheCtx = new CacheContext({
-        req,
-        url,
-        contentType,
-        public: this.public,
-        handler,
-        params: {},
-        query: {},
-      });
-      const descriptors: CacheEntryDescriptor[] = this.cache.map(args => {
-        return {
-          contentType,
-          action: this.action as ImplementedAction,
-          request: req,
-          args,
-        };
-      });
-
       const upstream = next;
       next = async () => {
+        cacheCtx = new CacheContext({
+          req,
+          url,
+          contentType,
+          public: this.public && authKey == null,
+          auth,
+          authKey,
+          handler,
+          params: {},
+          query: {},
+        });
+        const descriptors: CacheEntryDescriptor[] = this.cache.map(args => {
+          return {
+            contentType,
+            semantics: args.semantics ?? req.method.toLowerCase() as CacheSemantics,
+            action: this.action as ImplementedAction,
+            request: req,
+            args,
+          };
+        });
+
         await cacheMiddleware.use(
           descriptors,
           cacheCtx,
           async () => {
+            // write any cache headers to the response headers.
+            // this should be reviewed as it may be unsafe to
+            // allow a handler to override these headers.
+            writer.mergeHeaders(cacheCtx.headers);
+
             // cache was not hit if in this function
             await upstream();
 
@@ -230,11 +254,44 @@ export class ActionMeta<
       }
     }
 
+    if (this.auth != null) {
+      const upstream = next;
+      next = async () => {
+        const res = await this.auth(req);
+
+        if (Array.isArray(res) &&
+            typeof res[0] === 'string' &&
+            res.length > 0) {
+          authKey = res[0];
+          auth = res[1];
+
+          await upstream();
+        } else if (this.public) {
+          await upstream();
+        } else {
+  
+          // Failed authentication on a private endpoint.
+          throw new ProblemDetailsError(404, {
+            title: 'Not found',
+          });
+        }
+      };
+    }
+
+
     try {
       await next();
 
       if (cacheCtx?.hit) {
-        if (this.serverTiming) serverTiming('hit');
+        if (performServerTiming) serverTiming('hit');
+
+        if (Array.isArray(cacheHitHeader)) {
+          cacheCtx.headers.set(cacheHitHeader[0], cacheHitHeader[1]);
+        } else if (typeof cacheHitHeader === 'string') {
+          cacheCtx.headers.set(cacheHitHeader, 'HIT');
+        } else if (cacheHitHeader) {
+          cacheCtx.headers.set('X-Cache', 'HIT');
+        }
         
         // set the ctx so the writer has access to the cached values.
         ctx = cacheCtx;

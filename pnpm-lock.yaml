@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@types/jsonld':
+        specifier: ^1.5.15
+        version: 1.5.15
       '@types/node':
         specifier: ^24.10.1
         version: 24.10.1
@@ -186,6 +189,9 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@types/jsonld@1.5.15':
+    resolution: {integrity: sha512-PlAFPZjL+AuGYmwlqwKEL0IMP8M8RexH0NIPGfCVWSQ041H2rR/8OlyZSD7KsCVoN8vCfWdtWDBxX8yBVP+xow==}
+
   '@types/node@24.10.1':
     resolution: {integrity: sha512-GNWcUTRBgIRJD5zj+Tq0fKOJ5XZajIiBroOF0yvj2bSU1WvNdYS/dn9UxwsujGW4JX06dnHyjV2y9rRaybH0iQ==}
 
@@ -319,6 +325,8 @@ snapshots:
 
   '@esbuild/win32-x64@0.27.0':
     optional: true
+
+  '@types/jsonld@1.5.15': {}
 
   '@types/node@24.10.1':
     dependencies:

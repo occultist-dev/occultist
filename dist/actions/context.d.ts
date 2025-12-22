@@ -1,14 +1,15 @@
-import type { HandlerDefinition } from "../mod.js";
-import type { Registry } from "../registry.js";
-import type { ActionPayload, ActionSpec, ContextState, ParsedIRIValues } from "./spec.js";
-import type { ImplementedAction } from "./types.js";
-import type { ResponseBody } from "./writer.js";
-export type CacheContextArgs = {
+import type { HandlerDefinition } from "../mod.ts";
+import type { Registry } from "../registry.ts";
+import type { ActionPayload, ActionSpec, ContextState, ParsedIRIValues } from "./spec.ts";
+import type { AuthState, ImplementedAction } from "./types.ts";
+import type { ResponseBody } from "./writer.ts";
+export type CacheContextArgs<Auth extends AuthState = AuthState> = {
     req: Request;
     url: string;
     contentType: string;
     public: boolean;
     authKey?: string;
+    auth: Auth;
     handler: HandlerDefinition;
     params: ParsedIRIValues;
     query: ParsedIRIValues;
@@ -16,7 +17,7 @@ export type CacheContextArgs = {
 /**
  * Request context object.
  */
-export declare class CacheContext {
+export declare class CacheContext<Auth extends AuthState = AuthState> {
     #private;
     req: Request;
     method: string;
@@ -24,12 +25,13 @@ export declare class CacheContext {
     contentType: string;
     public: boolean;
     authKey?: string;
+    auth: Auth;
     action: ImplementedAction;
     registry: Registry;
     params: ParsedIRIValues;
     query: ParsedIRIValues;
     headers: Headers;
-    constructor(args: CacheContextArgs);
+    constructor(args: CacheContextArgs<Auth>);
     get hit(): boolean;
     set hit(hit: boolean);
     get status(): undefined | number;
@@ -40,12 +42,13 @@ export declare class CacheContext {
     set etag(etag: string);
     get [Symbol.toStringTag](): string;
 }
-export type ContextArgs<State extends ContextState = ContextState, Spec extends ActionSpec = ActionSpec> = {
+export type ContextArgs<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Spec extends ActionSpec = ActionSpec> = {
     req: Request;
     url: string;
     contentType: string;
     public: boolean;
     authKey?: string;
+    auth: Auth;
     handler: HandlerDefinition<State, Spec>;
     params: ParsedIRIValues;
     query: ParsedIRIValues;
@@ -54,7 +57,7 @@ export type ContextArgs<State extends ContextState = ContextState, Spec extends 
 /**
  * Request context object.
  */
-export declare class Context<State extends ContextState = ContextState, Spec extends ActionSpec = ActionSpec> {
+export declare class Context<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Spec extends ActionSpec = ActionSpec> {
     #private;
     req: Request;
     method: string;
@@ -62,6 +65,7 @@ export declare class Context<State extends ContextState = ContextState, Spec ext
     contentType: string;
     public: boolean;
     authKey?: string;
+    auth: Auth;
     state: State;
     action: ImplementedAction<State, Spec>;
     registry: Registry;
@@ -69,7 +73,7 @@ export declare class Context<State extends ContextState = ContextState, Spec ext
     query: ParsedIRIValues;
     payload: ActionPayload<Spec>;
     headers: Headers;
-    constructor(args: ContextArgs<State, Spec>);
+    constructor(args: ContextArgs<State, Auth, Spec>);
     get status(): undefined | number;
     set status(status: number);
     get body(): undefined | ResponseBody;

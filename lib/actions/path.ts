@@ -1,4 +1,4 @@
-import { makeURLPattern } from "../utils/makeURLPattern.js";
+import { makeURLPattern } from "../utils/makeURLPattern.ts";
 
 const paramsRe = /((?<s>[^\{\}]+)|({(?<t>[\?\#])?(?<v>[^}]+)}))/g
 
