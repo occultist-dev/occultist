@@ -10,6 +10,7 @@ export class Scope {
     #http;
     #children = [];
     #public = true;
+    #auth;
     #propergateMeta;
     constructor({ path, serverTiming, registry, writer, propergateMeta, }) {
         this.#path = path;
@@ -41,12 +42,14 @@ export class Scope {
     get handlers() {
         return this.actions.flatMap((action) => action.handlers);
     }
-    public() {
+    public(authMiddleware) {
         this.#public = true;
+        this.#auth = authMiddleware;
         return this;
     }
-    private() {
+    private(authMiddleware) {
         this.#public = false;
+        this.#auth = authMiddleware;
         return this;
     }
     /**
@@ -104,14 +107,14 @@ export class Scope {
             }
             if (this.#public) {
                 this.#registry.http.get('scope-action', joinPaths(this.url(), action.name))
-                    .public()
+                    .public(this.#auth)
                     .handle('application/ld+json', async (ctx) => {
                     ctx.body = JSON.stringify(await action.jsonld());
                 });
             }
             else {
                 this.#registry.http.get('scope-action', joinPaths(this.url(), action.name))
-                    .private()
+                    .private(this.#auth)
                     .handle('application/ld+json', async (ctx) => {
                     ctx.body = JSON.stringify(await action.jsonld());
                 });

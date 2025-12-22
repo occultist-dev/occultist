@@ -154,8 +154,6 @@ export interface CacheMeta {
     invalidate(key: string): void | Promise<void>;
     /**
      * Flushes the entire cache of values.
-     *
-     * @param key Unique key for this cached value.
      */
     flush(): void | Promise<void>;
 }
@@ -186,6 +184,10 @@ export interface CacheStorage {
      * Deletes a cache entry.
      */
     invalidate(key: string): void | Promise<void>;
+    /**
+     * Flushes the entire cache of values.
+     */
+    flush(): void | Promise<void>;
 }
 export interface CacheBuilder {
     meta: CacheMeta;

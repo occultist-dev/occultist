@@ -111,9 +111,9 @@ export declare class DefinedAction<State extends ContextState = ContextState, Au
      * if validating and transforming the action payload might cause
      * auth sensitive checks to be run which might reject the request.
      */
-    cache(args: CacheInstanceArgs): DefinedAction<State, string, Spec>;
-    meta(): DefinedAction<State, string, Spec>;
-    use(): DefinedAction<State, string, Spec>;
+    cache(args: CacheInstanceArgs): DefinedAction<State, Auth, Term, Spec>;
+    meta(): DefinedAction<State, Auth, Term, Spec>;
+    use(): DefinedAction<State, Auth, Term, Spec>;
     handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
     handle(args: HandlerObj<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
     handleRequest(args: HandleRequestArgs): Promise<ResponseTypes>;
@@ -150,7 +150,7 @@ export declare class Action<State extends ContextState = ContextState, Auth exte
         '@id': string;
     } | null;
     use(): Action<State>;
-    define<Term extends string = string, Spec extends ActionSpec = ActionSpec>(args: DefineArgs<Term, Spec>): DefinedAction<State, Term, Spec>;
+    define<Auth extends AuthState = AuthState, Term extends string = string, Spec extends ActionSpec = ActionSpec>(args: DefineArgs<Term, Spec>): DefinedAction<State, Auth, Term, Spec>;
     handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State>): FinalizedAction<State>;
     handle(args: HandlerObj<State>): FinalizedAction<State>;
     handleRequest(args: HandleRequestArgs): Promise<ResponseTypes>;
@@ -158,9 +158,9 @@ export declare class Action<State extends ContextState = ContextState, Auth exte
 }
 export declare class PreAction<State extends ContextState = ContextState, Auth extends AuthState = AuthState> implements Applicable<Action>, Handleable<State, Auth> {
     #private;
-    constructor(meta: ActionMeta<State>);
+    constructor(meta: ActionMeta<State, Auth>);
     use(): Action<State, AuthState>;
-    define<Term extends string = string, Spec extends ActionSpec = ActionSpec>(args: DefineArgs<Term, Spec>): DefinedAction<State, Term, Spec>;
+    define<Term extends string = string, Spec extends ActionSpec = ActionSpec>(args: DefineArgs<Term, Spec>): DefinedAction<State, Auth, Term, Spec>;
     handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Auth>): FinalizedAction<State, Auth>;
     handle(args: HandlerObj<State>): FinalizedAction<State, Auth>;
 }

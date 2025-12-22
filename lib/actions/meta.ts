@@ -90,7 +90,7 @@ export class ActionMeta<
         url: url.toString(),
         req: wrapped,
         writer,
-        spec: this.action.spec,
+        spec: this.action.spec as Spec,
         handler,
       }) as Promise<Response>;
     }

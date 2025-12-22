@@ -1,7 +1,7 @@
 import { ActionAuth, HandlerDefinition } from "./actions/actions.ts";
 import { ActionMeta } from "./actions/meta.ts";
 import type { ContextState } from "./actions/spec.ts";
-import type { ImplementedAction } from "./actions/types.ts";
+import type { AuthMiddleware, ImplementedAction } from "./actions/types.ts";
 import type { HTTPWriter } from "./actions/writer.ts";
 import { type Callable, HTTP, type Registry } from './registry.ts';
 export type MetaPropatator = (meta: ActionMeta) => void;
@@ -20,8 +20,8 @@ export declare class Scope<State extends ContextState = ContextState> implements
     get http(): HTTP<State>;
     get actions(): Array<ImplementedAction>;
     get handlers(): HandlerDefinition[];
-    public(): Scope<State>;
-    private(): Scope<State>;
+    public(authMiddleware?: AuthMiddleware): Scope<State>;
+    private(authMiddleware: AuthMiddleware): Scope<State>;
     /**
      * Creates any HTTP method.
      *

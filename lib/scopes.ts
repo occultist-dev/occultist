@@ -2,7 +2,7 @@ import { joinPaths } from "./utils/joinPaths.ts"
 import { ActionAuth, HandlerDefinition } from "./actions/actions.ts";
 import { ActionMeta } from "./actions/meta.ts";
 import type { ContextState } from "./actions/spec.ts";
-import type { ImplementedAction } from "./actions/types.ts";
+import type { AuthMiddleware, ImplementedAction } from "./actions/types.ts";
 import type { HTTPWriter } from "./actions/writer.ts";
 import { type Callable, HTTP, type Registry } from './registry.ts';
 
@@ -28,6 +28,7 @@ export class Scope<
   #http: HTTP<State>;
   #children: Array<ActionMeta> = [];
   #public: boolean = true;
+  #auth: AuthMiddleware | undefined;
   #propergateMeta: (meta: ActionMeta) => void;
   
   constructor({
@@ -73,14 +74,16 @@ export class Scope<
     return this.actions.flatMap((action) => action.handlers);
   }
 
-  public(): Scope<State> {
+  public(authMiddleware?: AuthMiddleware): Scope<State> {
     this.#public = true;
+    this.#auth = authMiddleware;
 
     return this;
   }
 
-  private(): Scope<State> {
+  private(authMiddleware: AuthMiddleware): Scope<State> {
     this.#public = false;
+    this.#auth = authMiddleware;
 
     return this;
   }
@@ -161,13 +164,13 @@ export class Scope<
 
       if (this.#public) {
         this.#registry.http.get('scope-action', joinPaths(this.url(), action.name))
-          .public()
+          .public(this.#auth)
           .handle('application/ld+json', async (ctx) => {
             ctx.body = JSON.stringify(await action.jsonld());
           });
       } else {
         this.#registry.http.get('scope-action', joinPaths(this.url(), action.name))
-          .private()
+          .private(this.#auth)
           .handle('application/ld+json', async (ctx) => {
             ctx.body = JSON.stringify(await action.jsonld());
           });

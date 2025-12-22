@@ -1,7 +1,7 @@
 import { ProblemDetailsError } from "../errors.ts";
-import type { JSONValue, ContextDefinition, JSONObject } from "../jsonld.ts";
+import type { JSONValue, JSONObject } from "../jsonld.ts";
 import type { ContextState, ActionSpec, PropertySpec } from "../actions/spec.ts";
-import jsonld from 'jsonld';
+import jsonld, {type ContextDefinition} from 'jsonld';
 import type { ImplementedAction } from "../actions/types.ts";
 
 

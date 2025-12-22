@@ -1,5 +1,4 @@
 import { JsonPointer } from "json-ptr";
-import type { JSONValue } from "../jsonld.ts";
 import { getInternalName } from "./utils/getInternalName.ts";
 import { type BodyValue, getRequestBodyValues } from "./utils/getRequestBodyValues.ts";
 import { type IRIValue, getRequestIRIValues } from "./utils/getRequestIRIValues.ts";
@@ -12,6 +11,7 @@ import { InvalidActionParamsError, ProblemDetailsError } from "./errors.ts";
 import { alwaysArray } from "./utils/alwaysArray.ts";
 import type { ImplementedAction } from "./actions/types.ts";
 import type { ActionPayload, ActionSpec, ArraySpec, ContextState, ObjectArraySpec, ObjectSpec, ParsedIRIValues, PropertySpec, SpecValue, ValueSpec } from "./actions/spec.ts";
+import type {JSONValue} from "./jsonld.ts";
 
 
 

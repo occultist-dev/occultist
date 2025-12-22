@@ -521,7 +521,7 @@ export class DefinedAction<
    * if validating and transforming the action payload might cause
    * auth sensitive checks to be run which might reject the request.
    */
-  cache(args: CacheInstanceArgs): DefinedAction<State, string, Spec> {
+  cache(args: CacheInstanceArgs): DefinedAction<State, Auth, Term, Spec> {
     if (this.#meta.cache.length !== 0 &&
         this.#meta.cacheOccurance === BeforeDefinition) {
       throw new Error(
@@ -536,11 +536,11 @@ export class DefinedAction<
     return this;
   }
   
-  meta(): DefinedAction<State, string, Spec> {
+  meta(): DefinedAction<State, Auth, Term, Spec> {
     return this;
   }
 
-  use(): DefinedAction<State, string, Spec> {
+  use(): DefinedAction<State, Auth, Term, Spec> {
     return this;
   }
   
@@ -676,10 +676,11 @@ export class Action<
   }
 
   define<
+    Auth extends AuthState = AuthState,
     Term extends string = string,
     Spec extends ActionSpec = ActionSpec,
-  >(args: DefineArgs<Term, Spec>): DefinedAction<State, Term, Spec> {
-    return new DefinedAction<State, Term, Spec>(
+  >(args: DefineArgs<Term, Spec>): DefinedAction<State, Auth, Term, Spec> {
+    return new DefinedAction<State, Auth, Term, Spec>(
       args.typeDef,
       args.spec ?? {} as Spec,
       this.#meta as unknown as ActionMeta<State, Auth, Spec>,
@@ -718,10 +719,10 @@ export class PreAction<
   Applicable<Action>,
   Handleable<State, Auth>
 {
-  #meta: ActionMeta<State>;
+  #meta: ActionMeta<State, Auth>;
 
   constructor(
-    meta: ActionMeta<State>,
+    meta: ActionMeta<State, Auth>,
   ) {
     this.#meta = meta;
   }
@@ -735,8 +736,8 @@ export class PreAction<
   define<
     Term extends string = string,
     Spec extends ActionSpec = ActionSpec,
-  >(args: DefineArgs<Term, Spec>): DefinedAction<State, Term, Spec> {
-    return new DefinedAction<State, Term, Spec>(
+  >(args: DefineArgs<Term, Spec>): DefinedAction<State, Auth, Term, Spec> {
+    return new DefinedAction<State, Auth, Term, Spec>(
       args.typeDef,
       args.spec,
       this.#meta as unknown as ActionMeta<State, Auth, Spec>,
@@ -746,7 +747,7 @@ export class PreAction<
   handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Auth>): FinalizedAction<State, Auth>;
   handle(args: HandlerObj<State>): FinalizedAction<State, Auth>;
   handle(arg1: unknown, arg2?: unknown): FinalizedAction<State, Auth> {
-    return FinalizedAction.fromHandlers(
+    return FinalizedAction.fromHandlers<State, Auth>(
       null,
       {},
       this.#meta,
