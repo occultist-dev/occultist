@@ -1,44 +1,7 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
-import {Registry, InMemoryCache, type AuthMiddleware} from '../lib/mod.ts';
-
-const cookieRe = /^auth\s*=(.*)/;
-const auth: AuthMiddleware = (req) => {
-  let authKey: string;
-  const authorization = req.headers.get('Authorization');
-  const cookies = req.headers.get('Cookie');
-  const singleUseToken = new URL(req.url).searchParams.get('single-use-token');
-
-  if (singleUseToken != null) {
-    authKey = singleUseToken;
-  }
-  
-  if (authKey == null && cookies != null) {
-    const values = cookies.split(';');
-
-    let cookie: string;
-    for (let i = 0; i < values.length; i++) {
-      cookie = values[i].trim();
-
-      if (cookieRe.test(cookie)) {
-        cookieRe.lastIndex = 0;
-        authKey = cookieRe.exec(cookie)[1].trim();
-      }
-    }
-  }
-  
-  if (authKey == null && authorization != null) {
-    authKey = authorization.replace('Bearer ', '');
-  }
-
-  if (typeof authKey !== 'string' || authKey.length === 0) {
-    return;
-  } else if (authKey === 'BADBADBAD') {
-    return;
-  }
-
-  return [authKey, Object.create(null)];
-};
+import {describe, it} from 'node:test';
+import {InMemoryCache, Registry} from '../lib/mod.ts';
+import {testAuthMiddleware} from './utils/authMiddleware.ts';
 
 function makeRegistry() {
   const registry = new Registry({
@@ -70,22 +33,14 @@ function makeRegistry() {
     });
 
   registry.http.get('open', '/open')
-    .public(auth)
+    .public(testAuthMiddleware)
     .cache(cache.store())
-    //.define({
-    //  spec: {
-    //    singleUseToken: {
-    //      dataType: 'string',
-    //      valueName: 'singleUseToken',
-    //    },
-    //  }
-    //})
     .handle('text/plain', (ctx) => {
       ctx.body = `OPEN(${ctx.authKey ?? 'unauthenticated'})`;
     });
 
   registry.http.get('private', '/private')
-    .private(auth)
+    .private(testAuthMiddleware)
     .cache(cache.store())
     .handle('text/plain', (ctx) => {
       ctx.body = `PRIVATE(${ctx.authKey})`;

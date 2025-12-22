@@ -135,7 +135,7 @@ export type CacheDetails = {
   hasContent: boolean;
   authKey: string;
   etag: string;
-  headers: Headers;
+  headers: Record<string, string | string[]>;
   contentType: string;
   contentLength?: number;
   contentEncoding?: string;

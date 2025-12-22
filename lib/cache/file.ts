@@ -1,29 +1,48 @@
 import {createHash} from 'node:crypto';
-import type {CacheDetails, CacheHitHandle, CacheMeta, CacheStorage, CacheMissHandle} from './types.js';
-import {type FileHandle, open, readFile, writeFile, rm} from 'node:fs/promises';
+import type {CacheDetails, CacheHitHandle, CacheMeta, CacheStorage, CacheMissHandle, UpstreamCache} from './types.js';
+import {readFile, writeFile, rm} from 'node:fs/promises';
 import {join} from 'node:path';
+import {type StatWatcher, watchFile} from 'node:fs';
+import {Registry} from '../registry.ts';
+import {Cache} from './cache.ts';
 
 
-
+/**
+ * Stores cache meta information in a file on the filesystem.
+ *
+ * This is not robust enough for multi-process use.
+ */
 export class FileCacheMeta implements CacheMeta {
   
   #filePath: string;
-  #handle: FileHandle | undefined;
   #details: Record<string, CacheDetails> = {};
+  #watcher: StatWatcher | undefined;
+  #writing: boolean = false;
 
   constructor(filePath: string) {
     this.#filePath = filePath;
   }
 
   async #init(): Promise<void> {
-    this.#handle = await open(this.#filePath, 'w+');
-    const content = await this.#handle.readFile({ encoding: 'utf-8' });
+    try {
+      const content = await readFile(this.#filePath, 'utf-8');
 
-    this.#details = JSON.parse(content);
+      
+      this.#details = JSON.parse(content);
+    } catch (err) {
+      await writeFile(this.#filePath, JSON.stringify(this.#details));
+    }
+
+    this.#watcher = watchFile(this.#filePath, async () => {
+      if (this.#writing) return;
+
+      const content = await readFile(this.#filePath, 'utf-8');
+      this.#details = JSON.parse(content);
+    });
   }
 
   async get(key: string): Promise<CacheHitHandle| CacheMissHandle> {
-    if (this.#handle == null) {
+    if (this.#watcher == null) {
       this.#init();
     }
     
@@ -48,9 +67,33 @@ export class FileCacheMeta implements CacheMeta {
 
   async set(key: string, details: CacheDetails) {
     this.#details[key] = details;
-    this.#handle.writeFile(JSON.stringify(details));
+
+    await this.#write();
   }
 
+  async invalidate(key: string): Promise<void> {
+    delete this.#details[key];
+
+    await this.#write();
+  }
+
+  /**
+   * Resets the meta object to an empty value.
+   */
+  async reset(): Promise<void> {
+    this.#details = {};
+    await this.#write();
+  }
+
+  async #write(): Promise<void> {
+    this.#writing = true;
+    
+    try {
+      await writeFile(this.#filePath, JSON.stringify(this.#details));
+    } catch {}
+
+    this.#writing = false;
+  }
 }
 
 export class FileSystemCacheStorage implements CacheStorage {
@@ -86,5 +129,43 @@ export class FileSystemCacheStorage implements CacheStorage {
 
   async invalidate(key: string): Promise<void> {
     await rm(join(this.#directory, this.hash(key)));
+  }
+
+  async reset(): Promise<void> {
+    const promises: Array<Promise<void>> = [];
+
+    for (const hash of this.#hashes.values()) {
+      promises.push(rm(join(this.#directory, hash)));
+    }
+    
+    this.#hashes = new Map();
+    await Promise.all(promises);
+  }
+}
+
+export class FileSystemCache extends Cache {
+  #fileMeta: FileCacheMeta;
+  #fileSystemStorage: FileSystemCacheStorage;
+
+  constructor(registry: Registry, filePath: string, directory: string, upstream?: UpstreamCache) {
+    const meta = new FileCacheMeta(filePath);
+    const storage = new FileSystemCacheStorage(directory);
+
+    super(
+      registry,
+      meta,
+      storage,
+      upstream,
+    );
+
+    this.#fileMeta = meta;
+    this.#fileSystemStorage = storage;
+  }
+
+  async reset() {
+    return Promise.all([
+      this.#fileMeta.reset(),
+      this.#fileSystemStorage.reset(),
+    ]);
   }
 }

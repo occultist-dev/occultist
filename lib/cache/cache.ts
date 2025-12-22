@@ -292,8 +292,16 @@ export class CacheMiddleware {
             ctx.status = resourceState.status;
             ctx.body = await cache.storage.get(key);
 
-            for (const [key, value] of resourceState.headers.entries()) {
-              ctx.headers.set(key, value);
+            for (const [key, value] of Object.entries(resourceState.headers)) {
+              if (Array.isArray(value)) {
+                ctx.headers.delete(key);
+
+                for (let i = 0; i < value.length; i++) {
+                  ctx.headers.append(key, value[i]);
+                }
+              } else {
+                ctx.headers.set(key, value);
+              }
             }
 
             return;
@@ -319,7 +327,7 @@ export class CacheMiddleware {
         iri: ctx.url,
         status: ctx.status ?? 200,
         hasContent: ctx.body != null,
-        headers: ctx.headers,
+        headers: Object.fromEntries(ctx.headers.entries()),
         contentType: ctx.contentType,
         etag,
       });

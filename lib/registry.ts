@@ -95,15 +95,79 @@ export type RegistryEvents =
 ;
 
 export type RegistryArgs = {
-  rootIRI: string;
-  serverTiming?: boolean;
 
   /**
-   * A header to set if cache is hit when handling this request.
+   * The public root endpoint the registry is bound to.
+   */
+  rootIRI: string;
+
+  /**
+   * Set to `true` if a cache header should be added to the response when
+   * cache is successfully hit. Or assign custom header values.
    */
   cacheHitHeader?: CacheHitHeader;
+
+  /**
+   * Enables adding server timing headers to the response.
+   */
+  serverTiming?: boolean;
 };
 
+/**
+ * All actions of an Occultist based API are created through an action registry.
+ * The registry exposes an interface for querying registered actions and emits events
+ * when userland actions have all been defined. Extensions can register themselves
+ * with the registry and create more actions and endpoints using the actions defined
+ * in userland. Userland code might also use the registry's querying functionality
+ * to programically make API calls as though they were made over the network via HTTP.
+ *
+ * @example <caption>Creates a simple registry that responds with a HTML document</caption>
+ *
+ * ```
+ * import {createServer} from 'node:http':
+ * import {Registry} from '@occultist/occultist';
+ * 
+ * const server = createServer();
+ * const registry = new Registry({ rootIRI: 'https://example.com' });
+ *
+ * registry.http.get('get-root', '/')
+ *   .handle('text/html', `
+ *     <!doctype html>
+ *     <html>
+ *       <head><title>Hello, World!</title></head>
+ *       <body>
+ *         <h1>Hello, World!</h1>
+ *       </body>
+ *     </body>
+ *   `);
+ *
+ * 
+ * server.on('request', (req, res) => registry.handleRequest(req, res));
+ * server.listen(3000);
+ *
+ * // makes a call programically to the registry
+ * const res = await registry.handleRequest(new Request('https://example.com'));
+ * ```
+ *
+ * @param args.rootIRI The public root endpoint the registry is bound to. If the
+ *   registry responds to requests on a subpath, the subpath should be included
+ *   in the `rootIRI` value.
+ *
+ * @param args.cacheHitHeader A custom cache hit header. If set to true Occultist
+ *   will use the standard `X-Cache` header and the value `HIT`. If a string is
+ *   provided the header name will be set to the value of the string. If an array
+ *   is provided the header name will be set to the first item in the array, and
+ *   the header value the second. Occultist does not set the cache header on
+ *   cache misses. By default Occultist will not set a cache hit header.
+ *
+ * @param args.serverTiming Enables server timing headers in responses. When
+ *   enabled requests log the duration of the steps Occultist takes when
+ *   finding the action to respond to the request, retrieving values from
+ *   cache, or calling the handler functions of an action. Browser debug tools
+ *   add these values to their network performance charts.
+ *   Enabling server timing can leak information and is not recommended for
+ *   production environments.
+ */
 export class Registry<
   State extends ContextState = ContextState,
 > implements Callable<State> {
