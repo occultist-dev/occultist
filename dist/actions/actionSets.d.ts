@@ -1,6 +1,6 @@
-import { type Accept } from "../accept.js";
-import type { ActionMeta } from "./meta.js";
-import type { ImplementedAction } from "./types.js";
+import { type Accept } from "../accept.ts";
+import type { ActionMeta } from "./meta.ts";
+import type { ImplementedAction } from "./types.ts";
 export type UnsupportedContentTypeMatch = {
     type: 'unsupported-content-type';
     contentTypes: string[];

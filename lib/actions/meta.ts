@@ -136,7 +136,7 @@ export class ActionMeta<
       const nextTime = performance.now();
       const duration = nextTime - prevTime;
 
-      headers.append('Server-Timing', `${name};dur=${duration.toPrecision(2)}`);
+      headers.append('Server-Timing', `${name};dur=${duration.toFixed(2)}`);
       prevTime = nextTime;
     }
 

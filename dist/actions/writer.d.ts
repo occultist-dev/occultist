@@ -1,5 +1,5 @@
 import { ServerResponse } from 'node:http';
-import type { HintArgs } from './types.js';
+import type { HintArgs } from './types.ts';
 export type ResponseTypes = ServerResponse | Response;
 export type ResponseBody = BodyInit;
 export interface HTTPWriter {

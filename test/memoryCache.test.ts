@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
 import {InMemoryCache, Registry} from '../lib/mod.ts';
 import {testAuthMiddleware} from './utils/authMiddleware.ts';
+import {setTimeout} from 'node:timers/promises';
 
 function makeRegistry() {
   const registry = new Registry({
@@ -48,6 +49,7 @@ function makeRegistry() {
 
   return {
     registry,
+    cache,
   };
 }
 
@@ -118,5 +120,93 @@ describe('InMemoryCache', () => {
     assert.equal(res2.headers.get('X-Cache'), 'HIT');
     assert.equal(await res2.text(), 'OPEN(admin)');
   });
+
+  it('does not lock parallel requests when locking not enabled', async () => {
+    const { registry, cache } = makeRegistry();
+
+    registry.http.get('lockable', '/lockable')
+      .public()
+      .cache(cache.store())
+      .handle('text/plain', async (ctx) => {
+        await setTimeout(20);
+
+        ctx.body = `LOCK`;
+      });
+
+    const responses = await Promise.all([
+      registry.handleRequest(new Request('https://example.com/lockable')),
+      registry.handleRequest(new Request('https://example.com/lockable')),
+      registry.handleRequest(new Request('https://example.com/lockable')),
+      registry.handleRequest(new Request('https://example.com/lockable')),
+    ]);
+
+    const cacheHits = responses.filter((res) => res.headers.get('X-Cache') === 'HIT');
+    assert.equal(cacheHits.length, 0);
+  });
+
+  it('locks parallel requests when locking is enabled', async () => {
+    const { registry, cache } = makeRegistry();
+
+    registry.http.get('lockable', '/lockable')
+      .public()
+      .cache(cache.store({ lock: true }))
+      .handle('text/plain', async (ctx) => {
+        await setTimeout(20);
+
+        ctx.body = `LOCK`;
+      });
+
+    const responses = await Promise.all([
+      registry.handleRequest(new Request('https://example.com/lockable')),
+      registry.handleRequest(new Request('https://example.com/lockable')),
+      registry.handleRequest(new Request('https://example.com/lockable')),
+      registry.handleRequest(new Request('https://example.com/lockable')),
+    ]);
+
+    const cacheHits = responses.filter((res) => res.headers.get('X-Cache') === 'HIT');
+    assert.equal(cacheHits.length, 3);
+  });
+
+  it('responds correctly when the cache is flushed between responses', async () => {
+    const { registry, cache } = makeRegistry();
+
+    registry.http.get('not-lockable', '/not-lockable')
+      .public()
+      .cache(cache.store())
+      .handle('text/plain', async (ctx) => {
+        await setTimeout(20);
+
+        ctx.body = `LOCK`;
+      });
+
+    registry.http.get('lockable', '/lockable')
+      .public()
+      .cache(cache.store({ lock: true }))
+      .handle('text/plain', async (ctx) => {
+        await setTimeout(20);
+
+        ctx.body = `LOCK`;
+      });
+
+    const responses = await Promise.all([
+      registry.handleRequest(new Request('https://example.com/lockable')),
+      registry.handleRequest(new Request('https://example.com/lockable')),
+      registry.handleRequest(new Request('https://example.com/not-lockable')),
+      registry.handleRequest(new Request('https://example.com/not-lockable')),
+      cache.flush(),
+      registry.handleRequest(new Request('https://example.com/lockable')),
+      registry.handleRequest(new Request('https://example.com/lockable')),
+      registry.handleRequest(new Request('https://example.com/not-lockable')),
+      registry.handleRequest(new Request('https://example.com/not-lockable')),
+    ]);
+
+    for (const res of responses) {
+      if (res instanceof Response) {
+        assert.equal(res.status, 200);
+        assert.equal(await res.text(), 'LOCK');
+      }
+    }
+  });
+
 });
 

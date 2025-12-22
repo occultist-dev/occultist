@@ -1,5 +1,5 @@
 import { ServerResponse } from 'node:http';
-import type { HintLink, HintArgs, HintObj } from './types.js';
+import type { HintLink, HintArgs, HintObj } from './types.ts';
 
 
 function isHintLink(hint: HintObj | HintLink): hint is HintLink {

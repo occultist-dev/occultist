@@ -1,10 +1,11 @@
-import { Accept } from '../accept.js';
-import { CacheMiddleware } from '../cache/cache.js';
-import { processAction } from '../processAction.js';
-import { WrappedRequest } from '../request.js';
-import { joinPaths } from '../utils/joinPaths.js';
-import { ActionSet } from './actionSets.js';
-import { CacheContext, Context } from './context.js';
+import { Accept } from "../accept.js";
+import { CacheMiddleware } from "../cache/cache.js";
+import { ProblemDetailsError } from "../errors.js";
+import { processAction } from "../processAction.js";
+import { WrappedRequest } from "../request.js";
+import { joinPaths } from "../utils/joinPaths.js";
+import { ActionSet } from "./actionSets.js";
+import { CacheContext, Context } from "./context.js";
 import { Path } from "./path.js";
 import { ResponseWriter } from "./writer.js";
 export const BeforeDefinition = 0;
@@ -27,6 +28,7 @@ export class ActionMeta {
     acceptCache = new Set();
     compressBeforeCache = false;
     cacheOccurance = BeforeDefinition;
+    auth;
     cache = [];
     serverTiming = false;
     constructor(rootIRI, method, name, uriTemplate, registry, writer, scope) {
@@ -66,19 +68,25 @@ export class ActionMeta {
         }
         return new Response(null, { status: 404 });
     }
-    async handleRequest({ startTime, contentType, language: _language, encoding: _encoding, url, req, writer, spec, handler, }) {
+    /**
+     *
+     */
+    async handleRequest({ contentType, url, req, writer, spec, handler, cacheHitHeader, startTime, }) {
         const state = {};
         const headers = new Headers();
+        let authKey;
+        let auth = {};
         let ctx;
         let cacheCtx;
         let prevTime = startTime;
+        let performServerTiming = this.serverTiming && startTime != null;
         const serverTiming = (name) => {
             const nextTime = performance.now();
             const duration = nextTime - prevTime;
-            headers.append('Server-Timing', `${name};dur=${duration.toPrecision(2)}`);
+            headers.append('Server-Timing', `${name};dur=${duration.toFixed(2)}`);
             prevTime = nextTime;
         };
-        if (this.serverTiming)
+        if (performServerTiming)
             serverTiming('enter');
         // add auth check
         if (this.hints.length !== 0) {
@@ -92,58 +100,70 @@ export class ActionMeta {
                 ctx.status = 200;
                 ctx.body = handler.handler;
             }
-            if (this.serverTiming)
+            if (performServerTiming)
                 serverTiming('handle');
         };
         {
             const upstream = next;
             next = async () => {
-                const res = await processAction({
-                    iri: url,
-                    req,
-                    spec: spec ?? {},
-                    state,
-                    action: this.action,
-                });
+                let processed;
+                if (spec != null) {
+                    processed = await processAction({
+                        iri: url,
+                        req,
+                        spec: spec ?? {},
+                        state,
+                        action: this.action,
+                    });
+                }
                 ctx = new Context({
                     req,
                     url,
                     contentType,
-                    public: this.public,
+                    public: this.public && authKey == null,
+                    auth,
+                    authKey,
                     handler,
-                    params: res.params,
-                    query: res.query,
-                    payload: res.payload,
+                    params: processed.params ?? {},
+                    query: processed.query ?? {},
+                    payload: processed.payload ?? {},
                 });
                 if (contentType != null) {
                     ctx.headers.set('Content-Type', contentType);
                 }
-                if (this.serverTiming)
+                if (performServerTiming)
                     serverTiming('payload');
                 await upstream();
             };
         }
         if (this.cache.length > 0) {
-            cacheCtx = new CacheContext({
-                req,
-                url,
-                contentType,
-                public: this.public,
-                handler,
-                params: {},
-                query: {},
-            });
-            const descriptors = this.cache.map(args => {
-                return {
-                    contentType,
-                    action: this.action,
-                    request: req,
-                    args,
-                };
-            });
             const upstream = next;
             next = async () => {
+                cacheCtx = new CacheContext({
+                    req,
+                    url,
+                    contentType,
+                    public: this.public && authKey == null,
+                    auth,
+                    authKey,
+                    handler,
+                    params: {},
+                    query: {},
+                });
+                const descriptors = this.cache.map(args => {
+                    return {
+                        contentType,
+                        semantics: args.semantics ?? req.method.toLowerCase(),
+                        action: this.action,
+                        request: req,
+                        args,
+                    };
+                });
                 await cacheMiddleware.use(descriptors, cacheCtx, async () => {
+                    // write any cache headers to the response headers.
+                    // this should be reviewed as it may be unsafe to
+                    // allow a handler to override these headers.
+                    writer.mergeHeaders(cacheCtx.headers);
                     // cache was not hit if in this function
                     await upstream();
                     // the cache middleware requires these values are set 
@@ -162,11 +182,42 @@ export class ActionMeta {
                 });
             };
         }
+        if (this.auth != null) {
+            const upstream = next;
+            next = async () => {
+                const res = await this.auth(req);
+                if (Array.isArray(res) &&
+                    typeof res[0] === 'string' &&
+                    res.length > 0) {
+                    authKey = res[0];
+                    auth = res[1];
+                    await upstream();
+                }
+                else if (this.public) {
+                    await upstream();
+                }
+                else {
+                    // Failed authentication on a private endpoint.
+                    throw new ProblemDetailsError(404, {
+                        title: 'Not found',
+                    });
+                }
+            };
+        }
         try {
             await next();
             if (cacheCtx?.hit) {
-                if (this.serverTiming)
+                if (performServerTiming)
                     serverTiming('hit');
+                if (Array.isArray(cacheHitHeader)) {
+                    cacheCtx.headers.set(cacheHitHeader[0], cacheHitHeader[1]);
+                }
+                else if (typeof cacheHitHeader === 'string') {
+                    cacheCtx.headers.set(cacheHitHeader, 'HIT');
+                }
+                else if (cacheHitHeader) {
+                    cacheCtx.headers.set('X-Cache', 'HIT');
+                }
                 // set the ctx so the writer has access to the cached values.
                 ctx = cacheCtx;
             }

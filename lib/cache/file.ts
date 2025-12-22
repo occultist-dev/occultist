@@ -1,8 +1,8 @@
 import {createHash} from 'node:crypto';
-import type {CacheDetails, CacheHitHandle, CacheMeta, CacheStorage, CacheMissHandle, UpstreamCache} from './types.js';
+import type {CacheDetails, CacheHitHandle, CacheMeta, CacheStorage, CacheMissHandle, UpstreamCache} from './types.ts';
 import {readFile, writeFile, rm} from 'node:fs/promises';
 import {join} from 'node:path';
-import {type StatWatcher, watchFile} from 'node:fs';
+import {type FSWatcher, watchFile} from 'node:fs';
 import {Registry} from '../registry.ts';
 import {Cache} from './cache.ts';
 
@@ -16,7 +16,7 @@ export class FileCacheMeta implements CacheMeta {
   
   #filePath: string;
   #details: Record<string, CacheDetails> = {};
-  #watcher: StatWatcher | undefined;
+  #watcher: FSWatcher | undefined;
   #writing: boolean = false;
 
   constructor(filePath: string) {
@@ -38,13 +38,12 @@ export class FileCacheMeta implements CacheMeta {
 
       const content = await readFile(this.#filePath, 'utf-8');
       this.#details = JSON.parse(content);
-    });
+    }) as FSWatcher;
+    this.#watcher.unref();
   }
 
   async get(key: string): Promise<CacheHitHandle| CacheMissHandle> {
-    if (this.#watcher == null) {
-      this.#init();
-    }
+    if (this.#watcher == null) await this.#init();
     
     const details = this.#details[key];
     async function set(details: CacheDetails) {
@@ -65,22 +64,39 @@ export class FileCacheMeta implements CacheMeta {
     };
   }
 
+  /**
+   * Sets a cached value.
+   *
+   * @param key Unique key for this cached value.
+   * @param details Details of the cache to store.
+   */
   async set(key: string, details: CacheDetails) {
+    if (this.#watcher == null) await this.#init();
+    
     this.#details[key] = details;
 
     await this.#write();
   }
 
+  /**
+   * Invalidates a cached value by key.
+   * 
+   * @param key Unique key for this cached value.
+   */
   async invalidate(key: string): Promise<void> {
+    if (this.#watcher == null) await this.#init();
+    
     delete this.#details[key];
 
     await this.#write();
   }
 
   /**
-   * Resets the meta object to an empty value.
+   * Flushes the entire cache of values.
+   *
+   * @param key Unique key for this cached value.
    */
-  async reset(): Promise<void> {
+  async flush(): Promise<void> {
     this.#details = {};
     await this.#write();
   }
@@ -110,7 +126,7 @@ export class FileSystemCacheStorage implements CacheStorage {
     
     if (hash != null) return hash;
 
-    hash = createHash('md5').update(key).digest('hex');
+    hash = createHash('sha256').update(key).digest('hex');
 
     this.#hashes.set(key, hash);
 
@@ -131,7 +147,7 @@ export class FileSystemCacheStorage implements CacheStorage {
     await rm(join(this.#directory, this.hash(key)));
   }
 
-  async reset(): Promise<void> {
+  async flush(): Promise<void> {
     const promises: Array<Promise<void>> = [];
 
     for (const hash of this.#hashes.values()) {
@@ -162,10 +178,10 @@ export class FileSystemCache extends Cache {
     this.#fileSystemStorage = storage;
   }
 
-  async reset() {
+  async flush() {
     return Promise.all([
-      this.#fileMeta.reset(),
-      this.#fileSystemStorage.reset(),
+      this.#fileMeta.flush(),
+      this.#fileSystemStorage.flush(),
     ]);
   }
 }

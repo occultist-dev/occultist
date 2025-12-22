@@ -1,6 +1,6 @@
-import type { JSONPrimitive, JSONValue, OrArray, RecursiveDigit, RecursiveIncrement, TypeDef } from "../jsonld.js";
-import { Action } from "./actions.js";
-import type { Context } from './context.js';
+import type { JSONPrimitive, JSONValue, OrArray, RecursiveDigit, RecursiveIncrement, TypeDef } from "../jsonld.ts";
+import { Action } from "./actions.ts";
+import type { Context } from './context.ts';
 export type EmptyState = Record<string, unknown>;
 export type EmptySpec = Map<PropertyKey, never>;
 export type ContextState = Record<string, unknown>;

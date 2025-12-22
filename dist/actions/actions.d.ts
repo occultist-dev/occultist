@@ -1,11 +1,11 @@
-import { CacheInstanceArgs } from '../cache/types.js';
-import type { JSONLDContext, JSONObject, TypeDef } from "../jsonld.js";
-import type { Registry } from '../registry.js';
-import type { Scope } from "../scopes.js";
-import { type ActionMeta } from "./meta.js";
-import type { ActionSpec, ContextState } from "./spec.js";
-import type { HandleRequestArgs, HandlerFn, HandlerMeta, HandlerObj, HandlerValue, HintArgs, ImplementedAction } from './types.js';
-import { ResponseTypes } from './writer.js';
+import type { CacheInstanceArgs } from '../cache/types.ts';
+import type { JSONLDContext, JSONObject, TypeDef } from "../jsonld.ts";
+import type { Registry } from '../registry.ts';
+import type { Scope } from "../scopes.ts";
+import { type ActionMeta } from "./meta.ts";
+import type { ActionSpec, ContextState } from "./spec.ts";
+import type { AuthMiddleware, AuthState, HandleRequestArgs, HandlerFn, HandlerMeta, HandlerObj, HandlerValue, HintArgs, ImplementedAction } from './types.ts';
+import { type ResponseTypes } from './writer.ts';
 export type DefineArgs<Term extends string = string, Spec extends ActionSpec = ActionSpec> = {
     typeDef?: TypeDef<Term>;
     spec?: Spec;
@@ -14,31 +14,31 @@ export type DefineArgs<Term extends string = string, Spec extends ActionSpec = A
  * A handler definition which can be pulled from a registry, scope or action
  * after an action is defined.
  */
-export declare class HandlerDefinition<State extends ContextState = ContextState, Spec extends ActionSpec = ActionSpec> {
+export declare class HandlerDefinition<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Spec extends ActionSpec = ActionSpec> {
     name: string;
     contentType: string;
     handler: HandlerFn | HandlerValue;
     meta: HandlerMeta;
-    action: ImplementedAction<State, Spec>;
+    action: ImplementedAction<State, Auth, Spec>;
     cache: ReadonlyArray<CacheInstanceArgs>;
-    constructor(name: string, contentType: string, handler: HandlerFn | HandlerValue, meta: HandlerMeta, action: ImplementedAction<State, Spec>, actionMeta: ActionMeta);
+    constructor(name: string, contentType: string, handler: HandlerFn | HandlerValue, meta: HandlerMeta, action: ImplementedAction<State, Auth, Spec>, actionMeta: ActionMeta);
     get [Symbol.toStringTag](): string;
 }
-export interface Handleable<State extends ContextState = ContextState, Spec extends ActionSpec = ActionSpec> {
+export interface Handleable<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Spec extends ActionSpec = ActionSpec> {
     /**
      * Defines the final handler for this content type.
      *
      * An action can have multiple handlers defined
      * each for a different set of content types.
      */
-    handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Spec>): FinalizedAction<State, Spec>;
-    handle(args: HandlerObj<State, Spec>): FinalizedAction<State, Spec>;
+    handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
+    handle(args: HandlerObj<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
 }
-export declare class FinalizedAction<State extends ContextState = ContextState, Spec extends ActionSpec = ActionSpec> implements Handleable<State, Spec>, ImplementedAction<State, Spec> {
+export declare class FinalizedAction<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Spec extends ActionSpec = ActionSpec> implements Handleable<State, Auth, Spec>, ImplementedAction<State, Auth, Spec> {
     #private;
-    constructor(typeDef: TypeDef | undefined, spec: Spec, meta: ActionMeta<State, Spec>, handlerArgs: HandlerObj<State, Spec>);
-    static fromHandlers<State extends ContextState = ContextState, Spec extends ActionSpec = ActionSpec>(typeDef: TypeDef | undefined, spec: Spec, meta: ActionMeta<State, Spec>, contextType: string | string[], handler: HandlerValue | HandlerFn<State, Spec>): FinalizedAction<State, Spec>;
-    static fromHandlers<State extends ContextState = ContextState, Spec extends ActionSpec = ActionSpec>(typeDef: TypeDef | undefined, spec: Spec, meta: ActionMeta<State, Spec>, handlerArgs: HandlerObj<State, Spec>): FinalizedAction<State, Spec>;
+    constructor(typeDef: TypeDef | undefined, spec: Spec, meta: ActionMeta<State, Auth, Spec>, handlerArgs: HandlerObj<State, Auth, Spec>);
+    static fromHandlers<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Spec extends ActionSpec = ActionSpec>(typeDef: TypeDef | undefined, spec: Spec, meta: ActionMeta<State, Auth, Spec>, contextType: string | string[], handler: HandlerValue | HandlerFn<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
+    static fromHandlers<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Spec extends ActionSpec = ActionSpec>(typeDef: TypeDef | undefined, spec: Spec, meta: ActionMeta<State, Auth, Spec>, handlerArgs: HandlerObj<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
     static toJSONLD(action: ImplementedAction, scope: Scope): Promise<JSONObject | null>;
     get public(): boolean;
     get method(): string;
@@ -51,7 +51,7 @@ export declare class FinalizedAction<State extends ContextState = ContextState, 
     get spec(): Spec;
     get scope(): Scope | undefined;
     get registry(): Registry;
-    get handlers(): HandlerDefinition<State, Spec>[];
+    get handlers(): HandlerDefinition<State, Auth, Spec>[];
     get contentTypes(): string[];
     get context(): JSONObject;
     url(): string;
@@ -60,23 +60,23 @@ export declare class FinalizedAction<State extends ContextState = ContextState, 
      *
      * @param contentType   The content type.
      */
-    handlerFor(contentType: string): HandlerDefinition<State, Spec> | undefined;
+    handlerFor(contentType: string): HandlerDefinition<State, Auth, Spec> | undefined;
     jsonld(): Promise<JSONObject | null>;
     jsonldPartial(): {
         '@type': string;
         '@id': string;
     } | null;
-    handle(contentType: string | string[], handler: HandlerFn<State, Spec> | HandlerValue): FinalizedAction<State, Spec>;
-    handle(args: HandlerObj<State, Spec>): FinalizedAction<State, Spec>;
+    handle(contentType: string | string[], handler: HandlerFn<State, Auth, Spec> | HandlerValue): FinalizedAction<State, Auth, Spec>;
+    handle(args: HandlerObj<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
     handleRequest(args: HandleRequestArgs): Promise<ResponseTypes>;
     perform(req: Request): Promise<Response>;
 }
 export interface Applicable<ActionType> {
     use(): ActionType;
 }
-export declare class DefinedAction<State extends ContextState = ContextState, Term extends string = string, Spec extends ActionSpec = ActionSpec> implements Applicable<DefinedAction<State, Term, Spec>>, Handleable<State, Spec>, ImplementedAction<State, Spec> {
+export declare class DefinedAction<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Term extends string = string, Spec extends ActionSpec = ActionSpec> implements Applicable<DefinedAction<State, Auth, Term, Spec>>, Handleable<State, Auth, Spec>, ImplementedAction<State, Auth, Spec> {
     #private;
-    constructor(typeDef: TypeDef | undefined, spec: Spec, meta: ActionMeta<State, Spec>);
+    constructor(typeDef: TypeDef | undefined, spec: Spec, meta: ActionMeta<State, Auth, Spec>);
     get public(): boolean;
     get method(): string;
     get term(): string | undefined;
@@ -89,7 +89,7 @@ export declare class DefinedAction<State extends ContextState = ContextState, Te
     get spec(): Spec;
     get scope(): Scope | undefined;
     get registry(): Registry;
-    get handlers(): HandlerDefinition<State, Spec>[];
+    get handlers(): HandlerDefinition<State, Auth, Spec>[];
     get contentTypes(): string[];
     url(): string;
     /**
@@ -114,12 +114,12 @@ export declare class DefinedAction<State extends ContextState = ContextState, Te
     cache(args: CacheInstanceArgs): DefinedAction<State, string, Spec>;
     meta(): DefinedAction<State, string, Spec>;
     use(): DefinedAction<State, string, Spec>;
-    handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Spec>): FinalizedAction<State, Spec>;
-    handle(args: HandlerObj<State, Spec>): FinalizedAction<State, Spec>;
+    handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
+    handle(args: HandlerObj<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
     handleRequest(args: HandleRequestArgs): Promise<ResponseTypes>;
     perform(req: Request): Promise<Response>;
 }
-export declare class Action<State extends ContextState = ContextState> implements Applicable<Action>, Handleable<State>, ImplementedAction<State> {
+export declare class Action<State extends ContextState = ContextState, Auth extends AuthState = AuthState> implements Applicable<Action>, Handleable<State>, ImplementedAction<State> {
     #private;
     constructor(meta: ActionMeta<State>);
     get public(): boolean;
@@ -156,29 +156,29 @@ export declare class Action<State extends ContextState = ContextState> implement
     handleRequest(args: HandleRequestArgs): Promise<ResponseTypes>;
     perform(req: Request): Promise<Response>;
 }
-export declare class PreAction<State extends ContextState = ContextState> implements Applicable<Action>, Handleable<State> {
+export declare class PreAction<State extends ContextState = ContextState, Auth extends AuthState = AuthState> implements Applicable<Action>, Handleable<State, Auth> {
     #private;
     constructor(meta: ActionMeta<State>);
-    use(): Action<State>;
+    use(): Action<State, AuthState>;
     define<Term extends string = string, Spec extends ActionSpec = ActionSpec>(args: DefineArgs<Term, Spec>): DefinedAction<State, Term, Spec>;
-    handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State>): FinalizedAction<State>;
-    handle(args: HandlerObj<State>): FinalizedAction<State>;
+    handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Auth>): FinalizedAction<State, Auth>;
+    handle(args: HandlerObj<State>): FinalizedAction<State, Auth>;
 }
-export declare class Endpoint<State extends ContextState = ContextState> implements Applicable<Action>, Handleable<State> {
+export declare class Endpoint<State extends ContextState = ContextState, Auth extends AuthState = AuthState> implements Applicable<Action>, Handleable<State, Auth> {
     #private;
-    constructor(meta: ActionMeta<State>);
-    hint(hints: HintArgs): Endpoint<State>;
-    compress(): Endpoint<State>;
-    cache(args: CacheInstanceArgs): this;
+    constructor(meta: ActionMeta<State, Auth>);
+    hint(hints: HintArgs): Endpoint<State, Auth>;
+    compress(): Endpoint<State, Auth>;
+    cache(args: CacheInstanceArgs): Endpoint<State, Auth>;
     etag(): this;
-    use(): Action<State>;
-    define<Term extends string = string, Spec extends ActionSpec = ActionSpec>(args: DefineArgs<Term, Spec>): DefinedAction<State, Term, Spec>;
-    handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State>): FinalizedAction<State>;
-    handle(args: HandlerObj<State>): FinalizedAction<State>;
+    use(): Action<State, Auth>;
+    define<Term extends string = string, Spec extends ActionSpec = ActionSpec>(args: DefineArgs<Term, Spec>): DefinedAction<State, Auth, Term, Spec>;
+    handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State>): FinalizedAction<State, Auth>;
+    handle(args: HandlerObj<State, Auth>): FinalizedAction<State, Auth>;
 }
 export declare class ActionAuth<State extends ContextState = ContextState> {
     #private;
     constructor(meta: ActionMeta<State>);
-    public(): Endpoint<State>;
-    private(): Endpoint<State>;
+    public<Auth extends AuthState = AuthState>(authMiddleware?: AuthMiddleware<Auth>): Endpoint<State, Auth>;
+    private<Auth extends AuthState = AuthState>(authMiddleware: AuthMiddleware<Auth>): Endpoint<State, Auth>;
 }

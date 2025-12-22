@@ -1,5 +1,5 @@
-import { isObject } from './utils/isObject.js';
-import { preferredMediaTypes } from './utils/preferredMediaTypes.js';
+import { isObject } from "./utils/isObject.js";
+import { preferredMediaTypes } from "./utils/preferredMediaTypes.js";
 // deno-lint-ignore no-explicit-any
 export function isFileData(value) {
     if (typeof value === 'string' && value.startsWith('data:')) {

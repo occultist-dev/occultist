@@ -1,9 +1,9 @@
-import { ActionAuth, HandlerDefinition } from "./actions/actions.js";
-import { ActionMeta } from "./actions/meta.js";
-import type { ContextState } from "./actions/spec.js";
-import type { ImplementedAction } from "./actions/types.js";
-import type { HTTPWriter } from "./actions/writer.js";
-import { type Callable, HTTP, type Registry } from './registry.js';
+import { ActionAuth, HandlerDefinition } from "./actions/actions.ts";
+import { ActionMeta } from "./actions/meta.ts";
+import type { ContextState } from "./actions/spec.ts";
+import type { ImplementedAction } from "./actions/types.ts";
+import type { HTTPWriter } from "./actions/writer.ts";
+import { type Callable, HTTP, type Registry } from './registry.ts';
 export type MetaPropatator = (meta: ActionMeta) => void;
 export type ScopeArgs = {
     path: string;

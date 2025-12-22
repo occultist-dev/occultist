@@ -1,6 +1,6 @@
-import type { JSONValue } from "../jsonld.js";
-import type { ContextState, ActionSpec } from "../actions/spec.js";
-import type { ImplementedAction } from "../actions/types.js";
+import type { JSONValue } from "../jsonld.ts";
+import type { ContextState, ActionSpec } from "../actions/spec.ts";
+import type { ImplementedAction } from "../actions/types.ts";
 export type BodyValue = Record<string, JSONValue>;
 export type RequestBodyResult = {
     bodyValues: BodyValue;

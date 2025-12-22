@@ -1,12 +1,18 @@
 import {Registry} from '../registry.ts';
-import type {CacheDetails, CacheHitHandle, CacheMeta, CacheStorage, CacheMissHandle, UpstreamCache} from './types.js';
+import type {CacheDetails, CacheHitHandle, CacheMeta, CacheStorage, CacheMissHandle, UpstreamCache, LockedCacheMissHandle} from './types.ts';
 import {Cache} from './cache.ts';
 
 
 export class InMemoryCacheMeta implements CacheMeta {
   #details: Map<string, CacheDetails> = new Map();
+  #locks: Map<string, Promise<void>> = new Map();
+  #flushLock: Promise<void> | undefined;
 
-  get(key: string): CacheHitHandle | CacheMissHandle {
+  async get(key: string): Promise<CacheHitHandle | CacheMissHandle> {
+    if (this.#flushLock) {
+      await this.#flushLock;
+    }
+
     const details = this.#details.get(key);
     async function set(details: CacheDetails) {
       this.#details.set(key, details);
@@ -30,8 +36,62 @@ export class InMemoryCacheMeta implements CacheMeta {
     this.#details.set(key, details);
   }
 
+  async getOrLock(key: string): Promise<CacheHitHandle | LockedCacheMissHandle> {
+    if (this.#flushLock) {
+      await this.#flushLock;
+    }
+
+    const lock = this.#locks.get(key);
+
+    if (lock != null) {
+      await lock;
+    }
+
+    const details = this.#details.get(key);
+    const { resolve, promise } = Promise.withResolvers<void>();
+
+    this.#locks.set(key, promise);
+    
+    function set(details: CacheDetails) {
+      this.#details.set(key, details);
+    }
+
+    const release = () => {
+      resolve();
+      this.#locks.delete(key);
+    }
+
+    if (details == null) {
+      return {
+        type: 'locked-cache-miss',
+        set,
+        release,
+      };
+    }
+
+    return {
+      ...details,
+      type: 'cache-hit',
+      set,
+    };
+  }
+
   invalidate(key: string): void {
     this.#details.delete(key);
+  }
+
+  async flush(): Promise<void> {
+    const { resolve, promise } = Promise.withResolvers<void>();
+    this.#flushLock = promise;
+
+    // there could be a race condition here where the values are
+    // flused before queued requests can get them.
+    await Promise.all(this.#locks.values());
+
+    this.#details = new Map();
+    this.#locks = new Map();
+
+    resolve();
   }
 }
 
@@ -52,6 +112,9 @@ export class InMemoryCacheStorage implements CacheStorage {
     this.#cache.delete(key);
   }
 
+  flush(): void {
+    this.#cache = new Map();
+  }
 }
 
 export class InMemoryCache extends Cache {
@@ -62,5 +125,10 @@ export class InMemoryCache extends Cache {
       new InMemoryCacheStorage(),
       upstream,
     );
+  }
+
+  async flush() {
+    await this.meta.flush();
+    this.storage.flush();
   }
 }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { Accept, ContentTypeCache } from "./accept.js";
+import { Accept, ContentTypeCache } from "./accept.ts";
 
 const cache = new ContentTypeCache([
   'text/html',

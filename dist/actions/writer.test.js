@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ResponseWriter } from './writer.js';
+import { ResponseWriter } from "./writer.js";
 test('Writer writes hints', () => {
     return new Promise((resolve, reject) => {
         const server = createServer();
@@ -16,7 +16,7 @@ test('Writer writes hints', () => {
                         fetchPriority: 'high',
                     },
                     {
-                        href: 'https://example.com/main.js',
+                        href: 'https://example.com/main.ts',
                         as: 'script',
                         preload: true,
                         fetchPriority: 'low',

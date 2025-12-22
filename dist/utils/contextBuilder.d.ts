@@ -1,4 +1,4 @@
-import type { JSONLDContext, ContextVersion, TypeDef } from "../jsonld.js";
+import type { JSONLDContext, ContextVersion, TypeDef } from "../jsonld.ts";
 export declare function contextBuilder({ vocab, version, protect, idTerm, aliases, typeDefs: argsTypeDefs, }: {
     idTerm?: string;
     vocab?: string;

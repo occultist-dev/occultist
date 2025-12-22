@@ -57,7 +57,6 @@ export class Accept {
         const accept = req.headers.get('Accept');
         const acceptLanguage = req.headers.get('Accept-Language');
         const acceptEncoding = req.headers.get('Accept-Encoding');
-
         return new Accept(accept, acceptLanguage, acceptEncoding);
     }
     debug() {

@@ -1,11 +1,11 @@
-import type { HTTPWriter } from "./writer.js";
-import type { Registry } from '../registry.js';
-import type { Scope } from "../scopes.js";
-import type { ContextState, ActionSpec } from "./spec.js";
-import type { Context } from "./context.js";
+import type { HTTPWriter } from "./writer.ts";
+import type { Registry } from '../registry.ts';
+import type { Scope } from "../scopes.ts";
+import type { ContextState, ActionSpec } from "./spec.ts";
+import type { Context } from "./context.ts";
 import type { ServerResponse } from "node:http";
-import type { JSONObject, TypeDef } from "../jsonld.js";
-import type {HandlerDefinition} from "../mod.js";
+import type { JSONObject, TypeDef } from "../jsonld.ts";
+import type {HandlerDefinition} from "../mod.ts";
 
 export type CacheHitHeader = boolean | string | [header: string, value: string];
 

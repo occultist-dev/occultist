@@ -1,5 +1,5 @@
-import type { ContextDefinitionContainer, TypeDef } from "./jsonld.js";
-import type { Context } from "./actions/context.js";
+import type { ContextDefinitionContainer, TypeDef } from "./jsonld.ts";
+import type { Context } from "./actions/context.ts";
 export type MakeTypeDefArgsFromType<Term extends string, Type extends string> = {
     term: Term;
     type: Type;

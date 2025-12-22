@@ -1,8 +1,8 @@
-import type {HandlerDefinition} from "../mod.js";
-import type {Registry} from "../registry.js";
-import type {ActionPayload, ActionSpec, ContextState, ParsedIRIValues} from "./spec.js";
-import type {AuthState, ImplementedAction} from "./types.js";
-import type {ResponseBody} from "./writer.js";
+import type {HandlerDefinition} from "../mod.ts";
+import type {Registry} from "../registry.ts";
+import type {ActionPayload, ActionSpec, ContextState, ParsedIRIValues} from "./spec.ts";
+import type {AuthState, ImplementedAction} from "./types.ts";
+import type {ResponseBody} from "./writer.ts";
 
 
 class EditableContext {

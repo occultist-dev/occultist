@@ -147,18 +147,18 @@ export type CacheHitHandle =
   & CacheDetails
   & {
     type: 'cache-hit';
-    set(details: CacheDetails): Promise<void>;
+    set(details: CacheDetails): void | Promise<void>;
   };
 
 export type CacheMissHandle = {
   type: 'cache-miss';
-  set(details: CacheDetails): Promise<void>;
+  set(details: CacheDetails): void | Promise<void>;
 };
 
 export type LockedCacheMissHandle = {
   type: 'locked-cache-miss';
-  set(details: CacheDetails): Promise<void>;
-  release(): Promise<void>;
+  set(details: CacheDetails): void | Promise<void>;
+  release(): void | Promise<void>;
 };
 
 
@@ -176,35 +176,51 @@ export interface CacheMeta {
   /**
    * Sets the cache details for a representation.
    *
-   * @param key       A unique key for this representation.
-   * @param details   The cache details.
+   * @param key Unique key for this cached value.
+   * @param details Details of the cache to store.
    */
   set(key: string, details: CacheDetails): void | Promise<void>;
 
   /**
    * Retrieves the cache details of a representation.
    *
-   * @param key       A unique key for this representation.
+   * @param key Unique key for this cached value.
    */
   get(key: string): CacheHitHandle | CacheMissHandle | Promise<CacheHitHandle | CacheMissHandle>;
 
   /**
    * Retrieves the cache details of a representation and takes a lock
-   * for update if the representation is not current.
+   * for update if the representation is not current. All concurrent requests
+   * targeting the same cached value will wait for the cache to be populated
+   * and respond from cache. This can occur across processes if the locking
+   * mechanism allows for it.
    *
-   * Any other requests for this representation will wait for the request
-   * holding the lock to populate the cache before proceeding.
+   * This is an experimental API and its benifits are untested. APIs that
+   * have a high failure rate could see degredation in services as requests
+   * will queue to take the lock, but fail to set a new cache value causing
+   * the queued requests to continue locking.
    *
-   * @param key   A unique key for this representation.
+   * However, this could help protect downstream services from thundering herd
+   * like scenarios as only one requester will build the representation that all
+   * requesters use.
+   *
+   * @param key Unique key for this cached value.
    */
   getOrLock?(key: string): Promise<CacheHitHandle | LockedCacheMissHandle>;
 
   /**
-   * Deletes an item.
+   * Invalidates a cached value by key.
    *
-   * @param key The cache key of the item to delete.
+   * @param key Unique key for this cached value.
    */
   invalidate(key: string): void | Promise<void>;
+
+  /**
+   * Flushes the entire cache of values.
+   *
+   * @param key Unique key for this cached value.
+   */
+  flush(): void | Promise<void>;
 
 }
 

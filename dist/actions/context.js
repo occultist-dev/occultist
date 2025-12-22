@@ -16,6 +16,7 @@ export class CacheContext {
     contentType;
     public = false;
     authKey;
+    auth;
     action;
     registry;
     params;
@@ -27,6 +28,7 @@ export class CacheContext {
         this.contentType = args.contentType;
         this.public = args.public;
         this.authKey = args.authKey;
+        this.auth = args.auth;
         this.action = args.handler.action;
         this.method = args.handler.action.method;
         this.registry = args.handler.action.registry;
@@ -73,6 +75,7 @@ export class Context {
     contentType;
     public = false;
     authKey;
+    auth;
     state = {};
     action;
     registry;
@@ -86,6 +89,7 @@ export class Context {
         this.contentType = args.contentType;
         this.public = args.public;
         this.authKey = args.authKey;
+        this.auth = args.auth;
         this.action = args.handler.action;
         this.method = args.handler.action.method;
         this.registry = args.handler.action.registry;
@@ -93,6 +97,7 @@ export class Context {
         this.query = args.query;
         this.payload = args.payload;
         Object.freeze(this);
+        Object.freeze(this.auth);
     }
     get status() {
         return this.#editable.status;

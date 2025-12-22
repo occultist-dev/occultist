@@ -1,5 +1,5 @@
-import type { ImplementedAction } from "../actions/types.js";
-import type { ActionSpec, ContextState, FileSingleSpec, FileMultiSpec, BooleanSingleSpec, BooleanMultiSpec, NumberSingleSpec, NumberMultiSpec, StringSingleSpec, StringMultiSpec, ParsedIRIValues } from "../actions/spec.js";
+import type { ImplementedAction } from "../actions/types.ts";
+import type { ActionSpec, ContextState, FileSingleSpec, FileMultiSpec, BooleanSingleSpec, BooleanMultiSpec, NumberSingleSpec, NumberMultiSpec, StringSingleSpec, StringMultiSpec, ParsedIRIValues } from "../actions/spec.ts";
 export type IRIValue<Spec extends ActionSpec<ContextState> = ActionSpec<ContextState>> = {
     [Term in keyof Spec]: (Spec[Term] extends FileSingleSpec | FileMultiSpec ? never : Spec[Term]['valueName'] extends string ? (Spec[Term] extends BooleanSingleSpec ? boolean : Spec[Term] extends BooleanMultiSpec ? boolean[] : Spec[Term] extends NumberSingleSpec ? number : Spec[Term] extends NumberMultiSpec ? number[] : Spec[Term] extends StringSingleSpec ? string : Spec[Term] extends StringMultiSpec ? string[] : never) : never);
 };

@@ -1,6 +1,6 @@
 import { getActionContext } from "../utils/getActionContext.js";
 import { getPropertyValueSpecifications } from "../utils/getPropertyValueSpecifications.js";
-import { isPopulatedObject } from '../utils/isPopulatedObject.js';
+import { isPopulatedObject } from "../utils/isPopulatedObject.js";
 import { joinPaths } from "../utils/joinPaths.js";
 import { AfterDefinition, BeforeDefinition } from "./meta.js";
 function isHandlerObj(handler) {
@@ -455,11 +455,17 @@ export class ActionAuth {
     constructor(meta) {
         this.#meta = meta;
     }
-    public() {
+    public(authMiddleware) {
+        if (authMiddleware != null && typeof authMiddleware !== 'function')
+            throw new Error('Public action given invalid auth middleware');
         this.#meta.public = true;
+        this.#meta.auth = authMiddleware;
         return new Endpoint(this.#meta);
     }
-    private() {
+    private(authMiddleware) {
+        if (typeof authMiddleware !== 'function')
+            throw new Error('Private action given invalid auth middleware');
+        this.#meta.auth = authMiddleware;
         return new Endpoint(this.#meta);
     }
 }

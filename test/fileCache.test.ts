@@ -4,7 +4,13 @@ import {Registry} from "../lib/registry.ts";
 import {testAuthMiddleware} from "./utils/authMiddleware.ts";
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import {mkdir} from "node:fs/promises";
 
+const cacheDir = resolve(import.meta.dirname, '../tmp/fileCache.test');
+
+try {
+  await mkdir(cacheDir, { recursive: true });
+} catch {}
 
 async function makeRegistry() {
   const registry = new Registry({
@@ -15,8 +21,8 @@ async function makeRegistry() {
 
   const cache = new FileSystemCache(
     registry,
-    resolve(import.meta.dirname, 'cache/info.json'),
-    resolve(import.meta.dirname, 'cache'),
+    resolve(cacheDir, 'info.json'),
+    cacheDir,
   );
 
   registry.http.get('root', '/')
@@ -74,10 +80,12 @@ describe('FileSystemCache', () => {
     assert.equal(res1.headers.get('Content-Type'), 'text/plain');
     assert.equal(res2.headers.get('X-Cache'), 'HIT');
     assert.equal(res2.headers.get('Content-Type'), 'text/plain');
+    
+    await cache.flush();
   });
   
   it('varies on content type', async () => {
-    const { registry } = await makeRegistry();
+    const { registry, cache } = await makeRegistry();
     const res1 = await registry.handleRequest(
       new Request('https://example.com')
     );
@@ -89,5 +97,7 @@ describe('FileSystemCache', () => {
     assert.equal(res1.headers.get('Content-Type'), 'text/plain');
     assert.notEqual(res2.headers.get('X-Cache'), 'HIT');
     assert.equal(res2.headers.get('Content-Type'), 'text/html');
+
+    await cache.flush();
   });
 });

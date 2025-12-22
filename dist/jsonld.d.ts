@@ -1,4 +1,4 @@
-import type { ShallowMerge } from "./merge.js";
+import type { ShallowMerge } from "./merge.ts";
 export type RecursiveDigit = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 export type RecursiveNextDigit = [1, 2, 3, 4, 5, 6, 7, 'STOP'];
 export type RecursiveIncrement<T> = T extends RecursiveDigit ? RecursiveNextDigit[T] : 'STOP';

@@ -1,5 +1,5 @@
-import { ArraySpec, ObjectArraySpec, ObjectSpec, PropertySpec } from './actions/spec.js';
-import { JSONValue } from "./jsonld.js";
+import type { ArraySpec, ObjectArraySpec, ObjectSpec, PropertySpec } from './actions/spec.ts';
+import type { JSONValue } from "./jsonld.ts";
 export declare function isFileData(value: JSONValue | File): value is string | File;
 export declare function isObjectArraySpec(spec: PropertySpec): spec is ObjectArraySpec;
 export declare function isObjectSpec(spec: PropertySpec): spec is ObjectSpec;

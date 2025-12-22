@@ -4,7 +4,8 @@
     "target": "esnext",
     "moduleResolution": "nodenext",
     "module": "nodenext",
-    "declaration": true
+    "declaration": true,
+    "rewriteRelativeImportExtensions": true
   },
   "include": [
     "lib/**/*.ts"

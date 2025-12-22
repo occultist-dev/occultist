@@ -7,13 +7,10 @@
     "target": "es2024",
     "moduleResolution": "nodenext",
     "module": "nodenext",
-    "allowImportingTsExtensions": true
+    "rewriteRelativeImportExtensions": true
   },
   "include": [
     "lib/**/*.ts",
     "test/**/*.ts"
-  ],
-  "exclude": [
-    "test/cache"
   ]
 }

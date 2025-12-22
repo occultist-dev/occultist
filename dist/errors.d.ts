@@ -1,4 +1,4 @@
-import { ProblemDetails } from "./types.js";
+import type { ProblemDetails } from "./types.ts";
 export declare class ProblemDetailsError extends Error {
     status: number;
     problemDetails: ProblemDetails;

@@ -1,5 +1,14 @@
 import { createHash } from 'node:crypto';
-import { EtagConditions } from './etag.js';
+import { EtagConditions } from "./etag.js";
+const supportedSemantics = [
+    'options',
+    'head',
+    'get',
+    'post',
+    'put',
+    'delete',
+    'query',
+];
 export class Cache {
     #registry;
     #cacheMeta;
@@ -54,7 +63,14 @@ export class Cache {
     }
     async push(_req) {
     }
-    async invalidate(_req) {
+    async invalidate(key, url) {
+        const promises = [
+            this.#cacheMeta.invalidate(key),
+            this.#storage.invalidate(key),
+        ];
+        if (this.#upstream != null)
+            promises.push(this.upstream.invalidate(url));
+        await Promise.all(promises);
     }
 }
 export class CacheMiddleware {
@@ -78,8 +94,12 @@ export class CacheMiddleware {
             }
             return false;
         });
-        if (descriptor == null) {
+        if (descriptor == null || !supportedSemantics.includes(descriptor.semantics)) {
             return await next();
+        }
+        if (descriptor.semantics === 'put' || descriptor.semantics === 'delete') {
+            this.#useInvalidate(descriptor, ctx, next);
+            return;
         }
         switch (descriptor.args.strategy) {
             case 'http': {
@@ -99,24 +119,58 @@ export class CacheMiddleware {
     /**
      * @todo Implement vary rules.
      */
-    #makeKey(descriptor) {
+    #makeKey(descriptor, ctx) {
+        const { authKey } = ctx;
         const { contentType } = descriptor;
         const { version } = descriptor.args;
         const { name } = descriptor.action;
         const { url } = descriptor.request;
-        return 'v' + (version ?? 0) + '|' + name + '|' + contentType.toLowerCase() + '|' + url.toString();
+        if (authKey == null)
+            return 'v' + (version ?? 0) + '|' + name + '|' + contentType.toLowerCase() + '|' + url.toString();
+        return 'v' + (version ?? 0) + '|' + name + '|' + contentType.toLowerCase() + '|' + url.toString() + '|' + authKey;
     }
+    /**
+     * Sets response headers based of the cache args and authorization status.
+     */
     #setHeaders(descriptor, ctx) {
-        const {} = descriptor.args;
+        const args = descriptor.args;
+        const cacheControl = [];
+        if (ctx.authKey != null && args.publicWhenAuthenticated) {
+            cacheControl.push('public');
+        }
+        else if (ctx.authKey != null || args.private) {
+            cacheControl.push('private');
+        }
+        else if (ctx.public) {
+            cacheControl.push('public');
+        }
+        if (cacheControl.length !== 0) {
+            ctx.headers.set('Cache-Control', cacheControl.join(', '));
+        }
+    }
+    /**
+     * Used for PUT and DELETE requests which should invalidate the cache
+     * when successful.
+     */
+    async #useInvalidate(descriptor, ctx, next) {
+        await next();
+        if (ctx.status != null || ctx.status.toString()[0] !== '2') {
+            return;
+        }
+        const key = this.#makeKey(descriptor, ctx);
+        const args = descriptor.args;
+        const cache = args.cache;
+        await cache.invalidate(key, ctx.url);
     }
     async #useHTTP(descriptor, ctx, next) {
         this.#setHeaders(descriptor, ctx);
         await next();
     }
     async #useEtag(descriptor, ctx, next) {
-        const key = this.#makeKey(descriptor);
+        const key = this.#makeKey(descriptor, ctx);
         const rules = new EtagConditions(ctx.req.headers);
         const resourceState = await descriptor.args.cache.meta.get(key);
+        this.#setHeaders(descriptor, ctx);
         if (resourceState.type === 'cache-hit') {
             if (rules.ifMatch(resourceState.etag)) {
                 return;
@@ -127,64 +181,78 @@ export class CacheMiddleware {
                 return;
             }
         }
-        this.#setHeaders(descriptor, ctx);
         await next();
     }
     async #useStore(descriptor, ctx, next) {
-        const key = this.#makeKey(descriptor);
+        const key = this.#makeKey(descriptor, ctx);
         let resourceState;
-        if (typeof descriptor.args.cache.meta.getOrLock === 'function' &&
-            descriptor.args.lock) {
-            try {
-                resourceState = await descriptor.args.cache.meta.getOrLock(key);
-            }
-            catch (err) {
-                resourceState = await descriptor.args.cache.meta.get(key);
-            }
-        }
-        else {
-            resourceState = await descriptor.args.cache.meta.get(key);
-        }
-        if (resourceState?.type === 'cache-hit') {
-            if (this.#isNotModified(ctx.req.headers, resourceState.etag)) {
-                ctx.hit = true;
-                ctx.status = 304;
-                return;
-            }
-            if (resourceState.hasContent) {
+        const args = descriptor.args;
+        const cache = args.cache;
+        this.#setHeaders(descriptor, ctx);
+        if (descriptor.semantics === 'get' ||
+            descriptor.semantics === 'head' ||
+            descriptor.semantics === 'options' ||
+            descriptor.semantics === 'query') {
+            if (typeof cache.meta.getOrLock === 'function' &&
+                args.lock) {
                 try {
-                    ctx.hit = true;
-                    ctx.status = resourceState.status;
-                    ctx.body = await descriptor.args.cache.storage.get(key);
-                    for (const [key, value] of resourceState.headers.entries()) {
-                        ctx.headers.set(key, value);
-                    }
-                    return;
+                    resourceState = await cache.meta.getOrLock(key);
                 }
                 catch (err) {
-                    console.log(err);
+                    resourceState = await cache.meta.get(key);
+                }
+            }
+            else {
+                resourceState = await cache.meta.get(key);
+            }
+            if (resourceState?.type === 'cache-hit') {
+                if (this.#isNotModified(ctx.req.headers, resourceState.etag)) {
+                    ctx.hit = true;
+                    ctx.status = 304;
+                    return;
+                }
+                if (resourceState.hasContent) {
+                    try {
+                        ctx.hit = true;
+                        ctx.status = resourceState.status;
+                        ctx.body = await cache.storage.get(key);
+                        for (const [key, value] of Object.entries(resourceState.headers)) {
+                            if (Array.isArray(value)) {
+                                ctx.headers.delete(key);
+                                for (let i = 0; i < value.length; i++) {
+                                    ctx.headers.append(key, value[i]);
+                                }
+                            }
+                            else {
+                                ctx.headers.set(key, value);
+                            }
+                        }
+                        return;
+                    }
+                    catch (err) {
+                        console.log(err);
+                    }
                 }
             }
         }
         try {
-            this.#setHeaders(descriptor, ctx);
             await next();
             const body = await new Response(ctx.body).blob();
             const etag = await this.#createEtag(body);
             ctx.etag = etag;
             ctx.headers.set('Etag', etag);
-            await descriptor.args.cache.meta.set(key, {
+            await cache.meta.set(key, {
                 key,
                 authKey: ctx.authKey,
                 iri: ctx.url,
                 status: ctx.status ?? 200,
                 hasContent: ctx.body != null,
-                headers: ctx.headers,
+                headers: Object.fromEntries(ctx.headers.entries()),
                 contentType: ctx.contentType,
                 etag,
             });
             if (ctx.body != null) {
-                await descriptor.args.cache.storage.set(key, body);
+                await cache.storage.set(key, body);
             }
             if (resourceState.type === 'locked-cache-miss') {
                 await resourceState.release();
@@ -193,7 +261,6 @@ export class CacheMiddleware {
                 ctx.hit = true;
                 ctx.status = 304;
                 ctx.body = null;
-                ctx.headers.delete('Etag');
                 return;
             }
         }
@@ -211,10 +278,12 @@ export class CacheMiddleware {
         const rules = new EtagConditions(headers);
         return rules.isNotModified(etag);
     }
-    async #createEtag(body, weak = true) {
+    /**
+     * Creates a strong etag using a sha1 hashing algorithim.
+     */
+    async #createEtag(body) {
         const buff = await body.bytes();
         const hash = createHash('sha1').update(buff).digest('hex');
-        const quoted = `"${hash}"`;
-        return weak ? `W/${quoted}` : quoted;
+        return `"${hash}"`;
     }
 }
