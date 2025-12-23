@@ -35,16 +35,16 @@ export class InMemoryCacheMeta {
             await lock;
         }
         const details = this.#details.get(key);
-        const { resolve, promise } = Promise.withResolvers();
-        this.#locks.set(key, promise);
         function set(details) {
             this.#details.set(key, details);
         }
-        const release = () => {
-            resolve();
-            this.#locks.delete(key);
-        };
         if (details == null) {
+            const { resolve, promise } = Promise.withResolvers();
+            const release = () => {
+                resolve();
+                this.#locks.delete(key);
+            };
+            this.#locks.set(key, promise);
             return {
                 type: 'locked-cache-miss',
                 set,
