@@ -453,15 +453,189 @@ export class Registry<
     Object.freeze(this);
   }
 
+  /**
+   * Matches a request against the action configured to handle
+   * it by path and content type.
+   *
+   * @param The request to match.
+   * @returns Match information.
+   */
+  matchRequest(req: Request): ActionMatchResult | null {
+    if (this.#index == null) {
+      console.warn(
+        'Registry index not built. Did you forget to run ' +
+        'registry.finalize()?');
+      return null;
+    }
+
+    const accept = Accept.from(req);
+    return this.#index?.match(
+      req.method,
+      req.url.toString(),
+      accept,
+    );
+  }
+
+  /**
+   * Primes a cache entry if the cache currently does not have
+   * a value present, or the cached entry is stale.
+   *
+   * This operation will only succeed on safe HTTP methods supporting
+   * caching. An endpoint can opt into being a "safe" endpoint by
+   * setting the cache semantics to "get". 
+   *
+   * When called with an auth key this method runs the full action
+   * including middleware as that user so it is important that the
+   * operation really is safe and does not change data or create
+   * logs on the user's behalf.
+   *
+   * Middleware and handlers can detect if the request is being called
+   * via a cache control method by checking `ctx.cacheRun === true`.
+   *
+   * @param req The request to cache.
+   * @param args.authKey An auth key that would otherwise be returned
+   *   by an auth middleware.
+   * @param args.pushUpstream The cached value will be pushed to an
+   *   upstream cache / proxy if the resolved cache is configured to
+   *   interface with one.
+   */
+  primeCache(req: Request, {
+    authkey,
+    pushupstream,
+  }: {
+    authKey?: string;
+    pushUpstream?: boolean;
+  } = {}): Promise<boolean> {
+    if (!this.#finalized) {
+      this.finalize();
+    }
+    return Promise.resolve(false);
+  }
+  
+  /**
+   * Refreshes a cached entry. If the hit cache is not populated
+   * with a value it has the same affect as priming the cache.
+   *
+   * This operation will only succeed on safe HTTP methods supporting
+   * caching. An endpoint can opt into being a "safe" endpoint by
+   * setting the cache semantics to "get". 
+   *
+   * When called with an auth key this method runs the full action
+   * including middleware as that user so it is important that the
+   * operation really is safe and does not change data or create
+   * logs on the user's behalf.
+   *
+   * Middleware and handlers can detect if the request is being called
+   * via a cache control method by checking `ctx.cacheRun === true`.
+   *
+   * @param req The request to cache.
+   * @param args.authKey An auth key that would otherwise be returned
+   *   by an auth middleware.
+   * @param args.pushUpstream The cached value will be pushed to an
+   *   upstream cache / proxy if the resolved cache is configured to
+   *   interface with one.
+   */
+  refreshCache(req: Request, {
+    authKey,
+    pushUpstream,
+  }: {
+    authKey?: string;
+    pushUpstream?: boolean;
+  } = {}): Promise<boolean> {
+    if (!this.#finalized) {
+      this.finalize();
+    }
+
+  }
+  
+  /**
+   * Invalidates a cache entry related to a request if it exists.
+   * An auth key can be provided matching a key that would typically
+   * be produced by the request's auth middleware allowing private
+   * cache entries to be invalidated.
+   *
+   * @param req A request to resolve the cache entry for.
+   * @param authKey An optional auth key for private cache invalidation.
+   * @returns True if successful.
+   */
+  invalidateCache(req: Request, {
+    authKey,
+    invalidateUpstream,
+  }: {
+    authKey?: string;
+    invalidateUpstream?: boolean;
+  }): Promise<boolean> {
+    if (!this.#finalized) {
+      this.finalize();
+    }
+
+  }
+
+  /**
+   * Handles a request.
+   *
+   * This method supports Node's `http.createServer()` request and
+   * response interface and the web standard `Request` and
+   * `Response` interfaces.
+   *
+   * Occultist wraps the `IncomingMessage` object created by Node's
+   * `createServer()` in a generic `Request` object which may have
+   * overheads. Node's `createServer()` API is the only method 
+   * supporting HTTP early hints, so it does have some advantages
+   * even though in many cases the other runtimes have better
+   * ergonomics.
+   *
+   * @param req A web standard request instance.
+   * @returns A web standard response instance.
+   */
   handleRequest(
     req: Request,
   ): Promise<Response>;
   
+  /**
+   * Handles a request.
+   *
+   * This method supports Node's `http.createServer()` request and
+   * response interface and the web standard `Request` and
+   * `Response` interfaces.
+   *
+   * Occultist wraps the `IncomingMessage` object created by Node's
+   * `createServer()` in a generic `Request` object which may have
+   * overheads. Node's `createServer()` API is the only method 
+   * supporting HTTP early hints, so it does have some advantages
+   * even though in many cases the other runtimes have better
+   * ergonomics.
+   *
+   * @param req A `createServer()` incoming message insance, or a
+   *   web standard `Request` instance.
+   * @param res A `createServer()` server response instance.
+   * @returns A NodeJS server response instance.
+   */
   handleRequest(
     req: IncomingMessage,
     res: ServerResponse,
   ): Promise<ServerResponse>;
 
+  /**
+   * Handles a request.
+   *
+   * This method supports Node's `http.createServer()` request and
+   * response interface and the web standard `Request` and
+   * `Response` interfaces.
+   *
+   * Occultist wraps the `IncomingMessage` object created by Node's
+   * `createServer()` in a generic `Request` object which may have
+   * overheads. Node's `createServer()` API is the only method 
+   * supporting HTTP early hints, so it does have some advantages
+   * even though in many cases the other runtimes have better
+   * ergonomics.
+   *
+   * @param req A `createServer()` incoming message insance, or a
+   *   web standard request instance.
+   * @param res A `createServer()` server response instance.
+   * @returns A NodeJS server response instance or a web standard
+   *   request instance.
+   */
   async handleRequest(
     req: Request | IncomingMessage,
     res?: ServerResponse,
@@ -473,12 +647,7 @@ export class Registry<
     const startTime = performance.now();
     const wrapped = new WrappedRequest(this.#rootIRI, req);
     const writer = new ResponseWriter(res);
-    const accept = Accept.from(wrapped);
-    const match = this.#index?.match(
-      req.method ?? 'GET',
-      wrapped.url.toString(),
-      accept,
-    );
+    const match = this.matchRequest(wrapped);
 
     let err: ProblemDetailsError;
 

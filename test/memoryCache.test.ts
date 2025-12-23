@@ -11,7 +11,7 @@ function makeRegistry() {
     cacheHitHeader: true,
   });
   const cache = new InMemoryCache(registry);
-  
+
   registry.http.get('root', '/')
     .public()
     .cache(cache.store())

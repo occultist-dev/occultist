@@ -1,3 +1,4 @@
+import {deepStrictEqual} from 'node:assert';
 import {Accept} from '../accept.ts';
 import {CacheMiddleware} from '../cache/cache.ts';
 import type {CacheEntryDescriptor, CacheInstanceArgs, CacheSemantics} from '../cache/types.ts';
@@ -73,34 +74,31 @@ export class ActionMeta<
     this.#setAcceptCache();
   }
 
-  async perform(req: Request): Promise<Response> {
-    const actionSet = new ActionSet(this.rootIRI, this.method, this.path.normalized, [this]);
-    const wrapped = new WrappedRequest(this.rootIRI, req);
-    const writer = new ResponseWriter();
-    const accept = Accept.from(req);
-    const url = new URL(wrapped.url);
-    const result = actionSet.matches(wrapped.method, url.pathname, accept);
+  /**
+   * An action can have multiple caching strategies defined for it. The
+   * descriptors hold this information and are picked based of their
+   * suitability for the request. This is all done in the CacheMiddleware
+   * instance, but the descriptor list is populated with request values here.
+   */
+  getCacheDescriptors(
+    contentType: string,
+    req: Request,
+  ): CacheEntryDescriptor[] {
+    const descriptors: CacheEntryDescriptor[] = [];
 
-    if (result.type === 'match') {
-      const handler = this.action.handlerFor(result.contentType);
-
-      return this.handleRequest({
-        startTime: performance.now(),
-        contentType: result.contentType,
-        url: url.toString(),
-        req: wrapped,
-        writer,
-        spec: this.action.spec as Spec,
-        handler,
-      }) as Promise<Response>;
+    for (let i = 0; i < this.cache.length; i++) {
+      descriptors.push({
+        contentType,
+        semantics: this.cache[i].semantics ?? req.method.toLowerCase() as CacheSemantics,
+        action: this.action,
+        request: req,
+        args: this.cache[i],
+      });
     }
-    
-    return new Response(null, { status: 404 });
+
+    return descriptors;
   }
 
-  /**
-   *
-   */
   async handleRequest({
     contentType,
     url,
@@ -212,18 +210,9 @@ export class ActionMeta<
           params: {},
           query: {},
         });
-        const descriptors: CacheEntryDescriptor[] = this.cache.map(args => {
-          return {
-            contentType,
-            semantics: args.semantics ?? req.method.toLowerCase() as CacheSemantics,
-            action: this.action as ImplementedAction,
-            request: req,
-            args,
-          };
-        });
 
         await cacheMiddleware.use(
-          descriptors,
+          this.getCacheDescriptors(contentType, req),
           cacheCtx,
           async () => {
             // write any cache headers to the response headers.
