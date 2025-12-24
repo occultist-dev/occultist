@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-import {InMemoryCache, Registry} from '../lib/mod.ts';
+import {MemoryCache, Registry} from '../lib/mod.ts';
 import {testAuthMiddleware} from './utils/authMiddleware.ts';
 import {setTimeout} from 'node:timers/promises';
 
@@ -10,7 +10,7 @@ function makeRegistry() {
     serverTiming: true,
     cacheHitHeader: true,
   });
-  const cache = new InMemoryCache(registry);
+  const cache = new MemoryCache(registry);
 
   registry.http.get('root', '/')
     .public()

@@ -1,5 +1,5 @@
 import {resolve} from "path";
-import {FileSystemCache} from "../lib/mod.ts";
+import {FileCache} from "../lib/mod.ts";
 import {Registry} from "../lib/registry.ts";
 import {testAuthMiddleware} from "./utils/authMiddleware.ts";
 import assert from 'node:assert/strict';
@@ -19,7 +19,7 @@ async function makeRegistry() {
     cacheHitHeader: true,
   });
 
-  const cache = new FileSystemCache(
+  const cache = new FileCache(
     registry,
     resolve(cacheDir, 'info.json'),
     cacheDir,

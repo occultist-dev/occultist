@@ -3,7 +3,7 @@ import type {CacheDetails, CacheHitHandle, CacheMeta, CacheStorage, CacheMissHan
 import {Cache} from './cache.ts';
 
 
-export class InMemoryCacheMeta implements CacheMeta {
+export class MemoryCacheMeta implements CacheMeta {
   #details: Map<string, CacheDetails> = new Map();
   #locks: Map<string, Promise<void>> = new Map();
   #flushLock: Promise<void> | undefined;
@@ -95,7 +95,7 @@ export class InMemoryCacheMeta implements CacheMeta {
   }
 }
 
-export class InMemoryCacheStorage implements CacheStorage {
+export class MemoryCacheStorage implements CacheStorage {
   #cache: Map<string, Blob> = new Map();
 
   get(key: string): Blob {
@@ -117,12 +117,12 @@ export class InMemoryCacheStorage implements CacheStorage {
   }
 }
 
-export class InMemoryCache extends Cache {
+export class MemoryCache extends Cache {
   constructor(registry: Registry, upstream?: UpstreamCache) {
     super(
       registry,
-      new InMemoryCacheMeta(),
-      new InMemoryCacheStorage(),
+      new MemoryCacheMeta(),
+      new MemoryCacheStorage(),
       upstream,
     );
   }

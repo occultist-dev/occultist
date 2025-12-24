@@ -1,22 +1,25 @@
-import {deepStrictEqual} from 'node:assert';
-import {Accept} from '../accept.ts';
-import {CacheMiddleware} from '../cache/cache.ts';
-import type {CacheEntryDescriptor, CacheInstanceArgs, CacheSemantics} from '../cache/types.ts';
+import {CacheDescriptor, CacheMiddleware} from '../cache/cache.ts';
+import type {CacheEntryDescriptor, CacheInstanceArgs, CacheSemantics, CacheWhen} from '../cache/types.ts';
 import {ProblemDetailsError} from '../errors.ts';
 import type {JSONValue} from '../jsonld.ts';
 import {processAction, type ProcessActionResult} from '../processAction.ts';
 import type {Registry} from '../registry.ts';
-import {WrappedRequest} from '../request.ts';
 import type {Scope} from "../scopes.ts";
 import {joinPaths} from '../utils/joinPaths.ts';
 import {HandlerDefinition} from './actions.ts';
-import {ActionSet} from './actionSets.ts';
 import {CacheContext, Context} from './context.ts';
 import {Path} from "./path.ts";
 import type {ActionSpec, ContextState, FileValue, NextFn, TransformerFn} from './spec.ts';
 import type {AuthMiddleware, AuthState, CacheHitHeader, HintArgs, ImplementedAction} from './types.ts';
-import {ResponseWriter, type HTTPWriter, type ResponseTypes} from "./writer.ts";
+import {type HTTPWriter, type ResponseTypes} from "./writer.ts";
 
+
+const safeMethods = new Set([
+  'OPTIONS',
+  'HEAD',
+  'GET',
+  'QUERY',
+]);
 
 export const BeforeDefinition = 0;
 export const AfterDefinition = 1;
@@ -30,6 +33,7 @@ export class ActionMeta<
 > {
   rootIRI: string;
   method: string;
+  isSafe: boolean = false;
   name: string;
   uriTemplate: string;
   public: boolean = false;
@@ -59,6 +63,7 @@ export class ActionMeta<
   ) {
     this.rootIRI = rootIRI;
     this.method = method.toUpperCase()
+    this.isSafe = safeMethods.has(this.method);
     this.name = name;
     this.uriTemplate = joinPaths(rootIRI, uriTemplate);
     this.registry = registry;
@@ -75,30 +80,74 @@ export class ActionMeta<
   }
 
   /**
-   * An action can have multiple caching strategies defined for it. The
-   * descriptors hold this information and are picked based of their
-   * suitability for the request. This is all done in the CacheMiddleware
-   * instance, but the descriptor list is populated with request values here.
+   * Selects the cache entry descriptor which is best used for this requert.
+   *
+   * @param contentType The content type of the response.
+   * @param req The request instance.
+   * @param cacheCtx A cache context instance.
+   * @returns A cache descriptor object or null if no cache entry matches.
    */
-  getCacheDescriptors(
+  getCacheDescriptor(
     contentType: string,
     req: Request,
-  ): CacheEntryDescriptor[] {
-    const descriptors: CacheEntryDescriptor[] = [];
+    cacheCtx: CacheContext,
+  ): CacheDescriptor | null {
+    let found = false;
+    let when: CacheWhen;
 
     for (let i = 0; i < this.cache.length; i++) {
-      descriptors.push({
-        contentType,
-        semantics: this.cache[i].semantics ?? req.method.toLowerCase() as CacheSemantics,
-        action: this.action,
-        request: req,
-        args: this.cache[i],
-      });
+      when = this.cache[i].when;
+      
+      if (when == null || when === 'always') {
+        found = true;
+      } else if (when === 'public' && cacheCtx.authKey == null) {
+        found = true;
+      } else if (when === 'private' && cacheCtx.authKey != null) {
+        found = true;
+      } else if (typeof when === 'function') {
+        found = when(cacheCtx);
+      }
+      
+      if (found) {
+        return new CacheDescriptor(
+          contentType,
+          this.action,
+          req,
+          this.cache[i],
+        );
+      }
     }
 
-    return descriptors;
+    return null;
   }
 
+  /**
+   * Primes a cache entry.
+   *
+   * @param req The web standard request instance.
+   * @param writer A HTTP writer instance.
+   * @param contentType The negotiated content type of the response.
+   * @param language The negotiated language of the response.
+   * @param encoding The negotiated encoding of the response.
+   * @param spec The action spec of the response.
+   * @param handler The action handler of the response.
+   */
+  async primeCache(
+    req: Request,
+    writer: HTTPWriter,
+    contentType: string,
+    language?: string,
+    encoding?: string,
+    spec?: Spec,
+    handler?: HandlerDefinition<State, Spec>,
+  ): Promise<boolean> {
+  }
+
+  /**
+   * Handles a request.
+   *
+   * All actions call this method to do the heavy lifting of handling a request.
+   */
   async handleRequest({
     contentType,
     url,
@@ -212,7 +261,7 @@ export class ActionMeta<
         });
 
         await cacheMiddleware.use(
-          this.getCacheDescriptors(contentType, req),
+          this.getCacheDescriptor(contentType, req, cacheCtx),
           cacheCtx,
           async () => {
             // write any cache headers to the response headers.

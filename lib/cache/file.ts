@@ -112,7 +112,7 @@ export class FileCacheMeta implements CacheMeta {
   }
 }
 
-export class FileSystemCacheStorage implements CacheStorage {
+export class FileCacheStorage implements CacheStorage {
 
   #directory: string;
   #hashes: Map<string, string> = new Map();
@@ -159,13 +159,13 @@ export class FileSystemCacheStorage implements CacheStorage {
   }
 }
 
-export class FileSystemCache extends Cache {
+export class FileCache extends Cache {
   #fileMeta: FileCacheMeta;
-  #fileSystemStorage: FileSystemCacheStorage;
+  #fileSystemStorage: FileCacheStorage;
 
   constructor(registry: Registry, filePath: string, directory: string, upstream?: UpstreamCache) {
     const meta = new FileCacheMeta(filePath);
-    const storage = new FileSystemCacheStorage(directory);
+    const storage = new FileCacheStorage(directory);
 
     super(
       registry,
