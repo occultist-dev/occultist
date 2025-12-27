@@ -94,15 +94,26 @@ export class ActionMeta<
   ): CacheDescriptor | null {
     let found = false;
     let when: CacheWhen;
+    const hasQuery = new URLSearchParams(req.url).size !== 0;
 
     for (let i = 0; i < this.cache.length; i++) {
       when = this.cache[i].when;
       
       if (when == null || when === 'always') {
         found = true;
-      } else if (when === 'public' && cacheCtx.authKey == null) {
+      } else if (when === 'no-query' && !hasQuery) {
         found = true;
-      } else if (when === 'private' && cacheCtx.authKey != null) {
+      } else if (when === 'unauthenticated' && cacheCtx.authKey == null) {
+        found = true;
+      } else if (when === 'authenticated' && cacheCtx.authKey != null) {
+        found = true;
+      } else if (when === 'unauthenticated-no-query' &&
+                 cacheCtx.authKey == null &&
+                 !hasQuery) {
+        found = true;
+      } else if (when === 'authenticated-no-query' &&
+        cacheCtx.authKey != null &&
+        !hasQuery) {
         found = true;
       } else if (typeof when === 'function') {
         found = when(cacheCtx);
@@ -260,7 +271,7 @@ export class ActionMeta<
           query: {},
         });
 
-        await cacheMiddleware.use(
+        await cacheMiddleware.middleware(
           this.getCacheDescriptor(contentType, req, cacheCtx),
           cacheCtx,
           async () => {

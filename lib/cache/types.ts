@@ -17,6 +17,12 @@ export type CacheSemantics =
   | 'query'
 ;
 
+export type CacheResult =
+  | 'unsupported'
+  | 'skipped'
+  | 'cached'
+;
+
 /**
  * A predicate function which takes the cache context
  * as an argument and returns true if the response

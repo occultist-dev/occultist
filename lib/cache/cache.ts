@@ -1,7 +1,8 @@
 import {createHash} from 'node:crypto';
-import {CacheContext, ImplementedAction, type NextFn, Registry} from '../mod.ts';
 import {EtagConditions} from './etag.ts';
-import type {CacheBuilder, CacheETagArgs, CacheETagInstanceArgs, CacheHitHandle, CacheHTTPArgs, CacheHTTPInstanceArgs, CacheInstanceArgs, CacheMeta, CacheMissHandle, CacheSemantics, CacheStorage, CacheStoreArgs, CacheStoreInstanceArgs, LockedCacheMissHandle, UpstreamCache} from './types.ts';
+import type {CacheBuilder, CacheETagArgs, CacheETagInstanceArgs, CacheHitHandle, CacheHTTPArgs, CacheHTTPInstanceArgs, CacheInstanceArgs, CacheMeta, CacheMissHandle, CacheResult, CacheSemantics, CacheStorage, CacheStoreArgs, CacheStoreInstanceArgs, LockedCacheMissHandle, UpstreamCache} from './types.ts';
+import {headersObjToHeaders} from '../utils/headerObjToHeaders.ts';
+import type {Registry, ImplementedAction, CacheContext, NextFn} from '../mod.ts';
 
 
 const supportedSemantics: CacheSemantics[] = [
@@ -11,7 +12,6 @@ const supportedSemantics: CacheSemantics[] = [
   'post',
   'put',
   'delete',
-  'query',
 ] as const;
 
 const safeSemantics = new Set<CacheSemantics>([
@@ -20,6 +20,134 @@ const safeSemantics = new Set<CacheSemantics>([
   'get',
   'query',
 ]);
+
+/**
+ * Creates a unique cache key based of the values of the
+ * request, auth and cache args.
+ *
+ * The auth key, if provided is checked to ensure it is
+ * a string and it is not empty or only whitespace characters.
+ *
+ * The action name and cache version are also checked to
+ * make sure they have valid values.
+ *
+ * The cache key uri encodes key segments to and separates
+ * them with the pipe character `|`.
+ *
+ * @param httpMethod The method the action accepts.
+ * @param requestURL The url of the request.
+ * @param contentType The negotiated content type of the response.
+ * @param languageCode The negotiated language of the response.
+ * @param encoding The negotiated encoding of the response.
+ * @param requestHeaders The request headers.
+ * @param actionName The name of the action handling the response.
+ * @param authKey The auth key produced by the action's auth middleware.
+ * @param publicWhenAuthenticated True if the cache does not vary on the auth key.
+ * @param cacheVersion Version of the cached representation. Defaults to 1.
+ * @param cacheVary String separated header names to vary on.
+ * @returns A unique cache key for the response.
+ */
+export function makeCacheKey(
+  httpMethod: string,
+  requestURL: string,
+  contentType: string,
+  languageCode: string | null,
+  encoding: string | null,
+  requestHeaders: Headers,
+  actionName: string,
+  authKey: string | null,
+  publicWhenAuthenticated: boolean,
+  cacheVersion: number | null,
+  cacheVary: string | null,
+): string {
+  if (cacheVersion != null && (
+      typeof cacheVersion !== 'number' ||
+      cacheVersion < 0)) {
+    throw new Error('Invalid version');
+  }
+
+  if (typeof actionName !== 'string' ||
+      actionName.trim() === '') {
+    throw new Error('Invalid action name');
+  }
+
+  if (authKey != null && (
+    typeof authKey !== 'string' ||
+    authKey.trim() === ''
+  )) {
+    // Make sure the auth key is a string and is populated
+    // to prevent bad configuration leaking sensitive data
+    throw new Error('Invalid auth key');
+  }
+
+  let key = 'v' + (cacheVersion ?? 1) + '|' + actionName;
+
+  // get and head draw from the same cache entry. Post requests
+  // can set the same representation if they have freshness information.
+  // Put and delete invalidate the same cache entry if successful.
+
+  if (httpMethod.toLowerCase() === 'get' ||
+      httpMethod.toLowerCase() === 'head' ||
+      httpMethod.toLowerCase() === 'post' ||
+      httpMethod.toLowerCase() === 'put' ||
+      httpMethod.toLowerCase() === 'delete'
+     ) {
+    key += '|';
+  } else {
+    key += '|' + encodeURIComponent(httpMethod.toLowerCase());
+  }
+
+  if (publicWhenAuthenticated || authKey == null) {
+    key += '|';
+  } else {
+    key += '|' + encodeURIComponent(authKey.toLowerCase());
+  }
+
+  key += '|' + encodeURIComponent(contentType.toLowerCase());
+  key += '|' + encodeURI(requestURL);
+
+  if (languageCode == null || languageCode.trim() === '') {
+    key += '|';
+  } else {
+    key += '|' + encodeURIComponent(languageCode.toLowerCase());
+  }
+
+  if (encoding == null || encoding.trim() === '') {
+    key += '|';
+  } else {
+    key += '|' + encodeURIComponent(encoding.toLowerCase());
+  }
+
+  key += '|';
+
+  if (cacheVary == null) {
+    return key;
+  }
+
+  const parts = cacheVary.split(' ');
+
+  for (let i = 0; i < parts.length; i++) {
+    const value = requestHeaders.get(parts[i]);
+
+    if (value == null) continue;
+
+    if (i !== 0) key += ',';
+    
+    key += encodeURIComponent(parts[i].toLowerCase().trim()) + '=';
+
+    if (Array.isArray(value)) {
+      for (let j = 0; j < value.length; j++) {
+        if (j !== 0) key += ';';
+        key += encodeURIComponent(value[j]);
+      }
+    } else {
+      key += encodeURIComponent(value);
+    }
+
+  }
+
+  return key;
+}
 
 export class Cache implements CacheBuilder {
   #registry: Registry;
@@ -82,8 +210,8 @@ export class Cache implements CacheBuilder {
       this.#storage.invalidate(key),
     ];
 
-    if (this.#upstream != null)
-      promises.push(this.upstream.invalidate(url));
+    if (typeof this.#upstream?.invalidate === 'function')
+      promises.push(this.#upstream.invalidate(url));
 
     await Promise.all(promises);
   }
@@ -121,50 +249,193 @@ export class CacheDescriptor {
 
 };
 
+/**
+ * Used internally by Occultist to apply caching rules to
+ * requests and programmically triggered cache interactions.
+ */
 export class CacheMiddleware {
   
   /**
+   * Primes a cache entry relating to a request. If a
+   * cache entry already exists and is fresh for the
+   * request no action is performed.
    *
+   * @param descriptor The cache descriptor.
+   * @param ctx A cache context instance.
+   * @param next The next function.
+   * @return Promise containing a cache status.
    */
   async prime(
     descriptor: CacheDescriptor,
     ctx: CacheContext,
     next: NextFn,
-  ): Promise<boolean> {
-
-  }
-
-  async use(
-    descriptor: CacheDescriptor,
-    ctx: CacheContext,
-    next: NextFn,
-  ): Promise<void> {
-    if (descriptor == null || !supportedSemantics.includes(descriptor.semantics)) {
-      return await next();
+  ): Promise<CacheResult> {
+    if (descriptor == null ||
+        !supportedSemantics.includes(descriptor.semantics) ||
+        !descriptor.safe) {
+      // only safe requests can be primed.
+      return 'unsupported'
+    } else if (descriptor.args.strategy === 'http' &&
+      typeof descriptor.args.cache.upstream?.push !== 'function'
+    ) {
+      // http caching has no effect when primed unless there
+      // is an upstream configured supporting push.
+      return 'unsupported';
     }
+    
+    const key = makeCacheKey(
+      ctx.method,
+      ctx.req.url,
+      ctx.contentType,
+      null,
+      null,
+      ctx.req.headers,
+      ctx.action.name,
+      ctx.authKey ?? null,
+      descriptor.args.public ?? false,
+      descriptor.args.version ?? null,
+      descriptor.args.vary,
+    );
+    const cache = descriptor.args.cache;
+    const resourceState = await cache.meta.get(key);
 
-    if (descriptor.semantics === 'put' || descriptor.semantics === 'delete') {
-      this.#useInvalidate(descriptor, ctx, next);
-      return;
+    if (resourceState.type === 'cache-hit') {
+      const headers = headersObjToHeaders(resourceState.headers);
+      const cacheControl = headers.get('Cache-Control');
+      
+      if (cacheControl != null && this.#isFresh(cacheControl)) {
+        // if the entry is still fresh skip priming.
+        return 'skipped';
+      }
     }
 
     switch (descriptor.args.strategy) {
-      case 'http': {
-        await this.#useHTTP(descriptor, ctx, next);
-        break;
-      }
       case 'etag': {
         await this.#useEtag(descriptor, ctx, next);
         break;
       }
       case 'store': {
         await this.#useStore(descriptor, ctx, next);
-        break;
       }
     }
 
-    if (typeof descriptor.args.cache.upstream?.extendHeaders === 'function') {
-      descriptor.args.cache.upstream.extendHeaders(
+    this.#setHeaders(descriptor, ctx);
+
+    if (typeof cache.upstream?.extendHeaders === 'function') {
+      cache.upstream.extendHeaders(
+        ctx.headers,
+        descriptor.args,
+        ctx.req,
+      );
+    }
+
+    if (typeof cache.upstream?.push === 'function') {
+      const body = await new Response(ctx.body).blob();
+
+      await cache.upstream.push(ctx.url, body);
+    }
+
+    return 'cached';
+  }
+
+  /**
+   * Refreshes a cache entry relating to a request or
+   * creates the cache entry if it does not already exist.
+   *
+   * @param descriptor The cache descriptor.
+   * @param ctx A cache context instance.
+   * @param next The next function.
+   * @return Promise containing an operation status.
+   */
+  async refresh(
+    descriptor: CacheDescriptor,
+    ctx: CacheContext,
+    next: NextFn,
+  ): Promise<CacheResult> {
+    if (descriptor == null ||
+        !supportedSemantics.includes(descriptor.semantics) ||
+        !descriptor.safe) {
+      // only safe requests can be primed.
+      return 'unsupported'
+    } else if (descriptor.args.strategy === 'http' &&
+      typeof descriptor.args.cache.upstream?.push !== 'function'
+    ) {
+      // http caching has no effect when primed unless there
+      // is an upstream configured supporting push.
+      return 'unsupported';
+    }
+    
+    const cache = descriptor.args.cache;
+
+    switch (descriptor.args.strategy) {
+      case 'etag': {
+        await this.#useEtag(descriptor, ctx, next);
+        break;
+      }
+      case 'store': {
+        await this.#useStore(descriptor, ctx, next);
+      }
+    }
+
+    this.#setHeaders(descriptor, ctx);
+
+    if (typeof cache.upstream?.extendHeaders === 'function') {
+      cache.upstream.extendHeaders(
+        ctx.headers,
+        descriptor.args,
+        ctx.req,
+      );
+    }
+
+    if (typeof cache.upstream?.push === 'function') {
+      const body = await new Response(ctx.body).blob();
+
+      await cache.upstream.push(ctx.url, body);
+    }
+
+    return 'cached';
+  }
+
+  /**
+   * Middleware used to apply cacheing logic to
+   * requests.
+   *
+   * @param descriptor The cache descriptor.
+   * @param ctx A cache context instance.
+   * @param next The next function.
+   * @return Promise containing a cache status.
+   */
+  async middleware(
+    descriptor: CacheDescriptor,
+    ctx: CacheContext,
+    next: NextFn,
+  ): Promise<void> {
+    if (descriptor == null ||
+        !supportedSemantics.includes(descriptor.semantics)) {
+      return next();
+    }
+
+    if (descriptor.semantics === 'put'
+      || descriptor.semantics === 'delete') {
+      return this.#useInvalidate(descriptor, ctx, next);
+    }
+
+    const upstream = descriptor.args.cache.upstream;
+
+    switch (descriptor.args.strategy) {
+      case 'etag': {
+        await this.#useEtag(descriptor, ctx, next);
+        break;
+      }
+      case 'store': {
+        await this.#useStore(descriptor, ctx, next);
+      }
+    }
+
+    this.#setHeaders(descriptor, ctx);
+
+    if (typeof upstream?.extendHeaders === 'function') {
+      upstream.extendHeaders(
         ctx.headers,
         descriptor.args,
         ctx.req,
@@ -173,27 +444,11 @@ export class CacheMiddleware {
   }
 
   /**
-   * @todo Implement vary rules.
-   */
-  #makeKey(
-    descriptor: CacheDescriptor,
-    ctx: CacheContext,
-  ): string {
-    const { authKey } = ctx;
-    const { contentType } = descriptor;
-    const { version } = descriptor.args;
-    const { name } = descriptor.action;
-    const { url } = descriptor.req;
-
-    if (authKey == null)
-      return 'v' + (version ?? 0) + '|' + name + '|' + contentType.toLowerCase() + '|' + url.toString();
-    
-    return 'v' + (version ?? 0) + '|' + name + '|' + contentType.toLowerCase() + '|' + url.toString() + '|' + authKey;
-  }
-
-
-  /**
-   * Sets response headers based of the cache args and authorization status.
+   * Sets response headers based of the cache
+   * args and authorization status.
+   *
+   * @param descriptor The cache descriptor.
+   * @param ctx A cache context instance.
    */
   #setHeaders(
     descriptor: CacheDescriptor,
@@ -255,9 +510,21 @@ export class CacheMiddleware {
       return;
     }
 
-    const key = this.#makeKey(descriptor, ctx);
     const args = descriptor.args;
     const cache = args.cache;
+    const key = makeCacheKey(
+      ctx.method,
+      ctx.req.url,
+      ctx.contentType,
+      null,
+      null,
+      ctx.req.headers,
+      ctx.action.name,
+      ctx.authKey ?? null,
+      descriptor.args.public ?? false,
+      descriptor.args.version ?? null,
+      descriptor.args.vary,
+    );
     
     await cache.invalidate(
       key,
@@ -265,26 +532,26 @@ export class CacheMiddleware {
     );
   }
 
-  async #useHTTP(
-    descriptor: CacheDescriptor,
-    ctx: CacheContext,
-    next: NextFn,
-  ): Promise<void> {
-    this.#setHeaders(descriptor, ctx);
-
-    await next();
-  }
-
   async #useEtag(
     descriptor: CacheDescriptor,
     ctx: CacheContext,
     next: NextFn,
   ): Promise<void> {
-    const key = this.#makeKey(descriptor, ctx);
+    const key = makeCacheKey(
+      ctx.method,
+      ctx.req.url,
+      ctx.contentType,
+      null,
+      null,
+      ctx.req.headers,
+      ctx.action.name,
+      ctx.authKey ?? null,
+      descriptor.args.public ?? false,
+      descriptor.args.version ?? null,
+      descriptor.args.vary,
+    );
     const rules = new EtagConditions(ctx.req.headers);
     const resourceState = await descriptor.args.cache.meta.get(key);
-
-    this.#setHeaders(descriptor, ctx);
 
     if (resourceState.type === 'cache-hit') {
       if (rules.ifMatch(resourceState.etag)) {
@@ -305,12 +572,22 @@ export class CacheMiddleware {
     ctx: CacheContext,
     next: NextFn,
   ): Promise<void> {
-    const key = this.#makeKey(descriptor, ctx);
+    const key = makeCacheKey(
+      ctx.method,
+      ctx.req.url,
+      ctx.contentType,
+      null,
+      null,
+      ctx.req.headers,
+      ctx.action.name,
+      ctx.authKey ?? null,
+      descriptor.args.public ?? false,
+      descriptor.args.version ?? null,
+      descriptor.args.vary,
+    );
     let resourceState:  CacheHitHandle | CacheMissHandle | LockedCacheMissHandle | undefined;
     const args = descriptor.args;
     const cache = args.cache;
-
-    this.#setHeaders(descriptor, ctx);
 
     try {
       // post methods can use #useStore() but are not safe so skip the cache.
@@ -399,6 +676,37 @@ export class CacheMiddleware {
   }
 
   /**
+   * Determins if a cache control statement is fresh
+   * according to the current time.
+   *
+   * @param cacheControl The cache control header value.
+   * @returns Is fresh state
+   */
+  #isFresh(cacheControl: string): boolean {
+    const now = new Date();
+    const parts = cacheControl.split(',');
+
+    for (const part of parts) {
+      const [directive, value] = part.split('=');
+
+      if (value != null && value.trim() !== '') {
+        if (directive === 'expires') {
+          const date = new Date(value.trim());
+            
+          return +now > +date;
+        } else if (directive === 'max-age') {
+          const date = new Date(value.trim());
+            
+          return +now > +date;
+        }
+        
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * Returns true if the request has conditional headers
    * which should result in a not modified response.
    */
@@ -419,3 +727,4 @@ export class CacheMiddleware {
   }
 
 }
+
