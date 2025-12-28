@@ -10,7 +10,6 @@ type URLPatternConstructor = new (input: string, baseURL: string) => URLPattern;
 export function makeURLPattern(pattern: string, baseURL: string): URLPattern {
   if (typeof URLPattern === 'undefined') {
     const URLPattern = (url as unknown as { URLPattern: URLPatternConstructor }).URLPattern;
-    console.log(url.URLPattern);
 
     return new URLPattern(pattern, baseURL);
   }

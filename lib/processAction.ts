@@ -611,7 +611,6 @@ export async function processAction<
 
   for (const [paramName, value] of Object.entries(mergedValues)) {
     if (!Object.hasOwn(spec, paramName)) {
-      console.log(spec);
       throw new ProblemDetailsError(
         httpStatus || 400,
         {

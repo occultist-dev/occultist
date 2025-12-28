@@ -10,6 +10,7 @@ import type { Merge } from "./actions/spec.ts";
 import type { ContextState, Middleware } from "./actions/spec.ts";
 import {ProblemDetailsError} from "./errors.ts"
 import {WrappedRequest} from "./request.ts";
+import {type CacheResult} from "./mod.ts";
 
 
 export interface Callable<
@@ -369,7 +370,7 @@ export class Registry<
       this.#writer,
     );
 
-    meta.serverTiming = this.#serverTiming;
+    meta.recordServerTiming = this.#serverTiming;
 
     this.#children.push(meta);
     
@@ -387,8 +388,7 @@ export class Registry<
   }
 
   finalize() {
-    if (this.#finalized)
-      throw new Error('Registry has already been finalized');
+    if (this.#finalized) return;
       
     const actionSets: ActionSet[] = [];
     const groupedMeta = new Map<string, Map<string, ActionMeta[]>>();
@@ -541,7 +541,7 @@ export class Registry<
   }: {
     authKey?: string;
     pushUpstream?: boolean;
-  } = {}): Promise<boolean> {
+  } = {}): Promise<CacheResult> {
     if (!this.#finalized) {
       this.finalize();
     }

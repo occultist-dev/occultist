@@ -93,6 +93,8 @@ describe('InMemoryCache', () => {
       new Request('https://example.com/open', { headers: { 'Authorization': 'admin' } })
     );
 
+    console.log(res1.headers);
+
     const cc1 = res1.headers.get('Cache-Control');
     const cc2 = res2.headers.get('Cache-Control');
     
@@ -113,7 +115,9 @@ describe('InMemoryCache', () => {
     const res2 = await registry.handleRequest(
       new Request('https://example.com/open', { headers: { 'Authorization': 'admin' } })
     );
-    
+
+    console.log(res2.headers);
+
     assert.notEqual(res1.headers.get('X-Cache'), 'HIT');
     assert.equal(await res1.text(), 'OPEN(admin)');
 
@@ -144,7 +148,7 @@ describe('InMemoryCache', () => {
     assert.equal(cacheHits.length, 0);
   });
 
-  it('locks parallel requests when locking is enabled', async () => {
+  it('locks parallel requests when locking is enabled', {only:true}, async () => {
     const { registry, cache } = makeRegistry();
 
     registry.http.get('lockable', '/lockable')

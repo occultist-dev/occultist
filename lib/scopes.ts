@@ -106,7 +106,7 @@ export class Scope<
       this,
     );
 
-    meta.serverTiming = this.#serverTiming;
+    meta.recordServerTiming = this.#serverTiming;
 
     this.#children.push(meta);
     this.#propergateMeta(meta);

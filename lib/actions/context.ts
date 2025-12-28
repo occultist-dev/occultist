@@ -16,7 +16,6 @@ export type CacheContextArgs<
   Auth extends AuthState = AuthState,
 > = {
   req: Request;
-  url: string;
   contentType: string;
   public: boolean;
   authKey?: string;
@@ -48,7 +47,7 @@ export class CacheContext<
 
   constructor(args: CacheContextArgs<Auth>) {
     this.req = args.req;
-    this.url = args.url;
+    this.url = args.req.url;
     this.contentType = args.contentType;
     this.public = args.public;
     this.authKey = args.authKey;
@@ -106,7 +105,6 @@ export type ContextArgs<
   Spec extends ActionSpec = ActionSpec,
 > = {
   req: Request;
-  url: string;
   contentType: string;
   public: boolean;
   authKey?: string;
@@ -143,7 +141,7 @@ export class Context<
 
   constructor(args: ContextArgs<State, Auth, Spec>) {
     this.req = args.req;
-    this.url = args.url;
+    this.url = args.req.url;
     this.contentType = args.contentType;
     this.public = args.public;
     this.authKey = args.authKey;

@@ -58,7 +58,6 @@ describe('makeCacheKey', () => {
     const key2 = makeCacheKey(httpMethod, requestURL, contentType, languageCode, encoding, headers2, actionName, authKey, publicWhenAuthenticated, cacheVersion, cacheVary);
     const key3 = makeCacheKey(httpMethod, requestURL, contentType, languageCode, encoding, headers3, actionName, authKey, publicWhenAuthenticated, cacheVersion, cacheVary);
 
-    console.log(key1)
     assert.equal(key1, key2);
     assert.notEqual(key1, key3);
   });
