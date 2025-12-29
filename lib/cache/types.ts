@@ -17,7 +17,8 @@ export type CacheSemantics =
   | 'query'
 ;
 
-export type CacheResult =
+export type CacheOperationResult =
+  | 'not-found'
   | 'unsupported'
   | 'skipped'
   | 'cached'

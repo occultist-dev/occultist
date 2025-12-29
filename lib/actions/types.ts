@@ -1,6 +1,6 @@
 import type {ServerResponse} from "node:http";
 import type {JSONObject, TypeDef} from "../jsonld.ts";
-import type {HandlerDefinition} from "../mod.ts";
+import type {CacheOperationResult, HandlerDefinition, MiddlewareRefs} from "../mod.ts";
 import type {Registry} from '../registry.ts';
 import type {Scope} from "../scopes.ts";
 import type {Context} from "./context.ts";
@@ -180,6 +180,16 @@ export interface ImplementedAction<
   /**
    * Handles a request which has resolved to this action.
    */
-  handleRequest(args: HandleRequestArgs): Promise<Response | ServerResponse>;
+  handleRequest(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<Response | ServerResponse>;
+
+  primeCache(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<CacheOperationResult>;
+
+  refreshCache(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<CacheOperationResult>;
 }
 

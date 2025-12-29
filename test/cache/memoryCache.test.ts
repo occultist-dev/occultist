@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-import {MemoryCache, Registry} from '../lib/mod.ts';
-import {testAuthMiddleware} from './utils/authMiddleware.ts';
+import {MemoryCache, Registry} from '../../lib/mod.ts';
+import {testAuthMiddleware} from '../utils/authMiddleware.ts';
 import {setTimeout} from 'node:timers/promises';
 
 function makeRegistry() {

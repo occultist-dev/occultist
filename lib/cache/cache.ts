@@ -1,6 +1,6 @@
 import {createHash} from 'node:crypto';
 import {EtagConditions} from './etag.ts';
-import type {CacheBuilder, CacheETagArgs, CacheETagInstanceArgs, CacheHitHandle, CacheHTTPArgs, CacheHTTPInstanceArgs, CacheInstanceArgs, CacheMeta, CacheMissHandle, CacheResult, CacheSemantics, CacheStorage, CacheStoreArgs, CacheStoreInstanceArgs, LockedCacheMissHandle, UpstreamCache} from './types.ts';
+import type {CacheBuilder, CacheETagArgs, CacheETagInstanceArgs, CacheHitHandle, CacheHTTPArgs, CacheHTTPInstanceArgs, CacheInstanceArgs, CacheMeta, CacheMissHandle, CacheOperationResult, CacheSemantics, CacheStorage, CacheStoreArgs, CacheStoreInstanceArgs, LockedCacheMissHandle, UpstreamCache} from './types.ts';
 import {headersObjToHeaders} from '../utils/headerObjToHeaders.ts';
 import type {Registry, ImplementedAction, CacheContext, NextFn} from '../mod.ts';
 
@@ -269,7 +269,7 @@ export class CacheMiddleware {
     descriptor: CacheDescriptor,
     ctx: CacheContext,
     next: NextFn,
-  ): Promise<CacheResult> {
+  ): Promise<CacheOperationResult> {
     if (descriptor == null ||
         !supportedSemantics.includes(descriptor.semantics) ||
         !descriptor.safe) {
@@ -351,7 +351,7 @@ export class CacheMiddleware {
     descriptor: CacheDescriptor,
     ctx: CacheContext,
     next: NextFn,
-  ): Promise<CacheResult> {
+  ): Promise<CacheOperationResult> {
     if (descriptor == null ||
         !supportedSemantics.includes(descriptor.semantics) ||
         !descriptor.safe) {

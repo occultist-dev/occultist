@@ -1,7 +1,7 @@
 import { Accept } from "./accept.ts";
 import { ActionAuth, HandlerDefinition } from "./actions/actions.ts";
 import { type ActionMatchResult, ActionSet } from "./actions/actionSets.ts";
-import { ActionCore } from "./actions/meta.ts";
+import { ActionCore, MiddlewareRefs } from "./actions/meta.ts";
 import type { CacheHitHeader, ImplementedAction } from "./actions/types.ts";
 import { ResponseWriter } from "./actions/writer.ts";
 import { Scope } from './scopes.ts';
@@ -10,7 +10,7 @@ import type { Merge } from "./actions/spec.ts";
 import type { ContextState, Middleware } from "./actions/spec.ts";
 import {ProblemDetailsError} from "./errors.ts"
 import {WrappedRequest} from "./request.ts";
-import {type CacheResult} from "./mod.ts";
+import {type CacheOperationResult} from "./mod.ts";
 
 
 export interface Callable<
@@ -493,23 +493,33 @@ export class Registry<
    * via a cache control method by checking `ctx.cacheRun === true`.
    *
    * @param req The request to cache.
-   * @param args.authKey An auth key that would otherwise be returned
-   *   by an auth middleware.
-   * @param args.pushUpstream The cached value will be pushed to an
-   *   upstream cache / proxy if the resolved cache is configured to
-   *   interface with one.
    */
-  primeCache(req: Request, {
-    authkey,
-    pushupstream,
-  }: {
-    authKey?: string;
-    pushUpstream?: boolean;
-  } = {}): Promise<boolean> {
+  primeCache(req: Request): Promise<CacheOperationResult> {
     if (!this.#finalized) {
       this.finalize();
     }
-    return Promise.resolve(false);
+
+    const startTime = performance.now();
+    const wrapped = new WrappedRequest(this.#rootIRI, req);
+    const writer = new ResponseWriter();
+    const match = this.matchRequest(wrapped);
+
+    if (match == null) {
+      return Promise.resolve('not-found');
+    } else if (match.type === 'unsupported-content-type') {
+      return Promise.resolve('skipped');
+    }
+
+    const refs = new MiddlewareRefs(
+      wrapped,
+      writer,
+      match.contentType ?? null,
+      startTime,
+    );
+
+    refs.cacheHitHeader = this.#cacheHitHeader;
+
+    return match.action.primeCache(refs);
   }
   
   /**
@@ -529,46 +539,33 @@ export class Registry<
    * via a cache control method by checking `ctx.cacheRun === true`.
    *
    * @param req The request to cache.
-   * @param args.authKey An auth key that would otherwise be returned
-   *   by an auth middleware.
-   * @param args.pushUpstream The cached value will be pushed to an
-   *   upstream cache / proxy if the resolved cache is configured to
-   *   interface with one.
    */
-  refreshCache(req: Request, {
-    authKey,
-    pushUpstream,
-  }: {
-    authKey?: string;
-    pushUpstream?: boolean;
-  } = {}): Promise<CacheResult> {
+  refreshCache(req: Request): Promise<CacheOperationResult> {
     if (!this.#finalized) {
       this.finalize();
     }
 
-  }
-  
-  /**
-   * Invalidates a cache entry related to a request if it exists.
-   * An auth key can be provided matching a key that would typically
-   * be produced by the request's auth middleware allowing private
-   * cache entries to be invalidated.
-   *
-   * @param req A request to resolve the cache entry for.
-   * @param authKey An optional auth key for private cache invalidation.
-   * @returns True if successful.
-   */
-  invalidateCache(req: Request, {
-    authKey,
-    invalidateUpstream,
-  }: {
-    authKey?: string;
-    invalidateUpstream?: boolean;
-  }): Promise<boolean> {
-    if (!this.#finalized) {
-      this.finalize();
+    const startTime = performance.now();
+    const wrapped = new WrappedRequest(this.#rootIRI, req);
+    const writer = new ResponseWriter();
+    const match = this.matchRequest(wrapped);
+
+    if (match == null) {
+      return Promise.resolve('not-found');
+    } else if (match.type === 'unsupported-content-type') {
+      return Promise.resolve('skipped');
     }
 
+    const refs = new MiddlewareRefs(
+      wrapped,
+      writer,
+      match.contentType ?? null,
+      startTime,
+    );
+
+    refs.cacheHitHeader = this.#cacheHitHeader;
+
+    return match.action.refreshCache(refs);
   }
 
   /**
@@ -653,14 +650,16 @@ export class Registry<
 
     try {
       if (match?.type === 'match') {
-        return await match.action.handleRequest({
-          url: wrapped.url,
-          contentType: match.contentType,
-          req: wrapped,
+        const refs = new MiddlewareRefs(
+          wrapped,
           writer,
+          match.contentType ?? null,
           startTime,
-          cacheHitHeader: this.#cacheHitHeader,
-        });
+        );
+
+        refs.cacheHitHeader = this.#cacheHitHeader;
+
+        return await match.action.handleRequest(refs);
       }
     } catch (err2) {
       if (err2 instanceof ProblemDetailsError) {

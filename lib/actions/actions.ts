@@ -1,4 +1,4 @@
-import type {CacheInstanceArgs} from '../cache/types.ts';
+import type {CacheInstanceArgs, CacheOperationResult} from '../cache/types.ts';
 import type {JSONLDContext, JSONObject, TypeDef} from "../jsonld.ts";
 import type {Registry} from '../registry.ts';
 import type {Scope} from "../scopes.ts";
@@ -6,7 +6,7 @@ import {getActionContext} from "../utils/getActionContext.ts";
 import {getPropertyValueSpecifications} from "../utils/getPropertyValueSpecifications.ts";
 import {isPopulatedObject} from '../utils/isPopulatedObject.ts';
 import {joinPaths} from "../utils/joinPaths.ts";
-import {AfterDefinition, BeforeDefinition, type ActionCore} from "./meta.ts";
+import {AfterDefinition, BeforeDefinition, MiddlewareRefs, type ActionCore} from "./meta.ts";
 import type {ActionSpec, ContextState} from "./spec.ts";
 import type {AuthMiddleware, AuthState, HandleRequestArgs, HandlerFn, HandlerMeta, HandlerObj, HandlerValue, HintArgs, ImplementedAction} from './types.ts';
 import {type ResponseTypes} from './writer.ts';
@@ -371,14 +371,37 @@ export class FinalizedAction<
     return this;
   }
 
-  handleRequest(args: HandleRequestArgs): Promise<ResponseTypes> {
-    const handler = this.#handlers.get(args.contentType as string);
+  handleRequest(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<ResponseTypes> {
+    const handler = this.#handlers.get(refs.contentType as string);
 
-    return this.#core.handleRequest({
-      ...args,
-      spec: this.#spec,
-      handler,
-    });
+    refs.spec = this.#spec;
+    refs.handler = handler;
+
+    return this.#core.handleRequest(refs);
+  }
+
+  primeCache(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<CacheOperationResult> {
+    const handler = this.#handlers.get(refs.contentType as string);
+
+    refs.spec = this.#spec;
+    refs.handler = handler;
+
+    return this.#core.primeCache(refs);
+  }
+
+  refreshCache(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<CacheOperationResult> {
+    const handler = this.#handlers.get(refs.contentType as string);
+
+    refs.spec = this.#spec;
+    refs.handler = handler;
+
+    return this.#core.refreshCache(refs);
   }
 
 }
@@ -553,11 +576,28 @@ export class DefinedAction<
     );
   }
 
-  async handleRequest(args: HandleRequestArgs): Promise<ResponseTypes> {
-    return this.#core.handleRequest({
-      ...args,
-      spec: this.#spec,
-    });
+  handleRequest(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<ResponseTypes> {
+    refs.spec = this.#spec;
+
+    return this.#core.handleRequest(refs);
+  }
+
+  primeCache(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<CacheOperationResult> {
+    refs.spec = this.#spec;
+
+    return this.#core.primeCache(refs);
+  }
+
+  refreshCache(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<CacheOperationResult> {
+    refs.spec = this.#spec;
+
+    return this.#core.refreshCache(refs);
   }
 }
 
@@ -691,13 +731,29 @@ export class Action<
     );
   }
 
-  async handleRequest(args: HandleRequestArgs): Promise<ResponseTypes> {
-    return this.#core.handleRequest({
-      ...args,
-      spec: this.#spec,
-    });
+  handleRequest(
+    refs: MiddlewareRefs<State, Auth, ActionSpec>,
+  ): Promise<ResponseTypes> {
+    refs.spec = this.#spec;
+
+    return this.#core.handleRequest(refs);
   }
 
+  primeCache(
+    refs: MiddlewareRefs<State, Auth, ActionSpec>,
+  ): Promise<CacheOperationResult> {
+    refs.spec = this.#spec;
+
+    return this.#core.primeCache(refs);
+  }
+
+  refreshCache(
+    refs: MiddlewareRefs<State, Auth, ActionSpec>,
+  ): Promise<CacheOperationResult> {
+    refs.spec = this.#spec;
+
+    return this.#core.refreshCache(refs);
+  }
 }
 
 export class PreAction<

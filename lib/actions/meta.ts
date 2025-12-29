@@ -1,5 +1,5 @@
 import {CacheDescriptor, CacheMiddleware} from '../cache/cache.ts';
-import type {CacheInstanceArgs, CacheWhen} from '../cache/types.ts';
+import type {CacheInstanceArgs, CacheOperationResult, CacheWhen} from '../cache/types.ts';
 import {ProblemDetailsError} from '../errors.ts';
 import type {JSONValue} from '../jsonld.ts';
 import {processAction, type ProcessActionResult} from '../processAction.ts';
@@ -27,7 +27,11 @@ export const AfterDefinition = 1;
 const cacheMiddleware = new CacheMiddleware();
 
 
-class MiddlewareRefs<
+/**
+ * Internal accumulator object used to hold values request / response
+ * middleware setup needs to access.
+ */
+export class MiddlewareRefs<
   State extends ContextState,
   Auth extends AuthState,
   Spec extends ActionSpec,
@@ -40,32 +44,26 @@ class MiddlewareRefs<
   handlerCtx?: Context;
   next: NextFn = (() => {}) as NextFn;
   headers: Headers;
-  handler: HandlerDefinition<State, Auth, Spec>;
+  handler?: HandlerDefinition<State, Auth, Spec>;
   contentType: string | null;
   writer: HTTPWriter;
   req: Request;
   recordServerTiming: boolean; 
   prevTime: number | null;
   serverTimes: string[] = [];
+  cacheHitHeader: CacheHitHeader;
 
   constructor(
     req: Request,
     writer: HTTPWriter,
     contentType: string | null,
-    spec: Spec,
-    handler: HandlerDefinition<State, Auth, Spec>,
-    headers: Headers,
-    recordServerTiming: boolean,
     prevTime: number | null,
   ) {
     this.req = req;
     this.writer = writer;
     this.contentType = contentType;
-    this.spec = spec;
-    this.handler = handler;
-    this.headers = headers;
-    this.recordServerTiming = recordServerTiming && prevTime != null;
     this.prevTime = prevTime;
+    this.headers = new Headers();
   }
 
   recordServerTime(name: string): void {
@@ -79,6 +77,10 @@ class MiddlewareRefs<
   }
 };
 
+/**
+ * Internal object that holds shared information action
+ * building classes reference.
+ */
 export class ActionCore<
   State extends ContextState = ContextState,
   Auth extends AuthState = AuthState,
@@ -187,24 +189,54 @@ export class ActionCore<
 
   /**
    * Primes a cache entry.
-   *
-   * @param req The web standard request instance.
-   * @param writer A HTTP writer instance.
-   * @param contentType The negotiated content type of the response.
-   * @param language The negotiated language of the response.
-   * @param encoding The negotiated encoding of the response.
-   * @param spec The action spec of the response.
-   * @param handler The action handler of the response.
    */
   async primeCache(
-    req: Request,
-    writer: HTTPWriter,
-    contentType: string,
-    language?: string,
-    encoding?: string,
-    spec?: Spec,
-    handler?: HandlerDefinition<State, Spec>,
-  ): Promise<boolean> {
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<CacheOperationResult> {
+    // Action's handling authentication will eventually
+    // support cache priming and refreshing.
+    if (this.auth != null) return 'unsupported';
+
+    refs.recordServerTime('enter');
+
+    this.#applyHandlerMiddleware(refs);
+    this.#applyActionProcessing(refs);
+    this.#applyCacheMiddleware(refs);
+    this.#applyEarlyHints(refs);
+    this.#applyAuthMiddleware(refs);
+
+    await refs.next();
+
+    if (refs.cacheCtx?.hit) return 'skipped';
+
+    this.#writeResponse(refs);
+
+    return 'cached';
+  }
+
+  /**
+   * Refreshes a cache entry.
+   */
+  async refreshCache(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<CacheOperationResult> {
+    // Action's handling authentication will eventually
+    // support cache priming and refreshing.
+    if (this.auth != null) return 'unsupported';
+
+    refs.recordServerTime('enter');
+
+    this.#applyHandlerMiddleware(refs);
+    this.#applyActionProcessing(refs);
+    this.#applyCacheMiddleware(refs);
+    this.#applyEarlyHints(refs);
+    this.#applyAuthMiddleware(refs);
+
+    await refs.next();
+
+    this.#writeResponse(refs);
+
+    return 'cached';
   }
 
   /**
@@ -212,77 +244,64 @@ export class ActionCore<
    *
    * All actions call this method to do the heavy lifting of handling a request.
    */
-  async handleRequest({
-    contentType,
-    req,
-    writer,
-    spec,
-    handler,
-    cacheHitHeader,
-    startTime,
-  }: {
-    contentType?: string;
-    language?: string;
-    encoding?: string;
-    url: string;
-    req: Request;
-    writer: HTTPWriter;
-    spec?: Spec;
-    handler?: HandlerDefinition<State, Auth, Spec>,
-    cacheHitHeader?: CacheHitHeader;
-    startTime?: number;
-  }): Promise<ResponseTypes> {
-    const headers = new Headers();
-    const refs = new MiddlewareRefs<State, Auth, Spec>(
-      req,
-      writer,
-      contentType,
-      spec,
-      handler,
-      headers,
-      this.recordServerTiming,
-      startTime,
-    );
-
-    refs.recordServerTiming = this.recordServerTiming;
+  async handleRequest(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<ResponseTypes> {
     refs.recordServerTime('enter');
-
-    // add auth check
-    if (this.hints.length !== 0) {
-      await Promise.all(
-        this.hints.map((hint) => writer.writeEarlyHints(hint))
-      );
-    }
 
     this.#applyHandlerMiddleware(refs);
     this.#applyActionProcessing(refs);
     this.#applyCacheMiddleware(refs);
+    this.#applyEarlyHints(refs);
     this.#applyAuthMiddleware(refs);
 
     await refs.next();
 
+    this.#writeResponse(refs);
+
+    return refs.writer.response();
+  }
+
+  /**
+   * Writes status, headers and body to the response once
+   * all middleware has been handled.
+   */
+  #writeResponse(refs: MiddlewareRefs<State, Auth, Spec>): void {
+    if (refs.cacheCtx == null && refs.handlerCtx == null) {
+      throw new Error('Unhandled');
+    }
+
     if (refs.cacheCtx?.hit) {
       refs.recordServerTime('hit');
 
-      if (Array.isArray(cacheHitHeader)) {
-        refs.headers.set(cacheHitHeader[0], cacheHitHeader[1]);
-      } else if (typeof cacheHitHeader === 'string') {
-        refs.headers.set(cacheHitHeader, 'HIT');
-      } else if (cacheHitHeader) {
+      if (Array.isArray(refs.cacheHitHeader)) {
+        refs.headers.set(refs.cacheHitHeader[0], refs.cacheHitHeader[1]);
+      } else if (typeof refs.cacheHitHeader === 'string') {
+        refs.headers.set(refs.cacheHitHeader, 'HIT');
+      } else if (refs.cacheHitHeader) {
         refs.headers.set('X-Cache', 'HIT');
       }
       
       // set the ctx so the writer has access to the cached values.
       refs.handlerCtx = refs.cacheCtx as unknown as Context;
+      refs.writer.writeHead(
+        refs.cacheCtx.status ?? 200,
+        refs.headers,
+      );
+
+      if (refs.cacheCtx.body != null) {
+        refs.writer.writeBody(refs.cacheCtx.body);
+      }
+    } else {
+      refs.writer.writeHead(
+        refs.handlerCtx.status ?? 200,
+        refs.handlerCtx.headers,
+      );
+
+      if (refs.handlerCtx.body != null) {
+        refs.writer.writeBody(refs.handlerCtx.body);
+      }
     }
-
-    writer.writeHead(refs.handlerCtx.status ?? 200, refs.handlerCtx.headers);
-
-    if (refs.handlerCtx.body != null) {
-      writer.writeBody(refs.handlerCtx.body);
-    }
-
-    return writer.response();
   }
 
   #applyHandlerMiddleware(
@@ -391,6 +410,22 @@ export class ActionCore<
           //}
         },
       );
+    }
+  }
+
+  /**
+   * Applies all early hints to the response.
+   */
+  #applyEarlyHints(refs: MiddlewareRefs<State, Auth, Spec>): void {
+    // add auth check
+    if (this.hints.length !== 0) {
+      const downstream = refs.next;
+      refs.next = async () => {
+        await Promise.all(
+          this.hints.map((hint) => refs.writer.writeEarlyHints(hint))
+        );
+        await downstream();
+      }
     }
   }
 
