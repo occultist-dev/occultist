@@ -25,9 +25,10 @@ export declare class CacheContext<Auth extends AuthState = AuthState> {
     url: string;
     contentType: string;
     public: boolean;
-    authKey?: string;
+    authKey: string | null;
     auth: Auth;
-    cacheOperation?: CacheOperation;
+    cacheRun: boolean;
+    cacheOperation: CacheOperation | null;
     action: ImplementedAction;
     registry: Registry;
     params: ParsedIRIValues;
@@ -50,7 +51,8 @@ export type ContextArgs<State extends ContextState = ContextState, Auth extends 
     public: boolean;
     authKey?: string;
     auth: Auth;
-    handler: HandlerDefinition<State, Spec>;
+    cacheOperation: CacheOperation | null;
+    handler: HandlerDefinition<State, Auth, Spec>;
     params: ParsedIRIValues;
     query: ParsedIRIValues;
     payload: ActionPayload<Spec>;
@@ -68,8 +70,10 @@ export declare class Context<State extends ContextState = ContextState, Auth ext
     public: boolean;
     authKey?: string;
     auth: Auth;
+    cacheRun: boolean;
+    cacheOperation: CacheOperation | null;
     state: State;
-    action: ImplementedAction<State, Spec>;
+    action: ImplementedAction<State, Auth, Spec>;
     registry: Registry;
     params: ParsedIRIValues;
     query: ParsedIRIValues;

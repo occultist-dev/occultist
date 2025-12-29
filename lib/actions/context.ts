@@ -38,10 +38,11 @@ export class CacheContext<
   method: string;
   url: string;
   contentType: string;
-  public: boolean = false
-  authKey?: string;
+  public: boolean;
+  authKey: string | null;
   auth: Auth;
-  cacheOperation?: CacheOperation;
+  cacheRun: boolean;
+  cacheOperation: CacheOperation | null;
   action: ImplementedAction;
   registry: Registry;
   params: ParsedIRIValues;
@@ -55,7 +56,8 @@ export class CacheContext<
     this.public = args.public;
     this.authKey = args.authKey;
     this.auth = args.auth;
-    this.cacheOperation = args.cacheOperation;
+    this.cacheRun = args.cacheOperation != null;
+    this.cacheOperation = args.cacheOperation ?? null
     this.action = args.handler.action;
     this.method = args.handler.action.method;
     this.registry = args.handler.action.registry;
@@ -114,7 +116,8 @@ export type ContextArgs<
   public: boolean;
   authKey?: string;
   auth: Auth;
-  handler: HandlerDefinition<State, Spec>;
+  cacheOperation: CacheOperation | null;
+  handler: HandlerDefinition<State, Auth, Spec>;
   params: ParsedIRIValues;
   query: ParsedIRIValues;
   payload: ActionPayload<Spec>;
@@ -137,8 +140,10 @@ export class Context<
   public: boolean = false
   authKey?: string;
   auth: Auth;
+  cacheRun: boolean;
+  cacheOperation: CacheOperation | null;
   state: State = {} as State;
-  action: ImplementedAction<State, Spec>;
+  action: ImplementedAction<State, Auth, Spec>;
   registry: Registry;
   params: ParsedIRIValues;
   query: ParsedIRIValues;
@@ -152,6 +157,8 @@ export class Context<
     this.public = args.public;
     this.authKey = args.authKey;
     this.auth = args.auth;
+    this.cacheOperation = args.cacheOperation ?? null;
+    this.cacheRun = args.cacheOperation != null;
     this.action = args.handler.action;
     this.method = args.handler.action.method;
     this.registry = args.handler.action.registry;

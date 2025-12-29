@@ -199,7 +199,6 @@ export class ActionCore<
     if (this.auth != null) return 'unsupported';
     
     refs.cacheOperation = 'prime';
-
     refs.recordServerTime('enter');
 
     this.#applyHandlerMiddleware(refs);
@@ -372,6 +371,7 @@ export class ActionCore<
         public: this.public && refs.authKey == null,
         auth: refs.auth,
         authKey: refs.authKey,
+        cacheOperation: refs.cacheOperation,
         handler: refs.handler,
         params: processed.params ?? {},
         query: processed.query ?? {},

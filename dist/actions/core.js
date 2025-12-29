@@ -279,6 +279,7 @@ export class ActionCore {
                 public: this.public && refs.authKey == null,
                 auth: refs.auth,
                 authKey: refs.authKey,
+                cacheOperation: refs.cacheOperation,
                 handler: refs.handler,
                 params: processed.params ?? {},
                 query: processed.query ?? {},
