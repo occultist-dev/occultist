@@ -36,9 +36,9 @@ export interface Handleable<State extends ContextState = ContextState, Auth exte
 }
 export declare class FinalizedAction<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Spec extends ActionSpec = ActionSpec> implements Handleable<State, Auth, Spec>, ImplementedAction<State, Auth, Spec> {
     #private;
-    constructor(typeDef: TypeDef | undefined, spec: Spec, meta: ActionCore<State, Auth, Spec>, handlerArgs: HandlerObj<State, Auth, Spec>);
-    static fromHandlers<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Spec extends ActionSpec = ActionSpec>(typeDef: TypeDef | undefined, spec: Spec, meta: ActionCore<State, Auth, Spec>, contextType: string | string[], handler: HandlerValue | HandlerFn<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
-    static fromHandlers<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Spec extends ActionSpec = ActionSpec>(typeDef: TypeDef | undefined, spec: Spec, meta: ActionCore<State, Auth, Spec>, handlerArgs: HandlerObj<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
+    constructor(typeDef: TypeDef | undefined, spec: Spec, core: ActionCore<State, Auth, Spec>, handlerArgs: HandlerObj<State, Auth, Spec>);
+    static fromHandlers<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Spec extends ActionSpec = ActionSpec>(typeDef: TypeDef | undefined, spec: Spec, core: ActionCore<State, Auth, Spec>, contextType: string | string[], handler: HandlerValue | HandlerFn<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
+    static fromHandlers<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Spec extends ActionSpec = ActionSpec>(typeDef: TypeDef | undefined, spec: Spec, core: ActionCore<State, Auth, Spec>, handlerArgs: HandlerObj<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
     static toJSONLD(action: ImplementedAction, scope: Scope): Promise<JSONObject | null>;
     get public(): boolean;
     get method(): string;
@@ -78,7 +78,7 @@ export interface Applicable<ActionType> {
 }
 export declare class DefinedAction<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Term extends string = string, Spec extends ActionSpec = ActionSpec> implements Applicable<DefinedAction<State, Auth, Term, Spec>>, Handleable<State, Auth, Spec>, ImplementedAction<State, Auth, Spec> {
     #private;
-    constructor(typeDef: TypeDef | undefined, spec: Spec, meta: ActionCore<State, Auth, Spec>);
+    constructor(typeDef: TypeDef | undefined, spec: Spec, core: ActionCore<State, Auth, Spec>);
     get public(): boolean;
     get method(): string;
     get term(): string | undefined;
@@ -125,7 +125,7 @@ export declare class DefinedAction<State extends ContextState = ContextState, Au
 }
 export declare class Action<State extends ContextState = ContextState, Auth extends AuthState = AuthState> implements Applicable<Action>, Handleable<State>, ImplementedAction<State> {
     #private;
-    constructor(meta: ActionCore<State>);
+    constructor(core: ActionCore<State>);
     get public(): boolean;
     get method(): string;
     get term(): string | undefined;
@@ -164,7 +164,7 @@ export declare class Action<State extends ContextState = ContextState, Auth exte
 }
 export declare class PreAction<State extends ContextState = ContextState, Auth extends AuthState = AuthState> implements Applicable<Action>, Handleable<State, Auth> {
     #private;
-    constructor(meta: ActionCore<State, Auth>);
+    constructor(core: ActionCore<State, Auth>);
     use(): Action<State, AuthState>;
     define<Term extends string = string, Spec extends ActionSpec = ActionSpec>(args: DefineArgs<Term, Spec>): DefinedAction<State, Auth, Term, Spec>;
     handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Auth>): FinalizedAction<State, Auth>;
@@ -172,7 +172,7 @@ export declare class PreAction<State extends ContextState = ContextState, Auth e
 }
 export declare class Endpoint<State extends ContextState = ContextState, Auth extends AuthState = AuthState> implements Applicable<Action>, Handleable<State, Auth> {
     #private;
-    constructor(meta: ActionCore<State, Auth>);
+    constructor(core: ActionCore<State, Auth>);
     hint(hints: HintArgs): Endpoint<State, Auth>;
     compress(): Endpoint<State, Auth>;
     cache(args: CacheInstanceArgs): Endpoint<State, Auth>;
@@ -184,7 +184,7 @@ export declare class Endpoint<State extends ContextState = ContextState, Auth ex
 }
 export declare class ActionAuth<State extends ContextState = ContextState> {
     #private;
-    constructor(meta: ActionCore<State>);
+    constructor(core: ActionCore<State>);
     public<Auth extends AuthState = AuthState>(authMiddleware?: AuthMiddleware<Auth>): Endpoint<State, Auth>;
     private<Auth extends AuthState = AuthState>(authMiddleware: AuthMiddleware<Auth>): Endpoint<State, Auth>;
 }

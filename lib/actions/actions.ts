@@ -113,13 +113,12 @@ export class FinalizedAction<
   constructor(
     typeDef: TypeDef | undefined,
     spec: Spec,
-    meta: ActionCore<State, Auth, Spec>,
+    core: ActionCore<State, Auth, Spec>,
     handlerArgs: HandlerObj<State, Auth, Spec>,
   ) {
     this.#typeDef = typeDef;
     this.#spec = spec ?? {} as Spec;
-    this.#core = meta;
-
+    this.#core = core;
     this.#core.action = this as unknown as ImplementedAction<State, Auth, Spec>;
 
     const handlers: Map<string, HandlerDefinition<State, Auth, Spec>> = new Map();
@@ -156,7 +155,7 @@ export class FinalizedAction<
   >(
     typeDef: TypeDef | undefined,
     spec: Spec,
-    meta: ActionCore<State, Auth, Spec>,
+    core: ActionCore<State, Auth, Spec>,
     contextType: string | string[],
     handler: HandlerValue | HandlerFn<State, Auth, Spec>,
   ): FinalizedAction<State, Auth, Spec>;
@@ -168,7 +167,7 @@ export class FinalizedAction<
   >(
     typeDef: TypeDef | undefined,
     spec: Spec,
-    meta: ActionCore<State, Auth, Spec>,
+    core: ActionCore<State, Auth, Spec>,
     handlerArgs: HandlerObj<State, Auth, Spec>,
   ): FinalizedAction<State, Auth, Spec>;
 
@@ -179,18 +178,18 @@ export class FinalizedAction<
   >(
     typeDef: TypeDef | undefined,
     spec: Spec,
-    meta: ActionCore<State, Auth, Spec>,
+    core: ActionCore<State, Auth, Spec>,
     arg3: string | string[] | HandlerObj<State, Auth, Spec>,
     arg4?: HandlerValue | HandlerFn<State, Auth, Spec>,
   ): FinalizedAction<State, Auth, Spec> {
     if (Array.isArray(arg3) || typeof arg3 === 'string') {
-      return new FinalizedAction<State, Auth, Spec>(typeDef, spec, meta, {
+      return new FinalizedAction<State, Auth, Spec>(typeDef, spec, core, {
         contentType: arg3,
         handler: arg4,
       });
     }
 
-    return new FinalizedAction(typeDef, spec, meta, arg3);
+    return new FinalizedAction(typeDef, spec, core, arg3);
   }
 
   static async toJSONLD(
@@ -438,10 +437,10 @@ export class DefinedAction<
   constructor(
     typeDef: TypeDef | undefined,
     spec: Spec,
-    meta: ActionCore<State, Auth, Spec>,
+    core: ActionCore<State, Auth, Spec>,
   ) {
     this.#spec = spec ?? {} as Spec;
-    this.#core = meta;
+    this.#core = core;
     this.#typeDef = typeDef;
 
     this.#core.action = this as unknown as ImplementedAction<State, Auth, Spec>;
@@ -632,9 +631,9 @@ export class Action<
   #core: ActionCore<State>;
 
   constructor(
-    meta: ActionCore<State>,
+    core: ActionCore<State>,
   ) {
-    this.#core = meta;
+    this.#core = core;
     this.#core.action = this as ImplementedAction<State, {}>;
   }
 
@@ -793,9 +792,9 @@ export class PreAction<
   #core: ActionCore<State, Auth>;
 
   constructor(
-    meta: ActionCore<State, Auth>,
+    core: ActionCore<State, Auth>,
   ) {
-    this.#core = meta;
+    this.#core = core;
   }
 
   use() {
@@ -838,9 +837,9 @@ export class Endpoint<
   #core: ActionCore<State, Auth>;
 
   constructor(
-    meta: ActionCore<State, Auth>,
+    core: ActionCore<State, Auth>,
   ) {
-    this.#core = meta;
+    this.#core = core;
   }
   
   hint(hints: HintArgs): Endpoint<State, Auth> {
@@ -896,8 +895,8 @@ export class ActionAuth<
 > {
   #core: ActionCore<State>;
 
-  constructor(meta: ActionCore<State>) {
-    this.#core = meta;
+  constructor(core: ActionCore<State>) {
+    this.#core = core;
   }
 
   public<

@@ -9,7 +9,7 @@ import { type ProblemDetailsParamsRefs, makeAppendProblemDetails } from "./utils
 import { failsRequiredRequirement, failsTypeRequirement, failsContentTypeRequirement, failsMaxValue, failsMinValue, failsValueMinLength, failsValueMaxLength, failsStepValue, failsPatternValue, failsValidator, isObjectArraySpec, isObjectSpec, isArraySpec } from "./validators.ts";
 import { InvalidActionParamsError, ProblemDetailsError } from "./errors.ts";
 import { alwaysArray } from "./utils/alwaysArray.ts";
-import type { ImplementedAction } from "./actions/types.ts";
+import type { AuthState, ImplementedAction } from "./actions/types.ts";
 import type { ActionPayload, ActionSpec, ArraySpec, ContextState, ObjectArraySpec, ObjectSpec, ParsedIRIValues, PropertySpec, SpecValue, ValueSpec } from "./actions/spec.ts";
 import type {JSONValue} from "./jsonld.ts";
 
@@ -18,13 +18,14 @@ import type {JSONValue} from "./jsonld.ts";
 
 export type ProcessActionArgs<
   State extends ContextState = ContextState,
+  Auth extends AuthState = AuthState,
   Spec extends ActionSpec<ContextState> = ActionSpec<ContextState>,
 > = {
   iri: string;
   req: Request;
   spec: Spec,
   state: State;
-  action: ImplementedAction<State, Spec>;
+  action: ImplementedAction<State, Auth, Spec>;
 };
 
 export type ProcessActionResult<
@@ -37,6 +38,7 @@ export type ProcessActionResult<
 
 export async function processAction<
   State extends ContextState = ContextState,
+  Auth extends AuthState = AuthState,
   Spec extends ActionSpec<ContextState> = ActionSpec<ContextState>,
 >({
   iri,
@@ -44,7 +46,7 @@ export async function processAction<
   spec,
   state,
   action,
-}: ProcessActionArgs<State, Spec>): Promise<ProcessActionResult<Spec>> {
+}: ProcessActionArgs<State, Auth, Spec>): Promise<ProcessActionResult<Spec>> {
   let httpStatus: number | null = null;
   const payload: Partial<ActionPayload<Spec>> = Object.create(null);
   const transformers: Record<string, Promise<unknown>> = Object.create(null);

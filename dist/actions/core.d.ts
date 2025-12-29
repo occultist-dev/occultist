@@ -55,7 +55,7 @@ export declare class ActionCore<State extends ContextState = ContextState, Auth 
     scope?: Scope;
     registry: Registry;
     writer: HTTPWriter;
-    action?: ImplementedAction<State, Spec>;
+    action?: ImplementedAction<State, Auth, Spec>;
     acceptCache: Set<string>;
     compressBeforeCache: boolean;
     cacheOccurance: 0 | 1;

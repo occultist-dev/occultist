@@ -100,7 +100,7 @@ export class ActionCore<
   scope?: Scope;
   registry: Registry;
   writer: HTTPWriter;
-  action?: ImplementedAction<State, Spec>;
+  action?: ImplementedAction<State, Auth, Spec>;
   acceptCache = new Set<string>();
   compressBeforeCache: boolean = false;
   cacheOccurance: 0 | 1 = BeforeDefinition;
@@ -357,7 +357,7 @@ export class ActionCore<
       let processed: ProcessActionResult<Spec>;
 
       if (refs.spec != null) {
-        processed = await processAction<State, Spec>({
+        processed = await processAction<State, Auth, Spec>({
           iri: refs.req.url,
           req: refs.req,
           spec: refs.spec ?? {} as Spec,

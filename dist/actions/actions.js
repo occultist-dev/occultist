@@ -39,10 +39,10 @@ export class FinalizedAction {
     #core;
     #typeDef;
     #handlers;
-    constructor(typeDef, spec, meta, handlerArgs) {
+    constructor(typeDef, spec, core, handlerArgs) {
         this.#typeDef = typeDef;
         this.#spec = spec ?? {};
-        this.#core = meta;
+        this.#core = core;
         this.#core.action = this;
         const handlers = new Map();
         if (typeof handlerArgs.contentType === 'string') {
@@ -55,14 +55,14 @@ export class FinalizedAction {
         }
         this.#handlers = handlers;
     }
-    static fromHandlers(typeDef, spec, meta, arg3, arg4) {
+    static fromHandlers(typeDef, spec, core, arg3, arg4) {
         if (Array.isArray(arg3) || typeof arg3 === 'string') {
-            return new FinalizedAction(typeDef, spec, meta, {
+            return new FinalizedAction(typeDef, spec, core, {
                 contentType: arg3,
                 handler: arg4,
             });
         }
-        return new FinalizedAction(typeDef, spec, meta, arg3);
+        return new FinalizedAction(typeDef, spec, core, arg3);
     }
     static async toJSONLD(action, scope) {
         if (scope == null || action.typeDef == null) {
@@ -212,9 +212,9 @@ export class DefinedAction {
     #spec;
     #core;
     #typeDef;
-    constructor(typeDef, spec, meta) {
+    constructor(typeDef, spec, core) {
         this.#spec = spec ?? {};
-        this.#core = meta;
+        this.#core = core;
         this.#typeDef = typeDef;
         this.#core.action = this;
     }
@@ -339,8 +339,8 @@ export class DefinedAction {
 export class Action {
     #spec = {};
     #core;
-    constructor(meta) {
-        this.#core = meta;
+    constructor(core) {
+        this.#core = core;
         this.#core.action = this;
     }
     get public() {
@@ -435,8 +435,8 @@ export class Action {
 }
 export class PreAction {
     #core;
-    constructor(meta) {
-        this.#core = meta;
+    constructor(core) {
+        this.#core = core;
     }
     use() {
         return new Action(this.#core);
@@ -450,8 +450,8 @@ export class PreAction {
 }
 export class Endpoint {
     #core;
-    constructor(meta) {
-        this.#core = meta;
+    constructor(core) {
+        this.#core = core;
     }
     hint(hints) {
         this.#core.hints.push(hints);
@@ -479,8 +479,8 @@ export class Endpoint {
 }
 export class ActionAuth {
     #core;
-    constructor(meta) {
-        this.#core = meta;
+    constructor(core) {
+        this.#core = core;
     }
     public(authMiddleware) {
         if (authMiddleware != null && typeof authMiddleware !== 'function')

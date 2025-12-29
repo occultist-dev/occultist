@@ -1,15 +1,15 @@
-import type { ImplementedAction } from "./actions/types.ts";
+import type { AuthState, ImplementedAction } from "./actions/types.ts";
 import type { ActionPayload, ActionSpec, ContextState, ParsedIRIValues } from "./actions/spec.ts";
-export type ProcessActionArgs<State extends ContextState = ContextState, Spec extends ActionSpec<ContextState> = ActionSpec<ContextState>> = {
+export type ProcessActionArgs<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Spec extends ActionSpec<ContextState> = ActionSpec<ContextState>> = {
     iri: string;
     req: Request;
     spec: Spec;
     state: State;
-    action: ImplementedAction<State, Spec>;
+    action: ImplementedAction<State, Auth, Spec>;
 };
 export type ProcessActionResult<Spec extends ActionSpec<ContextState> = ActionSpec<ContextState>> = {
     params: ParsedIRIValues;
     query: ParsedIRIValues;
     payload: ActionPayload<Spec>;
 };
-export declare function processAction<State extends ContextState = ContextState, Spec extends ActionSpec<ContextState> = ActionSpec<ContextState>>({ iri, req, spec, state, action, }: ProcessActionArgs<State, Spec>): Promise<ProcessActionResult<Spec>>;
+export declare function processAction<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Spec extends ActionSpec<ContextState> = ActionSpec<ContextState>>({ iri, req, spec, state, action, }: ProcessActionArgs<State, Auth, Spec>): Promise<ProcessActionResult<Spec>>;
