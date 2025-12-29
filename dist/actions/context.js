@@ -17,23 +17,26 @@ export class CacheContext {
     public = false;
     authKey;
     auth;
+    cacheOperation;
     action;
     registry;
     params;
     query;
-    headers = new Headers();
+    headers;
     constructor(args) {
         this.req = args.req;
-        this.url = args.url;
+        this.url = args.req.url;
         this.contentType = args.contentType;
         this.public = args.public;
         this.authKey = args.authKey;
         this.auth = args.auth;
+        this.cacheOperation = args.cacheOperation;
         this.action = args.handler.action;
         this.method = args.handler.action.method;
         this.registry = args.handler.action.registry;
         this.params = args.params;
         this.query = args.query;
+        this.headers = args.headers;
         Object.freeze(this);
     }
     get hit() {
@@ -82,10 +85,10 @@ export class Context {
     params;
     query;
     payload;
-    headers = new Headers();
+    headers;
     constructor(args) {
         this.req = args.req;
-        this.url = args.url;
+        this.url = args.req.url;
         this.contentType = args.contentType;
         this.public = args.public;
         this.authKey = args.authKey;
@@ -96,6 +99,7 @@ export class Context {
         this.params = args.params;
         this.query = args.query;
         this.payload = args.payload;
+        this.headers = args.headers;
         Object.freeze(this);
         Object.freeze(this.auth);
     }

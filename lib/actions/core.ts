@@ -59,14 +59,12 @@ export class MiddlewareRefs<
     writer: HTTPWriter,
     contentType: string | null,
     prevTime: number | null,
-    cacheOperation: CacheOperation,
   ) {
     this.req = req;
     this.writer = writer;
     this.contentType = contentType;
     this.prevTime = prevTime;
     this.headers = new Headers();
-    this.cacheOperation = cacheOperation;
   }
 
   recordServerTime(name: string): void {
@@ -199,6 +197,8 @@ export class ActionCore<
     // Action's handling authentication will eventually
     // support cache priming and refreshing.
     if (this.auth != null) return 'unsupported';
+    
+    refs.cacheOperation = 'prime';
 
     refs.recordServerTime('enter');
 
@@ -227,6 +227,8 @@ export class ActionCore<
     // support cache priming and refreshing.
     if (this.auth != null) return 'unsupported';
 
+    refs.cacheOperation = 'refresh';
+
     refs.recordServerTime('enter');
 
     this.#applyHandlerMiddleware(refs);
@@ -243,6 +245,27 @@ export class ActionCore<
   }
 
   /**
+   * Invalidates a cache entry.
+   */
+  async invalidateCache(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<CacheOperationResult> {
+    // Action's handling authentication will eventually
+    // support cache priming and refreshing.
+    if (this.auth != null) return 'unsupported';
+
+    refs.cacheOperation = 'invalidate';
+
+    this.#applyCacheMiddleware(refs);
+    this.#applyEarlyHints(refs);
+    this.#applyAuthMiddleware(refs);
+
+    await refs.next();
+
+    return 'invalidated';
+  }
+
+  /**
    * Handles a request.
    *
    * All actions call this method to do the heavy lifting of handling a request.
@@ -251,6 +274,8 @@ export class ActionCore<
     refs: MiddlewareRefs<State, Auth, Spec>,
   ): Promise<ResponseTypes> {
     refs.recordServerTime('enter');
+
+    refs.cacheOperation = null;
 
     this.#applyHandlerMiddleware(refs);
     this.#applyActionProcessing(refs);

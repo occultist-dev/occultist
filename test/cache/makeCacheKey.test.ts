@@ -9,7 +9,6 @@ describe('makeCacheKey', () => {
   const languageCode = 'en';
   const encoding: string | null = null;
   const requestHeaders = new Headers();
-  const actionName = 'test';
   const authKey = null;
   const publicWhenAuthenticated = false;
   const cacheVersion = null;
@@ -17,11 +16,11 @@ describe('makeCacheKey', () => {
 
   it('Gives GET, HEAD, POST, PUT and DELETE the same cache key', () => {
     const keys = [
-      makeCacheKey('GET', requestURL, contentType, languageCode, encoding, requestHeaders, actionName, authKey, publicWhenAuthenticated, cacheVersion, cacheVary),
-      makeCacheKey('head', requestURL, contentType, languageCode, encoding, requestHeaders, actionName, authKey, publicWhenAuthenticated, cacheVersion, cacheVary),
-      makeCacheKey('PoSt', requestURL, contentType, languageCode, encoding, requestHeaders, actionName, authKey, publicWhenAuthenticated, cacheVersion, cacheVary),
-      makeCacheKey('Put', requestURL, contentType, languageCode, encoding, requestHeaders, actionName, authKey, publicWhenAuthenticated, cacheVersion, cacheVary),
-      makeCacheKey('delete', requestURL, contentType, languageCode, encoding, requestHeaders, actionName, authKey, publicWhenAuthenticated, cacheVersion, cacheVary),
+      makeCacheKey('GET', requestURL, contentType, languageCode, encoding, requestHeaders, authKey, publicWhenAuthenticated, cacheVersion, cacheVary),
+      makeCacheKey('head', requestURL, contentType, languageCode, encoding, requestHeaders, authKey, publicWhenAuthenticated, cacheVersion, cacheVary),
+      makeCacheKey('PoSt', requestURL, contentType, languageCode, encoding, requestHeaders, authKey, publicWhenAuthenticated, cacheVersion, cacheVary),
+      makeCacheKey('Put', requestURL, contentType, languageCode, encoding, requestHeaders, authKey, publicWhenAuthenticated, cacheVersion, cacheVary),
+      makeCacheKey('delete', requestURL, contentType, languageCode, encoding, requestHeaders, authKey, publicWhenAuthenticated, cacheVersion, cacheVary),
     ];
 
     for (let i = 1; i < keys.length; i++) {
@@ -30,8 +29,8 @@ describe('makeCacheKey', () => {
   });
 
   it('Gives QUERY a different cache key', () => {
-    const getKey = makeCacheKey('get', requestURL, contentType, languageCode, encoding, requestHeaders, actionName, authKey, publicWhenAuthenticated, cacheVersion, cacheVary);
-    const queryKey = makeCacheKey('QUERY', requestURL, contentType, languageCode, encoding, requestHeaders, actionName, authKey, publicWhenAuthenticated, cacheVersion, cacheVary);
+    const getKey = makeCacheKey('get', requestURL, contentType, languageCode, encoding, requestHeaders, authKey, publicWhenAuthenticated, cacheVersion, cacheVary);
+    const queryKey = makeCacheKey('QUERY', requestURL, contentType, languageCode, encoding, requestHeaders, authKey, publicWhenAuthenticated, cacheVersion, cacheVary);
 
     assert.notEqual(getKey, queryKey);
   });
@@ -54,9 +53,9 @@ describe('makeCacheKey', () => {
       'fee': '4',
     });
 
-    const key1 = makeCacheKey(httpMethod, requestURL, contentType, languageCode, encoding, headers1, actionName, authKey, publicWhenAuthenticated, cacheVersion, cacheVary);
-    const key2 = makeCacheKey(httpMethod, requestURL, contentType, languageCode, encoding, headers2, actionName, authKey, publicWhenAuthenticated, cacheVersion, cacheVary);
-    const key3 = makeCacheKey(httpMethod, requestURL, contentType, languageCode, encoding, headers3, actionName, authKey, publicWhenAuthenticated, cacheVersion, cacheVary);
+    const key1 = makeCacheKey(httpMethod, requestURL, contentType, languageCode, encoding, headers1, authKey, publicWhenAuthenticated, cacheVersion, cacheVary);
+    const key2 = makeCacheKey(httpMethod, requestURL, contentType, languageCode, encoding, headers2, authKey, publicWhenAuthenticated, cacheVersion, cacheVary);
+    const key3 = makeCacheKey(httpMethod, requestURL, contentType, languageCode, encoding, headers3, authKey, publicWhenAuthenticated, cacheVersion, cacheVary);
 
     assert.equal(key1, key2);
     assert.notEqual(key1, key3);

@@ -1,8 +1,12 @@
 import { Cache } from "./cache.js";
-export class InMemoryCacheMeta {
+export class MemoryCacheMeta {
     #details = new Map();
     #locks = new Map();
     #flushLock;
+    allowLocking;
+    constructor(args) {
+        this.allowLocking = args?.allowLocking ?? true;
+    }
     async get(key) {
         if (this.#flushLock) {
             await this.#flushLock;
@@ -71,7 +75,7 @@ export class InMemoryCacheMeta {
         resolve();
     }
 }
-export class InMemoryCacheStorage {
+export class MemoryCacheStorage {
     #cache = new Map();
     get(key) {
         const value = this.#cache.get(key);
@@ -87,9 +91,9 @@ export class InMemoryCacheStorage {
         this.#cache = new Map();
     }
 }
-export class InMemoryCache extends Cache {
-    constructor(registry, upstream) {
-        super(registry, new InMemoryCacheMeta(), new InMemoryCacheStorage(), upstream);
+export class MemoryCache extends Cache {
+    constructor(registry, args) {
+        super(registry, new MemoryCacheMeta({ allowLocking: args?.allowLocking }), new MemoryCacheStorage(), args?.upstream);
     }
     async flush() {
         await this.meta.flush();

@@ -191,5 +191,9 @@ export interface ImplementedAction<
   refreshCache(
     refs: MiddlewareRefs<State, Auth, Spec>,
   ): Promise<CacheOperationResult>;
+
+  invalidateCache(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<CacheOperationResult>;
 }
 

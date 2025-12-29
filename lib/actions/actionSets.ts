@@ -1,6 +1,6 @@
 import { ContentTypeCache, type Accept } from "../accept.ts";
 import { makeURLPattern } from "../utils/makeURLPattern.ts";
-import type { ActionCore } from "./meta.ts";
+import type { ActionCore } from "./core.ts";
 import type { ImplementedAction } from "./types.ts";
 
 

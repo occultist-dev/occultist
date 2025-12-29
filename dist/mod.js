@@ -3,7 +3,7 @@ export * from "./cache/cache.js";
 export * from "./cache/memory.js";
 export * from "./cache/file.js";
 export * from "./actions/types.js";
-export * from "./actions/meta.js";
+export * from "./actions/core.js";
 export * from "./actions/spec.js";
 export * from "./actions/context.js";
 export * from "./actions/path.js";

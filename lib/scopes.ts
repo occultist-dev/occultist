@@ -1,6 +1,6 @@
 import { joinPaths } from "./utils/joinPaths.ts"
 import { ActionAuth, HandlerDefinition } from "./actions/actions.ts";
-import { ActionCore } from "./actions/meta.ts";
+import { ActionCore } from "./actions/core.ts";
 import type { ContextState } from "./actions/spec.ts";
 import type { AuthMiddleware, ImplementedAction } from "./actions/types.ts";
 import type { HTTPWriter } from "./actions/writer.ts";

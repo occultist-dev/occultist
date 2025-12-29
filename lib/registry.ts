@@ -1,7 +1,7 @@
 import { Accept } from "./accept.ts";
 import { ActionAuth, HandlerDefinition } from "./actions/actions.ts";
 import { type ActionMatchResult, ActionSet } from "./actions/actionSets.ts";
-import { ActionCore, MiddlewareRefs } from "./actions/meta.ts";
+import { ActionCore, MiddlewareRefs } from "./actions/core.ts";
 import type { CacheHitHeader, ImplementedAction } from "./actions/types.ts";
 import { ResponseWriter } from "./actions/writer.ts";
 import { Scope } from './scopes.ts';
@@ -518,7 +518,6 @@ export class Registry<
       writer,
       match.contentType ?? null,
       startTime,
-      'prime',
     );
 
     refs.cacheHitHeader = this.#cacheHitHeader;
@@ -565,13 +564,50 @@ export class Registry<
       writer,
       match.contentType ?? null,
       startTime,
-      'refresh',
     );
 
     refs.cacheHitHeader = this.#cacheHitHeader;
 
     return match.action.refreshCache(refs);
   }
+  
+  /**
+   * Invalidates a cached entry.
+   *
+   * This operation will only succeed on safe HTTP methods supporting
+   * caching. An endpoint can opt into being a "safe" endpoint by
+   * setting the cache semantics to "get". 
+   *
+   * Middleware and handlers can detect if the request is being called
+   * via a cache control method by checking `ctx.cacheRun === true`.
+   *
+   * @param req The request to cache.
+   */
+  invalidateCache(req: Request): Promise<CacheOperationResult> {
+    if (!this.#finalized) {
+      this.finalize();
+    }
+
+    const wrapped = new WrappedRequest(this.#rootIRI, req);
+    const writer = new ResponseWriter();
+    const match = this.matchRequest(wrapped);
+
+    if (match == null) {
+      return Promise.resolve('not-found');
+    } else if (match.type === 'unsupported-content-type') {
+      return Promise.resolve('skipped');
+    }
+
+    const refs = new MiddlewareRefs(
+      wrapped,
+      writer,
+      match.contentType ?? null,
+      null,
+    );
+
+    return match.action.invalidateCache(refs);
+  }
+
 
   /**
    * Handles a request.
@@ -660,7 +696,6 @@ export class Registry<
           writer,
           match.contentType ?? null,
           startTime,
-          null,
         );
 
         refs.cacheHitHeader = this.#cacheHitHeader;

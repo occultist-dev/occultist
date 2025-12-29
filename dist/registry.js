@@ -1,7 +1,7 @@
 import { Accept } from "./accept.js";
 import { ActionAuth } from "./actions/actions.js";
 import { ActionSet } from "./actions/actionSets.js";
-import { ActionMeta } from "./actions/meta.js";
+import { ActionCore, MiddlewareRefs } from "./actions/core.js";
 import { ResponseWriter } from "./actions/writer.js";
 import { Scope } from "./scopes.js";
 import { ProblemDetailsError } from "./errors.js";
@@ -262,8 +262,8 @@ export class Registry {
      * @param path   Path the action responds to.
      */
     method(method, name, path) {
-        const meta = new ActionMeta(this.#rootIRI, method.toUpperCase(), name, path, this, this.#writer);
-        meta.serverTiming = this.#serverTiming;
+        const meta = new ActionCore(this.#rootIRI, method.toUpperCase(), name, path, this, this.#writer);
+        meta.recordServerTiming = this.#serverTiming;
         this.#children.push(meta);
         return new ActionAuth(meta);
     }
@@ -271,9 +271,12 @@ export class Registry {
         this.#middleware.push(middleware);
         return this;
     }
+    /**
+     *
+     */
     finalize() {
         if (this.#finalized)
-            throw new Error('Registry has already been finalized');
+            return;
         const actionSets = [];
         const groupedMeta = new Map();
         this.#eventTarget.dispatchEvent(new Event('beforefinalize', { bubbles: true, cancelable: false }));
@@ -316,6 +319,142 @@ export class Registry {
         // freeze the registry.
         Object.freeze(this);
     }
+    /**
+     * Matches a request against the action configured to handle
+     * it by path and content type.
+     *
+     * @param The request to match.
+     * @returns Match information.
+     */
+    matchRequest(req) {
+        if (this.#index == null) {
+            console.warn('Registry index not built. Did you forget to run ' +
+                'registry.finalize()?');
+            return null;
+        }
+        const accept = Accept.from(req);
+        return this.#index?.match(req.method, req.url.toString(), accept);
+    }
+    /**
+     * Primes a cache entry if the cache currently does not have
+     * a value present, or the cached entry is stale.
+     *
+     * This operation will only succeed on safe HTTP methods supporting
+     * caching. An endpoint can opt into being a "safe" endpoint by
+     * setting the cache semantics to "get".
+     *
+     * When called with an auth key this method runs the full action
+     * including middleware as that user so it is important that the
+     * operation really is safe and does not change data or create
+     * logs on the user's behalf.
+     *
+     * Middleware and handlers can detect if the request is being called
+     * via a cache control method by checking `ctx.cacheRun === true`.
+     *
+     * @param req The request to cache.
+     */
+    primeCache(req) {
+        if (!this.#finalized) {
+            this.finalize();
+        }
+        const startTime = performance.now();
+        const wrapped = new WrappedRequest(this.#rootIRI, req);
+        const writer = new ResponseWriter();
+        const match = this.matchRequest(wrapped);
+        if (match == null) {
+            return Promise.resolve('not-found');
+        }
+        else if (match.type === 'unsupported-content-type') {
+            return Promise.resolve('skipped');
+        }
+        const refs = new MiddlewareRefs(wrapped, writer, match.contentType ?? null, startTime);
+        refs.cacheHitHeader = this.#cacheHitHeader;
+        return match.action.primeCache(refs);
+    }
+    /**
+     * Refreshes a cached entry. If the hit cache is not populated
+     * with a value it has the same affect as priming the cache.
+     *
+     * This operation will only succeed on safe HTTP methods supporting
+     * caching. An endpoint can opt into being a "safe" endpoint by
+     * setting the cache semantics to "get".
+     *
+     * When called with an auth key this method runs the full action
+     * including middleware as that user so it is important that the
+     * operation really is safe and does not change data or create
+     * logs on the user's behalf.
+     *
+     * Middleware and handlers can detect if the request is being called
+     * via a cache control method by checking `ctx.cacheRun === true`.
+     *
+     * @param req The request to cache.
+     */
+    refreshCache(req) {
+        if (!this.#finalized) {
+            this.finalize();
+        }
+        const startTime = performance.now();
+        const wrapped = new WrappedRequest(this.#rootIRI, req);
+        const writer = new ResponseWriter();
+        const match = this.matchRequest(wrapped);
+        if (match == null) {
+            return Promise.resolve('not-found');
+        }
+        else if (match.type === 'unsupported-content-type') {
+            return Promise.resolve('skipped');
+        }
+        const refs = new MiddlewareRefs(wrapped, writer, match.contentType ?? null, startTime);
+        refs.cacheHitHeader = this.#cacheHitHeader;
+        return match.action.refreshCache(refs);
+    }
+    /**
+     * Invalidates a cached entry.
+     *
+     * This operation will only succeed on safe HTTP methods supporting
+     * caching. An endpoint can opt into being a "safe" endpoint by
+     * setting the cache semantics to "get".
+     *
+     * Middleware and handlers can detect if the request is being called
+     * via a cache control method by checking `ctx.cacheRun === true`.
+     *
+     * @param req The request to cache.
+     */
+    invalidateCache(req) {
+        if (!this.#finalized) {
+            this.finalize();
+        }
+        const wrapped = new WrappedRequest(this.#rootIRI, req);
+        const writer = new ResponseWriter();
+        const match = this.matchRequest(wrapped);
+        if (match == null) {
+            return Promise.resolve('not-found');
+        }
+        else if (match.type === 'unsupported-content-type') {
+            return Promise.resolve('skipped');
+        }
+        const refs = new MiddlewareRefs(wrapped, writer, match.contentType ?? null, null);
+        return match.action.invalidateCache(refs);
+    }
+    /**
+     * Handles a request.
+     *
+     * This method supports Node's `http.createServer()` request and
+     * response interface and the web standard `Request` and
+     * `Response` interfaces.
+     *
+     * Occultist wraps the `IncomingMessage` object created by Node's
+     * `createServer()` in a generic `Request` object which may have
+     * overheads. Node's `createServer()` API is the only method
+     * supporting HTTP early hints, so it does have some advantages
+     * even though in many cases the other runtimes have better
+     * ergonomics.
+     *
+     * @param req A `createServer()` incoming message insance, or a
+     *   web standard request instance.
+     * @param res A `createServer()` server response instance.
+     * @returns A NodeJS server response instance or a web standard
+     *   request instance.
+     */
     async handleRequest(req, res) {
         if (!this.#finalized) {
             this.finalize();
@@ -323,19 +462,13 @@ export class Registry {
         const startTime = performance.now();
         const wrapped = new WrappedRequest(this.#rootIRI, req);
         const writer = new ResponseWriter(res);
-        const accept = Accept.from(wrapped);
-        const match = this.#index?.match(req.method ?? 'GET', wrapped.url.toString(), accept);
+        const match = this.matchRequest(wrapped);
         let err;
         try {
             if (match?.type === 'match') {
-                return await match.action.handleRequest({
-                    url: wrapped.url,
-                    contentType: match.contentType,
-                    req: wrapped,
-                    writer,
-                    startTime,
-                    cacheHitHeader: this.#cacheHitHeader,
-                });
+                const refs = new MiddlewareRefs(wrapped, writer, match.contentType ?? null, startTime);
+                refs.cacheHitHeader = this.#cacheHitHeader;
+                return await match.action.handleRequest(refs);
             }
         }
         catch (err2) {

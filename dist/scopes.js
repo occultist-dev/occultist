@@ -1,6 +1,6 @@
 import { joinPaths } from "./utils/joinPaths.js";
 import { ActionAuth } from "./actions/actions.js";
-import { ActionMeta } from "./actions/meta.js";
+import { ActionCore } from "./actions/core.js";
 import { HTTP } from "./registry.js";
 export class Scope {
     #path;
@@ -60,8 +60,8 @@ export class Scope {
      * @param path   Path the action responds to.
      */
     method(method, name, path) {
-        const meta = new ActionMeta(this.#registry.rootIRI, method.toUpperCase(), name, path, this.#registry, this.#writer, this);
-        meta.serverTiming = this.#serverTiming;
+        const meta = new ActionCore(this.#registry.rootIRI, method.toUpperCase(), name, path, this.#registry, this.#writer, this);
+        meta.recordServerTiming = this.#serverTiming;
         this.#children.push(meta);
         this.#propergateMeta(meta);
         return new ActionAuth(meta);

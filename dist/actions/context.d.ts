@@ -1,18 +1,19 @@
-import type { HandlerDefinition } from "../mod.ts";
+import type { CacheOperation, HandlerDefinition } from "../mod.ts";
 import type { Registry } from "../registry.ts";
 import type { ActionPayload, ActionSpec, ContextState, ParsedIRIValues } from "./spec.ts";
 import type { AuthState, ImplementedAction } from "./types.ts";
 import type { ResponseBody } from "./writer.ts";
 export type CacheContextArgs<Auth extends AuthState = AuthState> = {
     req: Request;
-    url: string;
     contentType: string;
     public: boolean;
     authKey?: string;
     auth: Auth;
+    cacheOperation?: CacheOperation;
     handler: HandlerDefinition;
     params: ParsedIRIValues;
     query: ParsedIRIValues;
+    headers: Headers;
 };
 /**
  * Request context object.
@@ -26,6 +27,7 @@ export declare class CacheContext<Auth extends AuthState = AuthState> {
     public: boolean;
     authKey?: string;
     auth: Auth;
+    cacheOperation?: CacheOperation;
     action: ImplementedAction;
     registry: Registry;
     params: ParsedIRIValues;
@@ -44,7 +46,6 @@ export declare class CacheContext<Auth extends AuthState = AuthState> {
 }
 export type ContextArgs<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Spec extends ActionSpec = ActionSpec> = {
     req: Request;
-    url: string;
     contentType: string;
     public: boolean;
     authKey?: string;
@@ -53,6 +54,7 @@ export type ContextArgs<State extends ContextState = ContextState, Auth extends 
     params: ParsedIRIValues;
     query: ParsedIRIValues;
     payload: ActionPayload<Spec>;
+    headers: Headers;
 };
 /**
  * Request context object.

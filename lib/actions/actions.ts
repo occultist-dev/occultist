@@ -6,9 +6,9 @@ import {getActionContext} from "../utils/getActionContext.ts";
 import {getPropertyValueSpecifications} from "../utils/getPropertyValueSpecifications.ts";
 import {isPopulatedObject} from '../utils/isPopulatedObject.ts';
 import {joinPaths} from "../utils/joinPaths.ts";
-import {AfterDefinition, BeforeDefinition, MiddlewareRefs, type ActionCore} from "./meta.ts";
+import {AfterDefinition, BeforeDefinition, MiddlewareRefs, type ActionCore} from "./core.ts";
 import type {ActionSpec, ContextState} from "./spec.ts";
-import type {AuthMiddleware, AuthState, HandleRequestArgs, HandlerFn, HandlerMeta, HandlerObj, HandlerValue, HintArgs, ImplementedAction} from './types.ts';
+import type {AuthMiddleware, AuthState, HandlerFn, HandlerMeta, HandlerObj, HandlerValue, HintArgs, ImplementedAction} from './types.ts';
 import {type ResponseTypes} from './writer.ts';
 
 
@@ -404,6 +404,17 @@ export class FinalizedAction<
     return this.#core.refreshCache(refs);
   }
 
+  invalidateCache(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<CacheOperationResult> {
+    const handler = this.#handlers.get(refs.contentType as string);
+
+    refs.spec = this.#spec;
+    refs.handler = handler;
+
+    return this.#core.invalidateCache(refs);
+  }
+
 }
 
 export interface Applicable<ActionType> {
@@ -599,6 +610,14 @@ export class DefinedAction<
 
     return this.#core.refreshCache(refs);
   }
+
+  invalidateCache(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<CacheOperationResult> {
+    refs.spec = this.#spec;
+
+    return this.#core.invalidateCache(refs);
+  }
 }
 
 export class Action<
@@ -748,6 +767,14 @@ export class Action<
   }
 
   refreshCache(
+    refs: MiddlewareRefs<State, Auth, ActionSpec>,
+  ): Promise<CacheOperationResult> {
+    refs.spec = this.#spec;
+
+    return this.#core.refreshCache(refs);
+  }
+
+  invalidateCache(
     refs: MiddlewareRefs<State, Auth, ActionSpec>,
   ): Promise<CacheOperationResult> {
     refs.spec = this.#spec;

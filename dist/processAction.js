@@ -454,7 +454,6 @@ export async function processAction({ iri, req, spec, state, action, }) {
     }
     for (const [paramName, value] of Object.entries(mergedValues)) {
         if (!Object.hasOwn(spec, paramName)) {
-            console.log(spec);
             throw new ProblemDetailsError(httpStatus || 400, {
                 title: `Invalid request`,
                 errors: [

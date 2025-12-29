@@ -1,10 +1,10 @@
 import { ActionAuth, HandlerDefinition } from "./actions/actions.ts";
-import { ActionMeta } from "./actions/meta.ts";
+import { ActionCore } from "./actions/core.ts";
 import type { ContextState } from "./actions/spec.ts";
 import type { AuthMiddleware, ImplementedAction } from "./actions/types.ts";
 import type { HTTPWriter } from "./actions/writer.ts";
 import { type Callable, HTTP, type Registry } from './registry.ts';
-export type MetaPropatator = (meta: ActionMeta) => void;
+export type MetaPropatator = (meta: ActionCore) => void;
 export type ScopeArgs = {
     path: string;
     serverTiming?: boolean;

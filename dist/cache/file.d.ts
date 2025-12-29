@@ -30,7 +30,7 @@ export declare class FileCacheMeta implements CacheMeta {
      */
     flush(): Promise<void>;
 }
-export declare class FileSystemCacheStorage implements CacheStorage {
+export declare class FileCacheStorage implements CacheStorage {
     #private;
     constructor(directory: string);
     hash(key: string): string;
@@ -39,7 +39,7 @@ export declare class FileSystemCacheStorage implements CacheStorage {
     invalidate(key: string): Promise<void>;
     flush(): Promise<void>;
 }
-export declare class FileSystemCache extends Cache {
+export declare class FileCache extends Cache {
     #private;
     constructor(registry: Registry, filePath: string, directory: string, upstream?: UpstreamCache);
     flush(): Promise<[void, void]>;

@@ -2,7 +2,7 @@ import { getActionContext } from "../utils/getActionContext.js";
 import { getPropertyValueSpecifications } from "../utils/getPropertyValueSpecifications.js";
 import { isPopulatedObject } from "../utils/isPopulatedObject.js";
 import { joinPaths } from "../utils/joinPaths.js";
-import { AfterDefinition, BeforeDefinition } from "./meta.js";
+import { AfterDefinition, BeforeDefinition } from "./core.js";
 function isHandlerObj(handler) {
     return isPopulatedObject(handler);
 }
@@ -36,21 +36,21 @@ export class HandlerDefinition {
 }
 export class FinalizedAction {
     #spec;
-    #meta;
+    #core;
     #typeDef;
     #handlers;
     constructor(typeDef, spec, meta, handlerArgs) {
         this.#typeDef = typeDef;
         this.#spec = spec ?? {};
-        this.#meta = meta;
-        this.#meta.action = this;
+        this.#core = meta;
+        this.#core.action = this;
         const handlers = new Map();
         if (typeof handlerArgs.contentType === 'string') {
-            handlers.set(handlerArgs.contentType, new HandlerDefinition(this.name, handlerArgs.contentType, handlerArgs.handler, handlerArgs.meta, this, this.#meta));
+            handlers.set(handlerArgs.contentType, new HandlerDefinition(this.name, handlerArgs.contentType, handlerArgs.handler, handlerArgs.meta, this, this.#core));
         }
         else if (isPopulatedObject(handlerArgs)) {
             for (let i = 0; i < handlerArgs.contentType.length; i++) {
-                handlers.set(handlerArgs.contentType[i], new HandlerDefinition(this.name, handlerArgs.contentType[i], handlerArgs.handler, handlerArgs.meta, this, this.#meta));
+                handlers.set(handlerArgs.contentType[i], new HandlerDefinition(this.name, handlerArgs.contentType[i], handlerArgs.handler, handlerArgs.meta, this, this.#core));
             }
         }
         this.#handlers = handlers;
@@ -83,10 +83,10 @@ export class FinalizedAction {
         };
     }
     get public() {
-        return this.#meta.public;
+        return this.#core.public;
     }
     get method() {
-        return this.#meta.method;
+        return this.#core.method;
     }
     get term() {
         return this.#typeDef?.term;
@@ -98,22 +98,22 @@ export class FinalizedAction {
         return this.#typeDef;
     }
     get name() {
-        return this.#meta.name;
+        return this.#core.name;
     }
     get template() {
-        return this.#meta.uriTemplate;
+        return this.#core.uriTemplate;
     }
     get pattern() {
-        return this.#meta.path.pattern;
+        return this.#core.path.pattern;
     }
     get spec() {
         return this.#spec;
     }
     get scope() {
-        return this.#meta.scope;
+        return this.#core.scope;
     }
     get registry() {
-        return this.#meta.registry;
+        return this.#core.registry;
     }
     get handlers() {
         return Array.from(this.#handlers.values());
@@ -129,7 +129,7 @@ export class FinalizedAction {
         });
     }
     url() {
-        return joinPaths(this.#meta.registry.rootIRI, this.#meta.path.normalized);
+        return joinPaths(this.#core.registry.rootIRI, this.#core.path.normalized);
     }
     /**
      * Retrives the handler configured for the given content type.
@@ -140,18 +140,18 @@ export class FinalizedAction {
         return this.#handlers.get(contentType);
     }
     jsonld() {
-        const scope = this.#meta.scope;
+        const scope = this.#core.scope;
         return FinalizedAction.toJSONLD(this, scope);
     }
     jsonldPartial() {
-        const scope = this.#meta.scope;
+        const scope = this.#core.scope;
         const typeDef = this.#typeDef;
         if (scope == null || typeDef == null) {
             return null;
         }
         return {
             '@type': typeDef.type,
-            '@id': joinPaths(scope.url(), this.#meta.name),
+            '@id': joinPaths(scope.url(), this.#core.name),
         };
     }
     handle(arg1, arg2) {
@@ -174,42 +174,55 @@ export class FinalizedAction {
             meta = Object.create(null);
         }
         if (!Array.isArray(contentType)) {
-            this.#handlers.set(contentType, new HandlerDefinition(this.#meta.name, contentType, handler, meta, this, this.#meta));
+            this.#handlers.set(contentType, new HandlerDefinition(this.#core.name, contentType, handler, meta, this, this.#core));
         }
         else {
             for (let i = 0; i < contentType.length; i++) {
-                this.#handlers.set(contentType[i], new HandlerDefinition(this.#meta.name, contentType[i], handler, meta, this, this.#meta));
+                this.#handlers.set(contentType[i], new HandlerDefinition(this.#core.name, contentType[i], handler, meta, this, this.#core));
             }
         }
         return this;
     }
-    handleRequest(args) {
-        const handler = this.#handlers.get(args.contentType);
-        return this.#meta.handleRequest({
-            ...args,
-            spec: this.#spec,
-            handler,
-        });
+    handleRequest(refs) {
+        const handler = this.#handlers.get(refs.contentType);
+        refs.spec = this.#spec;
+        refs.handler = handler;
+        return this.#core.handleRequest(refs);
     }
-    perform(req) {
-        return this.#meta.perform(req);
+    primeCache(refs) {
+        const handler = this.#handlers.get(refs.contentType);
+        refs.spec = this.#spec;
+        refs.handler = handler;
+        return this.#core.primeCache(refs);
+    }
+    refreshCache(refs) {
+        const handler = this.#handlers.get(refs.contentType);
+        refs.spec = this.#spec;
+        refs.handler = handler;
+        return this.#core.refreshCache(refs);
+    }
+    invalidateCache(refs) {
+        const handler = this.#handlers.get(refs.contentType);
+        refs.spec = this.#spec;
+        refs.handler = handler;
+        return this.#core.invalidateCache(refs);
     }
 }
 export class DefinedAction {
     #spec;
-    #meta;
+    #core;
     #typeDef;
     constructor(typeDef, spec, meta) {
         this.#spec = spec ?? {};
-        this.#meta = meta;
+        this.#core = meta;
         this.#typeDef = typeDef;
-        this.#meta.action = this;
+        this.#core.action = this;
     }
     get public() {
-        return this.#meta.public;
+        return this.#core.public;
     }
     get method() {
-        return this.#meta.method;
+        return this.#core.method;
     }
     get term() {
         return this.#typeDef?.term;
@@ -221,25 +234,25 @@ export class DefinedAction {
         return this.#typeDef;
     }
     get name() {
-        return this.#meta.name;
+        return this.#core.name;
     }
     get template() {
-        return this.#meta.uriTemplate;
+        return this.#core.uriTemplate;
     }
     get pattern() {
-        return this.#meta.path.pattern;
+        return this.#core.path.pattern;
     }
     get path() {
-        return this.#meta.path.normalized;
+        return this.#core.path.normalized;
     }
     get spec() {
         return this.#spec;
     }
     get scope() {
-        return this.#meta.scope;
+        return this.#core.scope;
     }
     get registry() {
-        return this.#meta.registry;
+        return this.#core.registry;
     }
     get handlers() {
         return [];
@@ -264,18 +277,18 @@ export class DefinedAction {
         });
     }
     jsonld() {
-        const scope = this.#meta.scope;
+        const scope = this.#core.scope;
         return FinalizedAction.toJSONLD(this, scope);
     }
     jsonldPartial() {
-        const scope = this.#meta.scope;
+        const scope = this.#core.scope;
         const typeDef = this.#typeDef;
         if (scope == null || typeDef == null) {
             return null;
         }
         return {
             '@type': typeDef.type,
-            '@id': joinPaths(scope.url(), this.#meta.name),
+            '@id': joinPaths(scope.url(), this.#core.name),
         };
     }
     /**
@@ -286,15 +299,15 @@ export class DefinedAction {
      * auth sensitive checks to be run which might reject the request.
      */
     cache(args) {
-        if (this.#meta.cache.length !== 0 &&
-            this.#meta.cacheOccurance === BeforeDefinition) {
+        if (this.#core.cache.length !== 0 &&
+            this.#core.cacheOccurance === BeforeDefinition) {
             throw new Error('Action cache may be defined either before or after ' +
                 'the definition method is called, but not both.');
         }
-        else if (this.#meta.cacheOccurance === BeforeDefinition) {
-            this.#meta.cacheOccurance = AfterDefinition;
+        else if (this.#core.cacheOccurance === BeforeDefinition) {
+            this.#core.cacheOccurance = AfterDefinition;
         }
-        this.#meta.cache.push(args);
+        this.#core.cache.push(args);
         return this;
     }
     meta() {
@@ -304,30 +317,37 @@ export class DefinedAction {
         return this;
     }
     handle(arg1, arg2) {
-        return FinalizedAction.fromHandlers(this.#typeDef, this.#spec, this.#meta, arg1, arg2);
+        return FinalizedAction.fromHandlers(this.#typeDef, this.#spec, this.#core, arg1, arg2);
     }
-    async handleRequest(args) {
-        return this.#meta.handleRequest({
-            ...args,
-            spec: this.#spec,
-        });
+    handleRequest(refs) {
+        refs.spec = this.#spec;
+        return this.#core.handleRequest(refs);
     }
-    perform(req) {
-        return this.#meta.perform(req);
+    primeCache(refs) {
+        refs.spec = this.#spec;
+        return this.#core.primeCache(refs);
+    }
+    refreshCache(refs) {
+        refs.spec = this.#spec;
+        return this.#core.refreshCache(refs);
+    }
+    invalidateCache(refs) {
+        refs.spec = this.#spec;
+        return this.#core.invalidateCache(refs);
     }
 }
 export class Action {
     #spec = {};
-    #meta;
+    #core;
     constructor(meta) {
-        this.#meta = meta;
-        this.#meta.action = this;
+        this.#core = meta;
+        this.#core.action = this;
     }
     get public() {
-        return this.#meta.public;
+        return this.#core.public;
     }
     get method() {
-        return this.#meta.method;
+        return this.#core.method;
     }
     get term() {
         return undefined;
@@ -339,25 +359,25 @@ export class Action {
         return undefined;
     }
     get name() {
-        return this.#meta.name;
+        return this.#core.name;
     }
     get template() {
-        return this.#meta.uriTemplate;
+        return this.#core.uriTemplate;
     }
     get pattern() {
-        return this.#meta.path.pattern;
+        return this.#core.path.pattern;
     }
     get path() {
-        return this.#meta.path.normalized;
+        return this.#core.path.normalized;
     }
     get spec() {
         return this.#spec;
     }
     get scope() {
-        return this.#meta.scope;
+        return this.#core.scope;
     }
     get registry() {
-        return this.#meta.registry;
+        return this.#core.registry;
     }
     get handlers() {
         return [];
@@ -391,81 +411,88 @@ export class Action {
         return this;
     }
     define(args) {
-        return new DefinedAction(args.typeDef, args.spec ?? {}, this.#meta);
+        return new DefinedAction(args.typeDef, args.spec ?? {}, this.#core);
     }
     handle(arg1, arg2) {
-        return FinalizedAction.fromHandlers(null, this.#spec, this.#meta, arg1, arg2);
+        return FinalizedAction.fromHandlers(null, this.#spec, this.#core, arg1, arg2);
     }
-    async handleRequest(args) {
-        return this.#meta.handleRequest({
-            ...args,
-            spec: this.#spec,
-        });
+    handleRequest(refs) {
+        refs.spec = this.#spec;
+        return this.#core.handleRequest(refs);
     }
-    perform(req) {
-        return this.#meta.perform(req);
+    primeCache(refs) {
+        refs.spec = this.#spec;
+        return this.#core.primeCache(refs);
+    }
+    refreshCache(refs) {
+        refs.spec = this.#spec;
+        return this.#core.refreshCache(refs);
+    }
+    invalidateCache(refs) {
+        refs.spec = this.#spec;
+        return this.#core.refreshCache(refs);
     }
 }
 export class PreAction {
-    #meta;
+    #core;
     constructor(meta) {
-        this.#meta = meta;
+        this.#core = meta;
     }
     use() {
-        return new Action(this.#meta);
+        return new Action(this.#core);
     }
     define(args) {
-        return new DefinedAction(args.typeDef, args.spec, this.#meta);
+        return new DefinedAction(args.typeDef, args.spec, this.#core);
     }
     handle(arg1, arg2) {
-        return FinalizedAction.fromHandlers(null, {}, this.#meta, arg1, arg2);
+        return FinalizedAction.fromHandlers(null, {}, this.#core, arg1, arg2);
     }
 }
 export class Endpoint {
-    #meta;
+    #core;
     constructor(meta) {
-        this.#meta = meta;
+        this.#core = meta;
     }
     hint(hints) {
-        this.#meta.hints.push(hints);
+        this.#core.hints.push(hints);
         return this;
     }
     compress() {
         return this;
     }
     cache(args) {
-        this.#meta.cache.push(args);
+        this.#core.cache.push(args);
         return this;
     }
     etag() {
         return this;
     }
     use() {
-        return new Action(this.#meta);
+        return new Action(this.#core);
     }
     define(args) {
-        return new DefinedAction(args.typeDef, args.spec, this.#meta);
+        return new DefinedAction(args.typeDef, args.spec, this.#core);
     }
     handle(arg1, arg2) {
-        return FinalizedAction.fromHandlers(undefined, {}, this.#meta, arg1, arg2);
+        return FinalizedAction.fromHandlers(undefined, {}, this.#core, arg1, arg2);
     }
 }
 export class ActionAuth {
-    #meta;
+    #core;
     constructor(meta) {
-        this.#meta = meta;
+        this.#core = meta;
     }
     public(authMiddleware) {
         if (authMiddleware != null && typeof authMiddleware !== 'function')
             throw new Error('Public action given invalid auth middleware');
-        this.#meta.public = true;
-        this.#meta.auth = authMiddleware;
-        return new Endpoint(this.#meta);
+        this.#core.public = true;
+        this.#core.auth = authMiddleware;
+        return new Endpoint(this.#core);
     }
     private(authMiddleware) {
         if (typeof authMiddleware !== 'function')
             throw new Error('Private action given invalid auth middleware');
-        this.#meta.auth = authMiddleware;
-        return new Endpoint(this.#meta);
+        this.#core.auth = authMiddleware;
+        return new Endpoint(this.#core);
     }
 }

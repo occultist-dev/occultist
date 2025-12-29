@@ -3,7 +3,7 @@ export * from './cache/cache.ts';
 export * from './cache/memory.ts';
 export * from './cache/file.ts';
 export * from './actions/types.ts';
-export * from './actions/meta.ts';
+export * from './actions/core.ts';
 export * from './actions/spec.ts';
 export * from './actions/context.ts';
 export * from './actions/path.ts';

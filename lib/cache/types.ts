@@ -28,6 +28,7 @@ export type CacheOperationResult =
   | 'unsupported'
   | 'skipped'
   | 'cached'
+  | 'invalidated'
 ;
 
 /**
