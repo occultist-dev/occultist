@@ -1,7 +1,7 @@
 import { Accept } from "./accept.ts";
 import { ActionAuth, HandlerDefinition } from "./actions/actions.ts";
 import { type ActionMatchResult, ActionSet } from "./actions/actionSets.ts";
-import { ActionMeta } from "./actions/meta.ts";
+import { ActionCore } from "./actions/meta.ts";
 import type { CacheHitHeader, ImplementedAction } from "./actions/types.ts";
 import { ResponseWriter } from "./actions/writer.ts";
 import { Scope } from './scopes.ts';
@@ -180,7 +180,7 @@ export class Registry<
   #cacheHitHeader: CacheHitHeader;
   #http: HTTP<State>;
   #scopes: Scope[] = [];
-  #children: ActionMeta[] = [];
+  #children: ActionCore[] = [];
   #index?: IndexEntry;
   #writer = new ResponseWriter();
   #eventTarget = new EventTarget();
@@ -361,7 +361,7 @@ export class Registry<
    * @param path   Path the action responds to.
    */
   public method(method: string, name: string, path: string): ActionAuth<State> {
-    const meta = new ActionMeta<State>(
+    const meta = new ActionCore<State>(
       this.#rootIRI,
       method.toUpperCase(),
       name,
@@ -391,7 +391,7 @@ export class Registry<
     if (this.#finalized) return;
       
     const actionSets: ActionSet[] = [];
-    const groupedMeta = new Map<string, Map<string, ActionMeta[]>>();
+    const groupedMeta = new Map<string, Map<string, ActionCore[]>>();
 
     this.#eventTarget.dispatchEvent(
       new Event('beforefinalize', { bubbles: true, cancelable: false })

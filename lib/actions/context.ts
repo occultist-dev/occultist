@@ -23,6 +23,7 @@ export type CacheContextArgs<
   handler: HandlerDefinition;
   params: ParsedIRIValues;
   query: ParsedIRIValues;
+  headers: Headers;
 };
 
 /**
@@ -43,7 +44,7 @@ export class CacheContext<
   registry: Registry;
   params: ParsedIRIValues;
   query: ParsedIRIValues;
-  headers: Headers = new Headers();
+  headers: Headers;
 
   constructor(args: CacheContextArgs<Auth>) {
     this.req = args.req;
@@ -57,6 +58,7 @@ export class CacheContext<
     this.registry = args.handler.action.registry;
     this.params = args.params;
     this.query = args.query;
+    this.headers = args.headers;
 
     Object.freeze(this);
   }
@@ -113,6 +115,7 @@ export type ContextArgs<
   params: ParsedIRIValues;
   query: ParsedIRIValues;
   payload: ActionPayload<Spec>;
+  headers: Headers;
 };
 
 /**
@@ -137,7 +140,7 @@ export class Context<
   params: ParsedIRIValues;
   query: ParsedIRIValues;
   payload: ActionPayload<Spec>;
-  headers: Headers = new Headers();
+  headers: Headers;
 
   constructor(args: ContextArgs<State, Auth, Spec>) {
     this.req = args.req;
@@ -152,6 +155,7 @@ export class Context<
     this.params = args.params;
     this.query = args.query;
     this.payload = args.payload;
+    this.headers = args.headers;
 
     Object.freeze(this);
     Object.freeze(this.auth);

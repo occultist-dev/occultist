@@ -46,6 +46,7 @@ class MiddlewareRefs<
   req: Request;
   recordServerTiming: boolean; 
   prevTime: number | null;
+  serverTimes: string[] = [];
 
   constructor(
     req: Request,
@@ -78,7 +79,7 @@ class MiddlewareRefs<
   }
 };
 
-export class ActionMeta<
+export class ActionCore<
   State extends ContextState = ContextState,
   Auth extends AuthState = AuthState,
   Spec extends ActionSpec = ActionSpec,
@@ -244,7 +245,6 @@ export class ActionMeta<
     );
 
     refs.recordServerTiming = this.recordServerTiming;
-
     refs.recordServerTime('enter');
 
     // add auth check
@@ -259,39 +259,21 @@ export class ActionMeta<
     this.#applyCacheMiddleware(refs);
     this.#applyAuthMiddleware(refs);
 
+    await refs.next();
 
-    try {
-      await refs.next();
+    if (refs.cacheCtx?.hit) {
+      refs.recordServerTime('hit');
 
-      if (refs.cacheCtx?.hit) {
-        refs.recordServerTime('hit');
-
-        if (Array.isArray(cacheHitHeader)) {
-          refs.headers.set(cacheHitHeader[0], cacheHitHeader[1]);
-        } else if (typeof cacheHitHeader === 'string') {
-          refs.headers.set(cacheHitHeader, 'HIT');
-        } else if (cacheHitHeader) {
-          refs.headers.set('X-Cache', 'HIT');
-        }
-        
-        // set the ctx so the writer has access to the cached values.
-        refs.handlerCtx = refs.cacheCtx as unknown as Context;
+      if (Array.isArray(cacheHitHeader)) {
+        refs.headers.set(cacheHitHeader[0], cacheHitHeader[1]);
+      } else if (typeof cacheHitHeader === 'string') {
+        refs.headers.set(cacheHitHeader, 'HIT');
+      } else if (cacheHitHeader) {
+        refs.headers.set('X-Cache', 'HIT');
       }
-
-      if (refs.cacheCtx?.headers != null) {
-        writer.mergeHeaders(refs.cacheCtx.headers);
-      } else if (refs.handlerCtx?.headers != null) {
-        // The cache merges the handler ctx headers if it is part of the 
-        // response. Plus it adds other headers which need to be included.
-        // So it is either the cache headers get merged or the handler headers.
-        writer.mergeHeaders(refs.handlerCtx.headers);
-      }
-
-      writer.mergeHeaders(refs.headers);
-    } catch (err) {
-      writer.mergeHeaders(refs.headers);
-
-      throw err;
+      
+      // set the ctx so the writer has access to the cached values.
+      refs.handlerCtx = refs.cacheCtx as unknown as Context;
     }
 
     writer.writeHead(refs.handlerCtx.status ?? 200, refs.handlerCtx.headers);
@@ -347,6 +329,7 @@ export class ActionMeta<
         params: processed.params ?? {},
         query: processed.query ?? {},
         payload: processed.payload ?? {} as ProcessActionResult<Spec>['payload'],
+        headers: refs.headers,
       });
 
       if (refs.contentType != null) {
@@ -381,17 +364,13 @@ export class ActionMeta<
         handler: refs.handler,
         params: {},
         query: {},
+        headers: refs.headers,
       });
 
       await cacheMiddleware.middleware(
         this.getCacheDescriptor(refs.contentType, refs.req, refs.cacheCtx),
         refs.cacheCtx,
         async () => {
-          // write any cache headers to the response headers.
-          // this should be reviewed as it may be unsafe to
-          // allow a handler to override these headers.
-          refs.writer.mergeHeaders(refs.cacheCtx.headers);
-
           // cache was not hit if in this function
           await downstream();
 
@@ -407,9 +386,9 @@ export class ActionMeta<
             refs.cacheCtx.body = refs.handlerCtx.body;
           }
       
-          for (const [key, value] of refs.handlerCtx.headers.entries()) {
-            refs.cacheCtx.headers.set(key, value);
-          }
+          //for (const [key, value] of refs.handlerCtx.headers.entries()) {
+          //  refs.cacheCtx.headers.set(key, value);
+          //}
         },
       );
     }

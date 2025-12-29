@@ -1,13 +1,13 @@
 import { joinPaths } from "./utils/joinPaths.ts"
 import { ActionAuth, HandlerDefinition } from "./actions/actions.ts";
-import { ActionMeta } from "./actions/meta.ts";
+import { ActionCore } from "./actions/meta.ts";
 import type { ContextState } from "./actions/spec.ts";
 import type { AuthMiddleware, ImplementedAction } from "./actions/types.ts";
 import type { HTTPWriter } from "./actions/writer.ts";
 import { type Callable, HTTP, type Registry } from './registry.ts';
 
 
-export type MetaPropatator = (meta: ActionMeta) => void;
+export type MetaPropatator = (meta: ActionCore) => void;
 
 export type ScopeArgs = {
   path: string;
@@ -26,10 +26,10 @@ export class Scope<
   #registry: Registry;
   #writer: HTTPWriter;
   #http: HTTP<State>;
-  #children: Array<ActionMeta> = [];
+  #children: Array<ActionCore> = [];
   #public: boolean = true;
   #auth: AuthMiddleware | undefined;
-  #propergateMeta: (meta: ActionMeta) => void;
+  #propergateMeta: (meta: ActionCore) => void;
   
   constructor({
     path,
@@ -96,7 +96,7 @@ export class Scope<
    * @param path   Path the action responds to.
    */
   method(method: string, name: string, path: string): ActionAuth<State> {
-    const meta = new ActionMeta<State>(
+    const meta = new ActionCore<State>(
       this.#registry.rootIRI,
       method.toUpperCase(),
       name,

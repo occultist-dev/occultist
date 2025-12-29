@@ -7,6 +7,7 @@ export class MemoryCacheMeta implements CacheMeta {
   #details: Map<string, CacheDetails> = new Map();
   #locks: Map<string, Promise<void>> = new Map();
   #flushLock: Promise<void> | undefined;
+  allowLocking?: boolean = true;
 
   async get(key: string): Promise<CacheHitHandle | CacheMissHandle> {
     if (this.#flushLock) {

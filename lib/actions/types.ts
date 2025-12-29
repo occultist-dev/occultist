@@ -1,11 +1,11 @@
-import type { HTTPWriter } from "./writer.ts";
-import type { Registry } from '../registry.ts';
-import type { Scope } from "../scopes.ts";
-import type { ContextState, ActionSpec } from "./spec.ts";
-import type { Context } from "./context.ts";
-import type { ServerResponse } from "node:http";
-import type { JSONObject, TypeDef } from "../jsonld.ts";
+import type {ServerResponse} from "node:http";
+import type {JSONObject, TypeDef} from "../jsonld.ts";
 import type {HandlerDefinition} from "../mod.ts";
+import type {Registry} from '../registry.ts';
+import type {Scope} from "../scopes.ts";
+import type {Context} from "./context.ts";
+import type {ActionSpec, ContextState} from "./spec.ts";
+import type {HTTPWriter} from "./writer.ts";
 
 export type CacheHitHeader = boolean | string | [header: string, value: string];
 
@@ -162,12 +162,6 @@ export interface ImplementedAction<
    * @param contentType   The content type.
    */
   handlerFor(contentType: string): HandlerDefinition<State, Auth, Spec> | undefined;
-
-  /**
-   * Performs this action using the given fetch Request
-   * returning a Response.
-   */
-  perform(req: Request): Promise<Response>;
 
   /**
    * @todo
