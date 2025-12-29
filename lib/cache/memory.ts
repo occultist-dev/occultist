@@ -3,10 +3,19 @@ import type {CacheDetails, CacheHitHandle, CacheMeta, CacheStorage, CacheMissHan
 import {Cache} from './cache.ts';
 
 
-export class InMemoryCacheMeta implements CacheMeta {
+export type MemoryCacheMetaArgs = {
+  allowLocking?: boolean;
+};
+
+export class MemoryCacheMeta implements CacheMeta {
   #details: Map<string, CacheDetails> = new Map();
   #locks: Map<string, Promise<void>> = new Map();
   #flushLock: Promise<void> | undefined;
+  allowLocking: boolean;
+
+  constructor(args?: MemoryCacheMetaArgs) {
+    this.allowLocking = args?.allowLocking ?? true;
+  }
 
   async get(key: string): Promise<CacheHitHandle | CacheMissHandle> {
     if (this.#flushLock) {
@@ -95,7 +104,12 @@ export class InMemoryCacheMeta implements CacheMeta {
   }
 }
 
-export class InMemoryCacheStorage implements CacheStorage {
+export type MemoryCacheArgs = {
+  upstream?: UpstreamCache;
+  allowLocking?: boolean;
+};
+
+export class MemoryCacheStorage implements CacheStorage {
   #cache: Map<string, Blob> = new Map();
 
   get(key: string): Blob {
@@ -117,13 +131,13 @@ export class InMemoryCacheStorage implements CacheStorage {
   }
 }
 
-export class InMemoryCache extends Cache {
-  constructor(registry: Registry, upstream?: UpstreamCache) {
+export class MemoryCache extends Cache {
+  constructor(registry: Registry, args?: MemoryCacheArgs) {
     super(
       registry,
-      new InMemoryCacheMeta(),
-      new InMemoryCacheStorage(),
-      upstream,
+      new MemoryCacheMeta({ allowLocking: args?.allowLocking }),
+      new MemoryCacheStorage(),
+      args?.upstream,
     );
   }
 
@@ -132,3 +146,4 @@ export class InMemoryCache extends Cache {
     this.storage.flush();
   }
 }
+

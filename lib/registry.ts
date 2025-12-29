@@ -1,7 +1,7 @@
 import { Accept } from "./accept.ts";
 import { ActionAuth, HandlerDefinition } from "./actions/actions.ts";
 import { type ActionMatchResult, ActionSet } from "./actions/actionSets.ts";
-import { ActionMeta } from "./actions/meta.ts";
+import { ActionCore, MiddlewareRefs } from "./actions/core.ts";
 import type { CacheHitHeader, ImplementedAction } from "./actions/types.ts";
 import { ResponseWriter } from "./actions/writer.ts";
 import { Scope } from './scopes.ts';
@@ -10,6 +10,7 @@ import type { Merge } from "./actions/spec.ts";
 import type { ContextState, Middleware } from "./actions/spec.ts";
 import {ProblemDetailsError} from "./errors.ts"
 import {WrappedRequest} from "./request.ts";
+import {type CacheOperationResult} from "./mod.ts";
 
 
 export interface Callable<
@@ -179,7 +180,7 @@ export class Registry<
   #cacheHitHeader: CacheHitHeader;
   #http: HTTP<State>;
   #scopes: Scope[] = [];
-  #children: ActionMeta[] = [];
+  #children: ActionCore[] = [];
   #index?: IndexEntry;
   #writer = new ResponseWriter();
   #eventTarget = new EventTarget();
@@ -360,7 +361,7 @@ export class Registry<
    * @param path   Path the action responds to.
    */
   public method(method: string, name: string, path: string): ActionAuth<State> {
-    const meta = new ActionMeta<State>(
+    const meta = new ActionCore<State>(
       this.#rootIRI,
       method.toUpperCase(),
       name,
@@ -369,7 +370,7 @@ export class Registry<
       this.#writer,
     );
 
-    meta.serverTiming = this.#serverTiming;
+    meta.recordServerTiming = this.#serverTiming;
 
     this.#children.push(meta);
     
@@ -386,12 +387,14 @@ export class Registry<
     return this as unknown as Registry<Merge<State, MiddlewareState>>;
   }
 
+  /**
+   *
+   */
   finalize() {
-    if (this.#finalized)
-      throw new Error('Registry has already been finalized');
+    if (this.#finalized) return;
       
     const actionSets: ActionSet[] = [];
-    const groupedMeta = new Map<string, Map<string, ActionMeta[]>>();
+    const groupedMeta = new Map<string, Map<string, ActionCore[]>>();
 
     this.#eventTarget.dispatchEvent(
       new Event('beforefinalize', { bubbles: true, cancelable: false })
@@ -453,15 +456,224 @@ export class Registry<
     Object.freeze(this);
   }
 
+  /**
+   * Matches a request against the action configured to handle
+   * it by path and content type.
+   *
+   * @param The request to match.
+   * @returns Match information.
+   */
+  matchRequest(req: Request): ActionMatchResult | null {
+    if (this.#index == null) {
+      console.warn(
+        'Registry index not built. Did you forget to run ' +
+        'registry.finalize()?');
+      return null;
+    }
+
+    const accept = Accept.from(req);
+    return this.#index?.match(
+      req.method,
+      req.url.toString(),
+      accept,
+    );
+  }
+
+  /**
+   * Primes a cache entry if the cache currently does not have
+   * a value present, or the cached entry is stale.
+   *
+   * This operation will only succeed on safe HTTP methods supporting
+   * caching. An endpoint can opt into being a "safe" endpoint by
+   * setting the cache semantics to "get". 
+   *
+   * When called with an auth key this method runs the full action
+   * including middleware as that user so it is important that the
+   * operation really is safe and does not change data or create
+   * logs on the user's behalf.
+   *
+   * Middleware and handlers can detect if the request is being called
+   * via a cache control method by checking `ctx.cacheRun === true`.
+   *
+   * @param req The request to cache.
+   */
+  primeCache(req: Request): Promise<CacheOperationResult> {
+    if (!this.#finalized) {
+      this.finalize();
+    }
+
+    const startTime = performance.now();
+    const wrapped = new WrappedRequest(this.#rootIRI, req);
+    const writer = new ResponseWriter();
+    const match = this.matchRequest(wrapped);
+
+    if (match == null) {
+      return Promise.resolve('not-found');
+    } else if (match.type === 'unsupported-content-type') {
+      return Promise.resolve('skipped');
+    }
+
+    const refs = new MiddlewareRefs(
+      wrapped,
+      writer,
+      match.contentType ?? null,
+      startTime,
+    );
+
+    refs.cacheHitHeader = this.#cacheHitHeader;
+
+    return match.action.primeCache(refs);
+  }
+  
+  /**
+   * Refreshes a cached entry. If the hit cache is not populated
+   * with a value it has the same affect as priming the cache.
+   *
+   * This operation will only succeed on safe HTTP methods supporting
+   * caching. An endpoint can opt into being a "safe" endpoint by
+   * setting the cache semantics to "get". 
+   *
+   * When called with an auth key this method runs the full action
+   * including middleware as that user so it is important that the
+   * operation really is safe and does not change data or create
+   * logs on the user's behalf.
+   *
+   * Middleware and handlers can detect if the request is being called
+   * via a cache control method by checking `ctx.cacheRun === true`.
+   *
+   * @param req The request to cache.
+   */
+  refreshCache(req: Request): Promise<CacheOperationResult> {
+    if (!this.#finalized) {
+      this.finalize();
+    }
+
+    const startTime = performance.now();
+    const wrapped = new WrappedRequest(this.#rootIRI, req);
+    const writer = new ResponseWriter();
+    const match = this.matchRequest(wrapped);
+
+    if (match == null) {
+      return Promise.resolve('not-found');
+    } else if (match.type === 'unsupported-content-type') {
+      return Promise.resolve('skipped');
+    }
+
+    const refs = new MiddlewareRefs(
+      wrapped,
+      writer,
+      match.contentType ?? null,
+      startTime,
+    );
+
+    refs.cacheHitHeader = this.#cacheHitHeader;
+
+    return match.action.refreshCache(refs);
+  }
+  
+  /**
+   * Invalidates a cached entry.
+   *
+   * This operation will only succeed on safe HTTP methods supporting
+   * caching. An endpoint can opt into being a "safe" endpoint by
+   * setting the cache semantics to "get". 
+   *
+   * Middleware and handlers can detect if the request is being called
+   * via a cache control method by checking `ctx.cacheRun === true`.
+   *
+   * @param req The request to cache.
+   */
+  invalidateCache(req: Request): Promise<CacheOperationResult> {
+    if (!this.#finalized) {
+      this.finalize();
+    }
+
+    const wrapped = new WrappedRequest(this.#rootIRI, req);
+    const writer = new ResponseWriter();
+    const match = this.matchRequest(wrapped);
+
+    if (match == null) {
+      return Promise.resolve('not-found');
+    } else if (match.type === 'unsupported-content-type') {
+      return Promise.resolve('skipped');
+    }
+
+    const refs = new MiddlewareRefs(
+      wrapped,
+      writer,
+      match.contentType ?? null,
+      null,
+    );
+
+    return match.action.invalidateCache(refs);
+  }
+
+
+  /**
+   * Handles a request.
+   *
+   * This method supports Node's `http.createServer()` request and
+   * response interface and the web standard `Request` and
+   * `Response` interfaces.
+   *
+   * Occultist wraps the `IncomingMessage` object created by Node's
+   * `createServer()` in a generic `Request` object which may have
+   * overheads. Node's `createServer()` API is the only method 
+   * supporting HTTP early hints, so it does have some advantages
+   * even though in many cases the other runtimes have better
+   * ergonomics.
+   *
+   * @param req A web standard request instance.
+   * @returns A web standard response instance.
+   */
   handleRequest(
     req: Request,
   ): Promise<Response>;
   
+  /**
+   * Handles a request.
+   *
+   * This method supports Node's `http.createServer()` request and
+   * response interface and the web standard `Request` and
+   * `Response` interfaces.
+   *
+   * Occultist wraps the `IncomingMessage` object created by Node's
+   * `createServer()` in a generic `Request` object which may have
+   * overheads. Node's `createServer()` API is the only method 
+   * supporting HTTP early hints, so it does have some advantages
+   * even though in many cases the other runtimes have better
+   * ergonomics.
+   *
+   * @param req A `createServer()` incoming message insance, or a
+   *   web standard `Request` instance.
+   * @param res A `createServer()` server response instance.
+   * @returns A NodeJS server response instance.
+   */
   handleRequest(
     req: IncomingMessage,
     res: ServerResponse,
   ): Promise<ServerResponse>;
 
+  /**
+   * Handles a request.
+   *
+   * This method supports Node's `http.createServer()` request and
+   * response interface and the web standard `Request` and
+   * `Response` interfaces.
+   *
+   * Occultist wraps the `IncomingMessage` object created by Node's
+   * `createServer()` in a generic `Request` object which may have
+   * overheads. Node's `createServer()` API is the only method 
+   * supporting HTTP early hints, so it does have some advantages
+   * even though in many cases the other runtimes have better
+   * ergonomics.
+   *
+   * @param req A `createServer()` incoming message insance, or a
+   *   web standard request instance.
+   * @param res A `createServer()` server response instance.
+   * @returns A NodeJS server response instance or a web standard
+   *   request instance.
+   */
   async handleRequest(
     req: Request | IncomingMessage,
     res?: ServerResponse,
@@ -473,25 +685,22 @@ export class Registry<
     const startTime = performance.now();
     const wrapped = new WrappedRequest(this.#rootIRI, req);
     const writer = new ResponseWriter(res);
-    const accept = Accept.from(wrapped);
-    const match = this.#index?.match(
-      req.method ?? 'GET',
-      wrapped.url.toString(),
-      accept,
-    );
+    const match = this.matchRequest(wrapped);
 
     let err: ProblemDetailsError;
 
     try {
       if (match?.type === 'match') {
-        return await match.action.handleRequest({
-          url: wrapped.url,
-          contentType: match.contentType,
-          req: wrapped,
+        const refs = new MiddlewareRefs(
+          wrapped,
           writer,
+          match.contentType ?? null,
           startTime,
-          cacheHitHeader: this.#cacheHitHeader,
-        });
+        );
+
+        refs.cacheHitHeader = this.#cacheHitHeader;
+
+        return await match.action.handleRequest(refs);
       }
     } catch (err2) {
       if (err2 instanceof ProblemDetailsError) {

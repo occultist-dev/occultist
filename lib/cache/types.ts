@@ -1,4 +1,4 @@
-import type {AuthState, ImplementedAction} from "../actions/types.ts";
+import type {AuthState} from "../actions/types.ts";
 import type {CacheContext} from "../mod.ts";
 
 export type CacheStrategyType =
@@ -17,65 +17,172 @@ export type CacheSemantics =
   | 'query'
 ;
 
-export interface CacheEntryDescriptor {
-  contentType: string;
-  semantics: CacheSemantics;
-  action: ImplementedAction;
-  request: Request;
-  args: CacheInstanceArgs;
-};
+export type CacheOperation =
+  | 'prime'
+  | 'refresh'
+  | 'invalidate'
+;
 
+export type CacheOperationResult =
+  | 'not-found'
+  | 'unsupported'
+  | 'skipped'
+  | 'cached'
+  | 'invalidated'
+;
+
+/**
+ * A predicate function which takes the cache context
+ * as an argument and returns true if the response
+ * should be cached.
+ */
 export type CacheWhenFn<
   Auth extends AuthState = AuthState,
-> = (
-  ctx: CacheContext<Auth>,
-) => boolean;
+> = (cacheCtx: CacheContext<Auth>) => boolean;
+
+/**
+ * Rules determining if the request should be cached even if
+ * the action supports it. An action can have multiple cache
+ * rules defined on it incase the first does not match for
+ * the request.
+ *
+ * default:
+ *   If there is a query string:
+ *     Don't cache
+ *   If the request is authenticated:
+ *     If the action is private:
+ *       Cache
+ *     Else:
+ *       Don't cache
+ *   Else:
+ *     Cache
+ *
+ * always:
+ *   Always cache
+ *
+ * unauthenticated:
+ *   Caches unauthenticated requests.
+ *
+ * authenticated:
+ *   Caches authenticated requests.
+ *
+ * no-query:
+ *   Caches when there is no querystring.
+ *
+ * unauthenticated-no-query:
+ *   Caches unauthenticated requests if they
+ *   have no querystring.
+ *
+ * authenticated-no-query:
+ *   Caches authenticated requests if they
+ *   have no querystring.
+ */
+export type CacheRules =
+  | 'default'
+  | 'always'
+  | 'unauthenticated'
+  | 'authenticated'
+  | 'no-query'
+  | 'unauthenticated-no-query'
+  | 'authenticated-no-query'
+;
+
+/**
+ * Predicate or rules determining if the reponse should be cached.
+ */
+export type CacheWhen =
+  | CacheRules
+  | CacheWhenFn
+;
 
 export type CacheRuleArgs = {
+
   /**
-   * A version which should increment every when a new release
-   * causes the existing cache to become stale.
+   * A version number which should increment when a new
+   * release causes the existing cache to become stale
+   * but previously cached entries might persist.
+   *
+   * @default 1
    */
   version?: number;
 
+  /**
+   * When true, if supported by the caching mechanism, requests
+   * will take a lock for update on the cache preventing other
+   * requests to the same resource from reading until the
+   * first request populates the cache.
+   * 
+   * @default false
+   */
   lock?: boolean;
+
   /**
    * Defaults to varying on the authorization header
    * when authenticated.
    */
   vary?: string;
   
+  /**
+   * If set to false authenticated requests will set the same
+   * cached responses as unauthenticated requests.
+   *
+   * @default true
+   */
   varyOnAuth?: boolean;
-
-  varyOnCapabilities?: string | string[];
 
   /**
    * Overrides the semantics of the cache.
+   *
+   * @default The HTTP method of the action handling the request.
    */
   semantics?: CacheSemantics;
 
   /**
-   * Defaults to false when a querystring is present
-   * or the request is authenticated.
+   * Rule or predicate function determining if the request should
+   * be cached even if the action supports it.
    *
-   * @default 'public-no-query'
+   * The default behaviour is:
+   *   If there is a query string:
+   *     Don't cache
+   *   If the request is authenticated:
+   *     If the action is private:
+   *       Cache
+   *     Else:
+   *       Don't cache
+   *   Else:
+   *     Cache
    */
-  when?: 'always' | 'public' | 'private' | 'no-query' | 'public-no-query' | 'private-no-query' | CacheWhenFn;
+  when?: CacheWhen;
 };
 
 export type CacheControlArgs = {
+
+  /**
+   * "Cache-Control: private" tells intermediaries not to cache the request.
+   *
+   * @default true if the request is authenticated, otherwise unset.
+   */
   private?: boolean;
-  publicWhenAuthenticated?: true;
-  noCache?: true;
-  noStore?: true;
-  mustRevalidate?: true;
-  mustUndestand?: true;
-  noTransform?: true;
-  immutable?: true;
-  proxyRevalidate?: true;
-  expires?: () => number | Date;
-  maxAge?: number | Date | (() => number | Date);
-  etag?: string;
+
+  /**
+   * If a request has authentication information, such as the 
+   * "Authorization" header being set, a CDN will not cache it.
+   * Setting "Cache-Control: public" directive tells the CDN
+   * that it can cache the response.
+   *
+   * @default false
+   */
+  public?: boolean;
+  noCache?: boolean;
+  noStore?: boolean;
+  mustRevalidate?: boolean;
+  mustUndestand?: boolean;
+  noTransform?: boolean;
+  immutable?: boolean;
+  proxyRevalidate?: boolean;
+  expires?: () => Date;
+  maxAge?: number;
+  sMaxAge?: number;
 };
 
 export type CacheHTTPArgs =
@@ -174,6 +281,13 @@ export type LockedCacheMissHandle = {
 export interface CacheMeta {
 
   /**
+   * Actions will only be able to lock for update if allow
+   * locking is enabled on the meta instance, even if a
+   * `getOrLock()` method is provided.
+   */
+  allowLocking?: boolean;
+
+  /**
    * Sets the cache details for a representation.
    *
    * @param key Unique key for this cached value.
@@ -225,18 +339,37 @@ export interface CacheMeta {
 export interface UpstreamCache {
 
   /**
-   * Pushes a representation to the upstream cache.
+   * CDN services often support custom headers.
+   * If this method is provided, any action using the upstream
+   * will have its headers extended after the standard headers
+   * for the request have been set.
+   *
+   * @param headers The headers of the response.
+   * @param args Cache args provided to the cache middleware.
+   * @param req The HTTP request.
+   * @returns Modified headers.
    */
-  push(args: {
-    url: string;
-    headers: Headers;
-    data: Blob;
-  }): Promise<void>;
+  extendHeaders?(headers: Headers, args: CacheInstanceArgs, req: Request): Headers;
 
   /**
-   * Invalidates a representation in the upstream cache.
+   * Pushes a pre-rendered representation to the upstream.
+   *
+   * @param url The URL of the resource to cache.
+   * @param content The representation content to cache.
    */
-  invalidate(url: string): Promise<void>;
+  push?(url: string, content: Blob): Promise<void>;
+
+  /**
+   * Triggers an invalidation on a representation in the upstream cache.
+   *
+   * @param url The URL of the cached resource.
+   */
+  invalidate?(url: string): Promise<void>;
+
+  /**
+   * Triggers a flush of all cached representations on the upstream.
+   */
+  flush?(): Promise<void>;
 
 };
 
@@ -265,23 +398,91 @@ export interface CacheStorage {
 };
 
 export interface CacheBuilder {
+
+  /**
+   * Stores meta information about the cache. Such as its
+   * URL, method, content type and headers.
+   */
   meta: CacheMeta;
 
+  /**
+   * Stores response content.
+   */
   storage: CacheStorage;
 
-  upstream: UpstreamCache | undefined;
+  /**
+   * Interfaces with a configured upstream, such as a CDN.
+   * Allowing programmic cache invalidation and priming
+   * depending on what is supported.
+   */
+  upstream: UpstreamCache;
 
+  /**
+   * Configures an action to use the given HTTP cache headers
+   * via the cache builder interface. Using this mechanism
+   * to set cache headers has some benefits. For example
+   * "Cache-Control: prviate" is used by default for any
+   * authenticated request.
+   *
+   * This method does not use any of the storage mechanisms but
+   * offers a consistant API like using `cache.etag()` and
+   * `cache.store()`. Using `cache.http()` also allows the
+   * registry to prime or invalidate upstream cache if the
+   * cache instance is configured with an upstream that supports
+   * those methods.
+   *
+   * @param args Cache args.
+   */
   http(args?: CacheHTTPArgs): CacheInstanceArgs;
 
+  /**
+   * Configures an action to use the given HTTP headers
+   * and stores an etag of the response content which 
+   * is added to the response. Response content is not
+   * stored.
+   *
+   * Actions using this cache strategy automatically
+   * support "If-None-Match" conditional requests on
+   * supporting methods.
+   *
+   * @param args Cache args.
+   */
   etag(args?: CacheETagArgs): CacheInstanceArgs;
 
+  /**
+   * Configures an action to use the given HTTP headers,
+   * store an etag and the response content.
+   *
+   * This action has all the benefits of using `cache.etag()`
+   * but can also cache response content. Additionally 
+   * when a URL is accessed simultaniously, the first requester
+   * can lock the cache, complete the response, and then have
+   * the response content shared with the other requests instead
+   * of doing the work multiple times. This is an experimental
+   * solution and must be supported by the cache implementation.
+   *
+   * @param args Cache args.
+   */
   store(args?: CacheStoreArgs): CacheInstanceArgs;
 
   /**
-   * Removes an item from the cache.
+   * Invalidates a cache entry.
+   *
+   * This method is used internally by Occultist. The
+   * recommended API for invalidating cached content
+   * programmically is via the registry with a web standard
+   * request instance.
+   *
+   * ```
+   * await registry.invalidateCache(
+   *   new Request('https://example.com')
+   * );
+   * ```
+   *
+   * @param key The cache key.
+   * @param url The url of the request.
    */
-  invalidate(key: string, url: string): void | Promise<void>;
+  invalidate(key: string, url: string): Promise<void>;
 
-  push?(request: Request): Promise<void>;
 }
 

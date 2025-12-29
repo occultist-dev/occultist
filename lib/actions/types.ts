@@ -1,11 +1,11 @@
-import type { HTTPWriter } from "./writer.ts";
-import type { Registry } from '../registry.ts';
-import type { Scope } from "../scopes.ts";
-import type { ContextState, ActionSpec } from "./spec.ts";
-import type { Context } from "./context.ts";
-import type { ServerResponse } from "node:http";
-import type { JSONObject, TypeDef } from "../jsonld.ts";
-import type {HandlerDefinition} from "../mod.ts";
+import type {ServerResponse} from "node:http";
+import type {JSONObject, TypeDef} from "../jsonld.ts";
+import type {CacheOperationResult, HandlerDefinition, MiddlewareRefs} from "../mod.ts";
+import type {Registry} from '../registry.ts';
+import type {Scope} from "../scopes.ts";
+import type {Context} from "./context.ts";
+import type {ActionSpec, ContextState} from "./spec.ts";
+import type {HTTPWriter} from "./writer.ts";
 
 export type CacheHitHeader = boolean | string | [header: string, value: string];
 
@@ -164,12 +164,6 @@ export interface ImplementedAction<
   handlerFor(contentType: string): HandlerDefinition<State, Auth, Spec> | undefined;
 
   /**
-   * Performs this action using the given fetch Request
-   * returning a Response.
-   */
-  perform(req: Request): Promise<Response>;
-
-  /**
    * @todo
    * 
    * Returns an object which could be serialized to json
@@ -186,6 +180,20 @@ export interface ImplementedAction<
   /**
    * Handles a request which has resolved to this action.
    */
-  handleRequest(args: HandleRequestArgs): Promise<Response | ServerResponse>;
+  handleRequest(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<Response | ServerResponse>;
+
+  primeCache(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<CacheOperationResult>;
+
+  refreshCache(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<CacheOperationResult>;
+
+  invalidateCache(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<CacheOperationResult>;
 }
 

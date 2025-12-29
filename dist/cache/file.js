@@ -92,7 +92,7 @@ export class FileCacheMeta {
         this.#writing = false;
     }
 }
-export class FileSystemCacheStorage {
+export class FileCacheStorage {
     #directory;
     #hashes = new Map();
     constructor(directory) {
@@ -125,12 +125,12 @@ export class FileSystemCacheStorage {
         await Promise.all(promises);
     }
 }
-export class FileSystemCache extends Cache {
+export class FileCache extends Cache {
     #fileMeta;
     #fileSystemStorage;
     constructor(registry, filePath, directory, upstream) {
         const meta = new FileCacheMeta(filePath);
-        const storage = new FileSystemCacheStorage(directory);
+        const storage = new FileCacheStorage(directory);
         super(registry, meta, storage, upstream);
         this.#fileMeta = meta;
         this.#fileSystemStorage = storage;

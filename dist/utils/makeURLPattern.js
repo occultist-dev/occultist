@@ -6,7 +6,6 @@ import url from 'node:url';
 export function makeURLPattern(pattern, baseURL) {
     if (typeof URLPattern === 'undefined') {
         const URLPattern = url.URLPattern;
-        console.log(url.URLPattern);
         return new URLPattern(pattern, baseURL);
     }
     return new URLPattern(pattern, baseURL);

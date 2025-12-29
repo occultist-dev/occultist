@@ -1,6 +1,6 @@
 import { ContentTypeCache, type Accept } from "../accept.ts";
 import { makeURLPattern } from "../utils/makeURLPattern.ts";
-import type { ActionMeta } from "./meta.ts";
+import type { ActionCore } from "./core.ts";
 import type { ImplementedAction } from "./types.ts";
 
 
@@ -36,7 +36,7 @@ export class ActionSet {
     rootIRI: string,
     method: string,
     path: string,
-    meta: ActionMeta[],
+    meta: ActionCore[],
   ) {
     this.#rootIRI = rootIRI;
     this.#method = method;
@@ -67,7 +67,7 @@ export class ActionSet {
     return null;
   }
 
-  #process(meta: ActionMeta[]): [Map<string, ImplementedAction>, ContentTypeCache] {
+  #process(meta: ActionCore[]): [Map<string, ImplementedAction>, ContentTypeCache] {
     const contentTypes: string[] = [];
     const contentTypeActionMap: Map<string, ImplementedAction> = new Map();
 

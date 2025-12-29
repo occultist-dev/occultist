@@ -1,4 +1,4 @@
-import type {CacheInstanceArgs} from '../cache/types.ts';
+import type {CacheInstanceArgs, CacheOperationResult} from '../cache/types.ts';
 import type {JSONLDContext, JSONObject, TypeDef} from "../jsonld.ts";
 import type {Registry} from '../registry.ts';
 import type {Scope} from "../scopes.ts";
@@ -6,9 +6,9 @@ import {getActionContext} from "../utils/getActionContext.ts";
 import {getPropertyValueSpecifications} from "../utils/getPropertyValueSpecifications.ts";
 import {isPopulatedObject} from '../utils/isPopulatedObject.ts';
 import {joinPaths} from "../utils/joinPaths.ts";
-import {AfterDefinition, BeforeDefinition, type ActionMeta} from "./meta.ts";
+import {AfterDefinition, BeforeDefinition, MiddlewareRefs, type ActionCore} from "./core.ts";
 import type {ActionSpec, ContextState} from "./spec.ts";
-import type {AuthMiddleware, AuthState, HandleRequestArgs, HandlerFn, HandlerMeta, HandlerObj, HandlerValue, HintArgs, ImplementedAction} from './types.ts';
+import type {AuthMiddleware, AuthState, HandlerFn, HandlerMeta, HandlerObj, HandlerValue, HintArgs, ImplementedAction} from './types.ts';
 import {type ResponseTypes} from './writer.ts';
 
 
@@ -51,7 +51,7 @@ export class HandlerDefinition<
     handler: HandlerFn | HandlerValue,
     meta: HandlerMeta,
     action: ImplementedAction<State, Auth, Spec>,
-    actionMeta: ActionMeta,
+    actionMeta: ActionCore,
   ) {
     this.name = name;
     this.contentType = contentType;
@@ -106,21 +106,20 @@ export class FinalizedAction<
   ImplementedAction<State, Auth, Spec>
 {
   #spec: Spec;
-  #meta: ActionMeta<State, Auth, Spec>;
+  #core: ActionCore<State, Auth, Spec>;
   #typeDef?: TypeDef;
   #handlers: Map<string, HandlerDefinition<State, Auth, Spec>>;
 
   constructor(
     typeDef: TypeDef | undefined,
     spec: Spec,
-    meta: ActionMeta<State, Auth, Spec>,
+    core: ActionCore<State, Auth, Spec>,
     handlerArgs: HandlerObj<State, Auth, Spec>,
   ) {
     this.#typeDef = typeDef;
     this.#spec = spec ?? {} as Spec;
-    this.#meta = meta;
-
-    this.#meta.action = this as unknown as ImplementedAction<State, Auth, Spec>;
+    this.#core = core;
+    this.#core.action = this as unknown as ImplementedAction<State, Auth, Spec>;
 
     const handlers: Map<string, HandlerDefinition<State, Auth, Spec>> = new Map();
 
@@ -131,7 +130,7 @@ export class FinalizedAction<
         handlerArgs.handler,
         handlerArgs.meta,
         this as unknown as ImplementedAction<State, Auth, Spec>,
-        this.#meta,
+        this.#core,
       ));
     } else if (isPopulatedObject(handlerArgs)) {
       for (let i = 0; i < handlerArgs.contentType.length; i++) {
@@ -141,7 +140,7 @@ export class FinalizedAction<
           handlerArgs.handler,
           handlerArgs.meta,
           this as unknown as ImplementedAction<State, Auth, Spec>,
-          this.#meta,
+          this.#core,
         ));
       }
     }
@@ -156,7 +155,7 @@ export class FinalizedAction<
   >(
     typeDef: TypeDef | undefined,
     spec: Spec,
-    meta: ActionMeta<State, Auth, Spec>,
+    core: ActionCore<State, Auth, Spec>,
     contextType: string | string[],
     handler: HandlerValue | HandlerFn<State, Auth, Spec>,
   ): FinalizedAction<State, Auth, Spec>;
@@ -168,7 +167,7 @@ export class FinalizedAction<
   >(
     typeDef: TypeDef | undefined,
     spec: Spec,
-    meta: ActionMeta<State, Auth, Spec>,
+    core: ActionCore<State, Auth, Spec>,
     handlerArgs: HandlerObj<State, Auth, Spec>,
   ): FinalizedAction<State, Auth, Spec>;
 
@@ -179,18 +178,18 @@ export class FinalizedAction<
   >(
     typeDef: TypeDef | undefined,
     spec: Spec,
-    meta: ActionMeta<State, Auth, Spec>,
+    core: ActionCore<State, Auth, Spec>,
     arg3: string | string[] | HandlerObj<State, Auth, Spec>,
     arg4?: HandlerValue | HandlerFn<State, Auth, Spec>,
   ): FinalizedAction<State, Auth, Spec> {
     if (Array.isArray(arg3) || typeof arg3 === 'string') {
-      return new FinalizedAction<State, Auth, Spec>(typeDef, spec, meta, {
+      return new FinalizedAction<State, Auth, Spec>(typeDef, spec, core, {
         contentType: arg3,
         handler: arg4,
       });
     }
 
-    return new FinalizedAction(typeDef, spec, meta, arg3);
+    return new FinalizedAction(typeDef, spec, core, arg3);
   }
 
   static async toJSONLD(
@@ -218,11 +217,11 @@ export class FinalizedAction<
   }
 
   get public(): boolean {
-    return this.#meta.public;
+    return this.#core.public;
   }
 
   get method(): string {
-    return this.#meta.method;
+    return this.#core.method;
   }
   
   get term(): string | undefined {
@@ -238,15 +237,15 @@ export class FinalizedAction<
   }
 
   get name(): string {
-    return this.#meta.name;
+    return this.#core.name;
   }
 
   get template(): string {
-    return this.#meta.uriTemplate;
+    return this.#core.uriTemplate;
   }
 
   get pattern(): URLPattern {
-    return this.#meta.path.pattern;
+    return this.#core.path.pattern;
   }
 
   get spec(): Spec {
@@ -254,11 +253,11 @@ export class FinalizedAction<
   }
 
   get scope(): Scope | undefined {
-    return this.#meta.scope
+    return this.#core.scope
   }
 
   get registry(): Registry {
-    return this.#meta.registry;
+    return this.#core.registry;
   }
   
   get handlers(): HandlerDefinition<State, Auth, Spec>[] {
@@ -278,7 +277,7 @@ export class FinalizedAction<
   }
  
   url(): string {
-    return joinPaths(this.#meta.registry.rootIRI, this.#meta.path.normalized);
+    return joinPaths(this.#core.registry.rootIRI, this.#core.path.normalized);
   }
 
   /**
@@ -291,7 +290,7 @@ export class FinalizedAction<
   }
 
   jsonld(): Promise<JSONObject | null> {
-    const scope = this.#meta.scope;
+    const scope = this.#core.scope;
 
     return FinalizedAction.toJSONLD(
       this as unknown as ImplementedAction,
@@ -300,7 +299,7 @@ export class FinalizedAction<
   }
 
   jsonldPartial(): { '@type': string, '@id': string } | null {
-    const scope = this.#meta.scope;
+    const scope = this.#core.scope;
     const typeDef = this.#typeDef;
 
     if (scope == null || typeDef == null) {
@@ -309,7 +308,7 @@ export class FinalizedAction<
     
     return {
       '@type': typeDef.type,
-      '@id': joinPaths(scope.url(), this.#meta.name),
+      '@id': joinPaths(scope.url(), this.#core.name),
     };
   }
 
@@ -348,22 +347,22 @@ export class FinalizedAction<
 
     if (!Array.isArray(contentType)) {
       this.#handlers.set(contentType, new HandlerDefinition(
-        this.#meta.name,
+        this.#core.name,
         contentType,
         handler,
         meta,
         this as unknown as ImplementedAction<State, Auth, Spec>,
-        this.#meta,
+        this.#core,
       ));
     } else {
       for (let i = 0; i < contentType.length; i++) {
         this.#handlers.set(contentType[i], new HandlerDefinition(
-          this.#meta.name,
+          this.#core.name,
           contentType[i],
           handler,
           meta,
           this as unknown as ImplementedAction<State, Auth, Spec>,
-          this.#meta,
+          this.#core,
         ));
       }
     }
@@ -371,19 +370,50 @@ export class FinalizedAction<
     return this;
   }
 
-  handleRequest(args: HandleRequestArgs): Promise<ResponseTypes> {
-    const handler = this.#handlers.get(args.contentType as string);
+  handleRequest(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<ResponseTypes> {
+    const handler = this.#handlers.get(refs.contentType as string);
 
-    return this.#meta.handleRequest({
-      ...args,
-      spec: this.#spec,
-      handler,
-    });
+    refs.spec = this.#spec;
+    refs.handler = handler;
+
+    return this.#core.handleRequest(refs);
   }
 
-  perform(req: Request): Promise<Response> {
-    return this.#meta.perform(req);
+  primeCache(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<CacheOperationResult> {
+    const handler = this.#handlers.get(refs.contentType as string);
+
+    refs.spec = this.#spec;
+    refs.handler = handler;
+
+    return this.#core.primeCache(refs);
   }
+
+  refreshCache(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<CacheOperationResult> {
+    const handler = this.#handlers.get(refs.contentType as string);
+
+    refs.spec = this.#spec;
+    refs.handler = handler;
+
+    return this.#core.refreshCache(refs);
+  }
+
+  invalidateCache(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<CacheOperationResult> {
+    const handler = this.#handlers.get(refs.contentType as string);
+
+    refs.spec = this.#spec;
+    refs.handler = handler;
+
+    return this.#core.invalidateCache(refs);
+  }
+
 }
 
 export interface Applicable<ActionType> {
@@ -401,27 +431,27 @@ export class DefinedAction<
   ImplementedAction<State, Auth, Spec>
 {
   #spec: Spec;
-  #meta: ActionMeta<State, Auth, Spec>;
+  #core: ActionCore<State, Auth, Spec>;
   #typeDef?: TypeDef;
 
   constructor(
     typeDef: TypeDef | undefined,
     spec: Spec,
-    meta: ActionMeta<State, Auth, Spec>,
+    core: ActionCore<State, Auth, Spec>,
   ) {
     this.#spec = spec ?? {} as Spec;
-    this.#meta = meta;
+    this.#core = core;
     this.#typeDef = typeDef;
 
-    this.#meta.action = this as unknown as ImplementedAction<State, Auth, Spec>;
+    this.#core.action = this as unknown as ImplementedAction<State, Auth, Spec>;
   }
 
   get public(): boolean {
-    return this.#meta.public;
+    return this.#core.public;
   }
 
   get method(): string {
-    return this.#meta.method;
+    return this.#core.method;
   }
   
   get term(): string | undefined {
@@ -437,19 +467,19 @@ export class DefinedAction<
   }
 
   get name(): string {
-    return this.#meta.name;
+    return this.#core.name;
   }
 
   get template(): string {
-    return this.#meta.uriTemplate;
+    return this.#core.uriTemplate;
   }
 
   get pattern(): URLPattern {
-    return this.#meta.path.pattern;
+    return this.#core.path.pattern;
   }
 
   get path(): string {
-    return this.#meta.path.normalized;
+    return this.#core.path.normalized;
   }
 
   get spec(): Spec {
@@ -457,11 +487,11 @@ export class DefinedAction<
   }
 
   get scope(): Scope | undefined {
-    return this.#meta.scope;
+    return this.#core.scope;
   }
 
   get registry(): Registry {
-    return this.#meta.registry;
+    return this.#core.registry;
   }
 
   get handlers(): HandlerDefinition<State, Auth, Spec>[] {
@@ -492,7 +522,7 @@ export class DefinedAction<
   }
 
   jsonld(): Promise<JSONObject | null> {
-    const scope = this.#meta.scope;
+    const scope = this.#core.scope;
 
     return FinalizedAction.toJSONLD(
       this as unknown as ImplementedAction,
@@ -501,7 +531,7 @@ export class DefinedAction<
   }
 
   jsonldPartial(): { '@type': string, '@id': string } | null {
-    const scope = this.#meta.scope;
+    const scope = this.#core.scope;
     const typeDef = this.#typeDef;
 
     if (scope == null || typeDef == null) {
@@ -510,7 +540,7 @@ export class DefinedAction<
     
     return {
       '@type': typeDef.type,
-      '@id': joinPaths(scope.url(), this.#meta.name),
+      '@id': joinPaths(scope.url(), this.#core.name),
     };
   }
 
@@ -522,16 +552,16 @@ export class DefinedAction<
    * auth sensitive checks to be run which might reject the request.
    */
   cache(args: CacheInstanceArgs): DefinedAction<State, Auth, Term, Spec> {
-    if (this.#meta.cache.length !== 0 &&
-        this.#meta.cacheOccurance === BeforeDefinition) {
+    if (this.#core.cache.length !== 0 &&
+        this.#core.cacheOccurance === BeforeDefinition) {
       throw new Error(
         'Action cache may be defined either before or after ' +
         'the definition method is called, but not both.');
-    } else if (this.#meta.cacheOccurance === BeforeDefinition) {
-      this.#meta.cacheOccurance = AfterDefinition;
+    } else if (this.#core.cacheOccurance === BeforeDefinition) {
+      this.#core.cacheOccurance = AfterDefinition;
     }
 
-    this.#meta.cache.push(args);
+    this.#core.cache.push(args);
 
     return this;
   }
@@ -550,23 +580,43 @@ export class DefinedAction<
     return FinalizedAction.fromHandlers(
       this.#typeDef,
       this.#spec,
-      this.#meta,
+      this.#core,
       arg1 as string | string[],
       arg2 as HandlerFn<State, Auth, Spec>,
     );
   }
 
-  async handleRequest(args: HandleRequestArgs): Promise<ResponseTypes> {
-    return this.#meta.handleRequest({
-      ...args,
-      spec: this.#spec,
-    });
+  handleRequest(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<ResponseTypes> {
+    refs.spec = this.#spec;
+
+    return this.#core.handleRequest(refs);
   }
 
-  perform(req: Request): Promise<Response> {
-    return this.#meta.perform(req);
+  primeCache(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<CacheOperationResult> {
+    refs.spec = this.#spec;
+
+    return this.#core.primeCache(refs);
   }
 
+  refreshCache(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<CacheOperationResult> {
+    refs.spec = this.#spec;
+
+    return this.#core.refreshCache(refs);
+  }
+
+  invalidateCache(
+    refs: MiddlewareRefs<State, Auth, Spec>,
+  ): Promise<CacheOperationResult> {
+    refs.spec = this.#spec;
+
+    return this.#core.invalidateCache(refs);
+  }
 }
 
 export class Action<
@@ -578,21 +628,21 @@ export class Action<
   ImplementedAction<State>
 {
   #spec: ActionSpec = {};
-  #meta: ActionMeta<State>;
+  #core: ActionCore<State>;
 
   constructor(
-    meta: ActionMeta<State>,
+    core: ActionCore<State>,
   ) {
-    this.#meta = meta;
-    this.#meta.action = this as ImplementedAction<State, {}>;
+    this.#core = core;
+    this.#core.action = this as ImplementedAction<State, {}>;
   }
 
   get public(): boolean {
-    return this.#meta.public;
+    return this.#core.public;
   }
 
   get method(): string {
-    return this.#meta.method;
+    return this.#core.method;
   }
   
   get term(): string | undefined {
@@ -608,20 +658,20 @@ export class Action<
   }
 
   get name(): string {
-    return this.#meta.name;
+    return this.#core.name;
   }
 
   get template(): string {
-    return this.#meta.uriTemplate;
+    return this.#core.uriTemplate;
   }
 
   get pattern(): URLPattern {
-    return this.#meta.path.pattern;
+    return this.#core.path.pattern;
   }
 
 
   get path(): string {
-    return this.#meta.path.normalized;
+    return this.#core.path.normalized;
   }
 
   get spec(): ActionSpec {
@@ -629,11 +679,11 @@ export class Action<
   }
 
   get scope(): Scope | undefined {
-    return this.#meta.scope;
+    return this.#core.scope;
   }
 
   get registry(): Registry {
-    return this.#meta.registry;
+    return this.#core.registry;
   }
   
   get handlers(): HandlerDefinition[] {
@@ -683,7 +733,7 @@ export class Action<
     return new DefinedAction<State, Auth, Term, Spec>(
       args.typeDef,
       args.spec ?? {} as Spec,
-      this.#meta as unknown as ActionMeta<State, Auth, Spec>,
+      this.#core as unknown as ActionCore<State, Auth, Spec>,
     );
   }
   
@@ -693,23 +743,43 @@ export class Action<
     return FinalizedAction.fromHandlers(
       null,
       this.#spec,
-      this.#meta,
+      this.#core,
       arg1 as string | string[],
       arg2 as HandlerFn<State>,
     );
   }
 
-  async handleRequest(args: HandleRequestArgs): Promise<ResponseTypes> {
-    return this.#meta.handleRequest({
-      ...args,
-      spec: this.#spec,
-    });
+  handleRequest(
+    refs: MiddlewareRefs<State, Auth, ActionSpec>,
+  ): Promise<ResponseTypes> {
+    refs.spec = this.#spec;
+
+    return this.#core.handleRequest(refs);
   }
 
-  perform(req: Request): Promise<Response> {
-    return this.#meta.perform(req);
+  primeCache(
+    refs: MiddlewareRefs<State, Auth, ActionSpec>,
+  ): Promise<CacheOperationResult> {
+    refs.spec = this.#spec;
+
+    return this.#core.primeCache(refs);
   }
 
+  refreshCache(
+    refs: MiddlewareRefs<State, Auth, ActionSpec>,
+  ): Promise<CacheOperationResult> {
+    refs.spec = this.#spec;
+
+    return this.#core.refreshCache(refs);
+  }
+
+  invalidateCache(
+    refs: MiddlewareRefs<State, Auth, ActionSpec>,
+  ): Promise<CacheOperationResult> {
+    refs.spec = this.#spec;
+
+    return this.#core.refreshCache(refs);
+  }
 }
 
 export class PreAction<
@@ -719,17 +789,17 @@ export class PreAction<
   Applicable<Action>,
   Handleable<State, Auth>
 {
-  #meta: ActionMeta<State, Auth>;
+  #core: ActionCore<State, Auth>;
 
   constructor(
-    meta: ActionMeta<State, Auth>,
+    core: ActionCore<State, Auth>,
   ) {
-    this.#meta = meta;
+    this.#core = core;
   }
 
   use() {
     return new Action(
-      this.#meta,
+      this.#core,
     );
   }
 
@@ -740,7 +810,7 @@ export class PreAction<
     return new DefinedAction<State, Auth, Term, Spec>(
       args.typeDef,
       args.spec,
-      this.#meta as unknown as ActionMeta<State, Auth, Spec>,
+      this.#core as unknown as ActionCore<State, Auth, Spec>,
     );
   }
   
@@ -750,7 +820,7 @@ export class PreAction<
     return FinalizedAction.fromHandlers<State, Auth>(
       null,
       {},
-      this.#meta,
+      this.#core,
       arg1 as string | string[],
       arg2 as HandlerFn<State>,
     );
@@ -764,16 +834,16 @@ export class Endpoint<
   Applicable<Action>,
   Handleable<State, Auth>
 {
-  #meta: ActionMeta<State, Auth>;
+  #core: ActionCore<State, Auth>;
 
   constructor(
-    meta: ActionMeta<State, Auth>,
+    core: ActionCore<State, Auth>,
   ) {
-    this.#meta = meta;
+    this.#core = core;
   }
   
   hint(hints: HintArgs): Endpoint<State, Auth> {
-    this.#meta.hints.push(hints);
+    this.#core.hints.push(hints);
 
     return this;
   }
@@ -783,7 +853,7 @@ export class Endpoint<
   }
   
   cache(args: CacheInstanceArgs): Endpoint<State, Auth> {
-    this.#meta.cache.push(args);
+    this.#core.cache.push(args);
 
     return this;
   }
@@ -793,7 +863,7 @@ export class Endpoint<
   }
 
   use(): Action<State, Auth> {
-    return new Action<State, Auth>(this.#meta);
+    return new Action<State, Auth>(this.#core);
   }
 
   define<
@@ -803,7 +873,7 @@ export class Endpoint<
     return new DefinedAction<State, Auth, Term, Spec>(
       args.typeDef,
       args.spec,
-      this.#meta as ActionMeta<State, Auth, Spec>,
+      this.#core as ActionCore<State, Auth, Spec>,
     );
   }
 
@@ -813,7 +883,7 @@ export class Endpoint<
     return FinalizedAction.fromHandlers(
       undefined,
       {},
-      this.#meta,
+      this.#core,
       arg1 as string | string[],
       arg2 as HandlerFn<State, Auth>,
     );
@@ -823,10 +893,10 @@ export class Endpoint<
 export class ActionAuth<
   State extends ContextState = ContextState,
 > {
-  #meta: ActionMeta<State>;
+  #core: ActionCore<State>;
 
-  constructor(meta: ActionMeta<State>) {
-    this.#meta = meta;
+  constructor(core: ActionCore<State>) {
+    this.#core = core;
   }
 
   public<
@@ -835,10 +905,10 @@ export class ActionAuth<
     if (authMiddleware != null && typeof authMiddleware !== 'function')
       throw new Error('Public action given invalid auth middleware');
 
-    this.#meta.public = true;
-    this.#meta.auth = authMiddleware;
+    this.#core.public = true;
+    this.#core.auth = authMiddleware;
 
-    return new Endpoint(this.#meta as ActionMeta<State, Auth>);
+    return new Endpoint(this.#core as ActionCore<State, Auth>);
   }
 
   private<
@@ -847,9 +917,9 @@ export class ActionAuth<
     if (typeof authMiddleware !== 'function')
       throw new Error('Private action given invalid auth middleware');
 
-    this.#meta.auth = authMiddleware;
+    this.#core.auth = authMiddleware;
 
-    return new Endpoint(this.#meta as ActionMeta<State, Auth>);
+    return new Endpoint(this.#core as ActionCore<State, Auth>);
   }
 }
 

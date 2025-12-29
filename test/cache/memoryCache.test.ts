@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-import {InMemoryCache, Registry} from '../lib/mod.ts';
-import {testAuthMiddleware} from './utils/authMiddleware.ts';
+import {MemoryCache, Registry} from '../../lib/mod.ts';
+import {testAuthMiddleware} from '../utils/authMiddleware.ts';
 import {setTimeout} from 'node:timers/promises';
 
 function makeRegistry() {
@@ -10,8 +10,8 @@ function makeRegistry() {
     serverTiming: true,
     cacheHitHeader: true,
   });
-  const cache = new InMemoryCache(registry);
-  
+  const cache = new MemoryCache(registry);
+
   registry.http.get('root', '/')
     .public()
     .cache(cache.store())
@@ -62,7 +62,7 @@ describe('InMemoryCache', () => {
     const res2 = await registry.handleRequest(
       new Request('https://example.com/')
     );
-  
+
     assert.notEqual(res1.headers.get('X-Cache'), 'HIT');
     assert.equal(res1.headers.get('Content-Type'), 'text/plain');
     assert.equal(res2.headers.get('X-Cache'), 'HIT');
@@ -113,7 +113,7 @@ describe('InMemoryCache', () => {
     const res2 = await registry.handleRequest(
       new Request('https://example.com/open', { headers: { 'Authorization': 'admin' } })
     );
-    
+
     assert.notEqual(res1.headers.get('X-Cache'), 'HIT');
     assert.equal(await res1.text(), 'OPEN(admin)');
 

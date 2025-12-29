@@ -1,5 +1,5 @@
 import { type Accept } from "../accept.ts";
-import type { ActionMeta } from "./meta.ts";
+import type { ActionCore } from "./core.ts";
 import type { ImplementedAction } from "./types.ts";
 export type UnsupportedContentTypeMatch = {
     type: 'unsupported-content-type';
@@ -18,6 +18,6 @@ export type ActionMatchResult = UnsupportedContentTypeMatch | ActionAcceptMatch;
  */
 export declare class ActionSet {
     #private;
-    constructor(rootIRI: string, method: string, path: string, meta: ActionMeta[]);
+    constructor(rootIRI: string, method: string, path: string, meta: ActionCore[]);
     matches(method: string, path: string, accept: Accept): null | ActionMatchResult;
 }

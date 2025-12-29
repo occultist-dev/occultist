@@ -1,18 +1,19 @@
-import type { HandlerDefinition } from "../mod.ts";
+import type { CacheOperation, HandlerDefinition } from "../mod.ts";
 import type { Registry } from "../registry.ts";
 import type { ActionPayload, ActionSpec, ContextState, ParsedIRIValues } from "./spec.ts";
 import type { AuthState, ImplementedAction } from "./types.ts";
 import type { ResponseBody } from "./writer.ts";
 export type CacheContextArgs<Auth extends AuthState = AuthState> = {
     req: Request;
-    url: string;
     contentType: string;
     public: boolean;
     authKey?: string;
     auth: Auth;
+    cacheOperation?: CacheOperation;
     handler: HandlerDefinition;
     params: ParsedIRIValues;
     query: ParsedIRIValues;
+    headers: Headers;
 };
 /**
  * Request context object.
@@ -24,8 +25,10 @@ export declare class CacheContext<Auth extends AuthState = AuthState> {
     url: string;
     contentType: string;
     public: boolean;
-    authKey?: string;
+    authKey: string | null;
     auth: Auth;
+    cacheRun: boolean;
+    cacheOperation: CacheOperation | null;
     action: ImplementedAction;
     registry: Registry;
     params: ParsedIRIValues;
@@ -44,15 +47,16 @@ export declare class CacheContext<Auth extends AuthState = AuthState> {
 }
 export type ContextArgs<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Spec extends ActionSpec = ActionSpec> = {
     req: Request;
-    url: string;
     contentType: string;
     public: boolean;
     authKey?: string;
     auth: Auth;
-    handler: HandlerDefinition<State, Spec>;
+    cacheOperation: CacheOperation | null;
+    handler: HandlerDefinition<State, Auth, Spec>;
     params: ParsedIRIValues;
     query: ParsedIRIValues;
     payload: ActionPayload<Spec>;
+    headers: Headers;
 };
 /**
  * Request context object.
@@ -66,8 +70,10 @@ export declare class Context<State extends ContextState = ContextState, Auth ext
     public: boolean;
     authKey?: string;
     auth: Auth;
+    cacheRun: boolean;
+    cacheOperation: CacheOperation | null;
     state: State;
-    action: ImplementedAction<State, Spec>;
+    action: ImplementedAction<State, Auth, Spec>;
     registry: Registry;
     params: ParsedIRIValues;
     query: ParsedIRIValues;
