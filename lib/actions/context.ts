@@ -1,4 +1,4 @@
-import type {HandlerDefinition} from "../mod.ts";
+import type {CacheOperation, HandlerDefinition} from "../mod.ts";
 import type {Registry} from "../registry.ts";
 import type {ActionPayload, ActionSpec, ContextState, ParsedIRIValues} from "./spec.ts";
 import type {AuthState, ImplementedAction} from "./types.ts";
@@ -20,6 +20,7 @@ export type CacheContextArgs<
   public: boolean;
   authKey?: string;
   auth: Auth;
+  cacheOperation?: CacheOperation;
   handler: HandlerDefinition;
   params: ParsedIRIValues;
   query: ParsedIRIValues;
@@ -40,6 +41,7 @@ export class CacheContext<
   public: boolean = false
   authKey?: string;
   auth: Auth;
+  cacheOperation?: CacheOperation;
   action: ImplementedAction;
   registry: Registry;
   params: ParsedIRIValues;
@@ -53,6 +55,7 @@ export class CacheContext<
     this.public = args.public;
     this.authKey = args.authKey;
     this.auth = args.auth;
+    this.cacheOperation = args.cacheOperation;
     this.action = args.handler.action;
     this.method = args.handler.action.method;
     this.registry = args.handler.action.registry;

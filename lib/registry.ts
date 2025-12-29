@@ -387,6 +387,9 @@ export class Registry<
     return this as unknown as Registry<Merge<State, MiddlewareState>>;
   }
 
+  /**
+   *
+   */
   finalize() {
     if (this.#finalized) return;
       
@@ -515,6 +518,7 @@ export class Registry<
       writer,
       match.contentType ?? null,
       startTime,
+      'prime',
     );
 
     refs.cacheHitHeader = this.#cacheHitHeader;
@@ -561,6 +565,7 @@ export class Registry<
       writer,
       match.contentType ?? null,
       startTime,
+      'refresh',
     );
 
     refs.cacheHitHeader = this.#cacheHitHeader;
@@ -655,6 +660,7 @@ export class Registry<
           writer,
           match.contentType ?? null,
           startTime,
+          null,
         );
 
         refs.cacheHitHeader = this.#cacheHitHeader;

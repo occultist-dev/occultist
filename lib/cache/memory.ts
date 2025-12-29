@@ -3,11 +3,19 @@ import type {CacheDetails, CacheHitHandle, CacheMeta, CacheStorage, CacheMissHan
 import {Cache} from './cache.ts';
 
 
+export type MemoryCacheMetaArgs = {
+  allowLocking?: boolean;
+};
+
 export class MemoryCacheMeta implements CacheMeta {
   #details: Map<string, CacheDetails> = new Map();
   #locks: Map<string, Promise<void>> = new Map();
   #flushLock: Promise<void> | undefined;
-  allowLocking?: boolean = true;
+  allowLocking: boolean;
+
+  constructor(args?: MemoryCacheMetaArgs) {
+    this.allowLocking = args?.allowLocking ?? true;
+  }
 
   async get(key: string): Promise<CacheHitHandle | CacheMissHandle> {
     if (this.#flushLock) {
@@ -96,6 +104,11 @@ export class MemoryCacheMeta implements CacheMeta {
   }
 }
 
+export type MemoryCacheArgs = {
+  upstream?: UpstreamCache;
+  allowLocking?: boolean;
+};
+
 export class MemoryCacheStorage implements CacheStorage {
   #cache: Map<string, Blob> = new Map();
 
@@ -119,12 +132,12 @@ export class MemoryCacheStorage implements CacheStorage {
 }
 
 export class MemoryCache extends Cache {
-  constructor(registry: Registry, upstream?: UpstreamCache) {
+  constructor(registry: Registry, args?: MemoryCacheArgs) {
     super(
       registry,
-      new MemoryCacheMeta(),
+      new MemoryCacheMeta({ allowLocking: args?.allowLocking }),
       new MemoryCacheStorage(),
-      upstream,
+      args?.upstream,
     );
   }
 
@@ -133,3 +146,4 @@ export class MemoryCache extends Cache {
     this.storage.flush();
   }
 }
+

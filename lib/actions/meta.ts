@@ -1,5 +1,5 @@
 import {CacheDescriptor, CacheMiddleware} from '../cache/cache.ts';
-import type {CacheInstanceArgs, CacheOperationResult, CacheWhen} from '../cache/types.ts';
+import type {CacheInstanceArgs, CacheOperation, CacheOperationResult, CacheWhen} from '../cache/types.ts';
 import {ProblemDetailsError} from '../errors.ts';
 import type {JSONValue} from '../jsonld.ts';
 import {processAction, type ProcessActionResult} from '../processAction.ts';
@@ -40,6 +40,7 @@ export class MiddlewareRefs<
   auth?: Auth;
   state: State = {} as State;
   spec?: Spec;
+  cacheOperation?: CacheOperation;
   cacheCtx?: CacheContext;
   handlerCtx?: Context;
   next: NextFn = (() => {}) as NextFn;
@@ -58,12 +59,14 @@ export class MiddlewareRefs<
     writer: HTTPWriter,
     contentType: string | null,
     prevTime: number | null,
+    cacheOperation: CacheOperation,
   ) {
     this.req = req;
     this.writer = writer;
     this.contentType = contentType;
     this.prevTime = prevTime;
     this.headers = new Headers();
+    this.cacheOperation = cacheOperation;
   }
 
   recordServerTime(name: string): void {
@@ -378,6 +381,7 @@ export class ActionCore<
         req: refs.req,
         contentType: refs.contentType,
         public: this.public && refs.authKey == null,
+        cacheOperation: refs.cacheOperation,
         auth: refs.auth,
         authKey: refs.authKey,
         handler: refs.handler,
@@ -404,10 +408,6 @@ export class ActionCore<
           } else {
             refs.cacheCtx.body = refs.handlerCtx.body;
           }
-      
-          //for (const [key, value] of refs.handlerCtx.headers.entries()) {
-          //  refs.cacheCtx.headers.set(key, value);
-          //}
         },
       );
     }

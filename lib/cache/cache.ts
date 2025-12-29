@@ -588,17 +588,20 @@ export class CacheMiddleware {
     let resourceState:  CacheHitHandle | CacheMissHandle | LockedCacheMissHandle | undefined;
     const args = descriptor.args;
     const cache = args.cache;
+    const skipCache = ctx.cacheOperation === 'refresh';
 
-    try {
-      // post methods can use #useStore() but are not safe so skip the cache.
-      if (descriptor.safe && descriptor.lock) {
-        resourceState = await cache.meta.getOrLock(key);
-      } else if (descriptor.safe) {
-        resourceState = await cache.meta.get(key);
+    if (!skipCache) {
+      try {
+        // post methods can use #useStore() but are not safe so skip the cache.
+        if (descriptor.safe && descriptor.lock) {
+          resourceState = await cache.meta.getOrLock(key);
+        } else if (descriptor.safe) {
+          resourceState = await cache.meta.get(key);
+        }
+      } catch (err) {
+        console.error(err);
+        console.log('Error when fetching cached meta content');
       }
-    } catch (err) {
-      console.error(err);
-      console.log('Error when fetching cached meta content');
     }
 
     if (resourceState?.type === 'cache-hit') {
@@ -657,7 +660,7 @@ export class CacheMiddleware {
         await cache.storage.set(key, body);
       }
 
-      if (resourceState.type === 'locked-cache-miss') {
+      if (resourceState?.type === 'locked-cache-miss') {
         await resourceState.release();
       }
 
@@ -669,7 +672,7 @@ export class CacheMiddleware {
         return;
       }
     } catch (err) {
-      if (resourceState.type === 'locked-cache-miss') {
+      if (resourceState?.type === 'locked-cache-miss') {
         await resourceState.release();
       }
     }

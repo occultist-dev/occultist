@@ -17,6 +17,12 @@ export type CacheSemantics =
   | 'query'
 ;
 
+export type CacheOperation =
+  | 'prime'
+  | 'refresh'
+  | 'invalidate'
+;
+
 export type CacheOperationResult =
   | 'not-found'
   | 'unsupported'
