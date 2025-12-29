@@ -1,3 +1,4 @@
+export * from './types.ts';
 export * from './cache/types.ts';
 export * from './cache/cache.ts';
 export * from './cache/memory.ts';

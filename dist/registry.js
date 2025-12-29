@@ -122,6 +122,7 @@ export class Registry {
     #middleware = [];
     #actions = null;
     #handlers = null;
+    #extensions = [];
     constructor(args) {
         const url = new URL(args.rootIRI);
         this.#rootIRI = args.rootIRI;
@@ -497,6 +498,32 @@ export class Registry {
             });
             res.end(err.toContent('application/problem.json'));
             return res;
+        }
+    }
+    /**
+     * Registers an Occultist extension. This is usually done
+     * by extensions when they are created.
+     *
+     * @param The Occultist extension to register.
+     */
+    registerExtension(extension) {
+        this.#extensions.push(extension);
+    }
+    /**
+     * Must be called after all Occultist extensions have been registered.
+     * When some of the extensions have async setup tasks.
+     */
+    async setupExtensions() {
+        const setupStreams = [];
+        for (let i = 0; i < this.#extensions.length; i++) {
+            if (typeof this.#extensions[i].setup === 'function') {
+                setupStreams.push(this.#extensions[i].setup());
+            }
+        }
+        for (let i = 0; i < setupStreams.length; i++) {
+            for await (const message of setupStreams[i]) {
+                console.log(message);
+            }
         }
     }
     addEventListener(type, callback) {

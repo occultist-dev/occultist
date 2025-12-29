@@ -7,6 +7,7 @@ import { IncomingMessage, type ServerResponse } from "node:http";
 import type { Merge } from "./actions/spec.ts";
 import type { ContextState, Middleware } from "./actions/spec.ts";
 import { type CacheOperationResult } from "./mod.ts";
+import type { Extension } from "./types.ts";
 export interface Callable<State extends ContextState = ContextState> {
     method(method: string, name: string, path: string): ActionAuth<State>;
 }
@@ -248,6 +249,18 @@ export declare class Registry<State extends ContextState = ContextState> impleme
      * @returns A NodeJS server response instance.
      */
     handleRequest(req: IncomingMessage, res: ServerResponse): Promise<ServerResponse>;
+    /**
+     * Registers an Occultist extension. This is usually done
+     * by extensions when they are created.
+     *
+     * @param The Occultist extension to register.
+     */
+    registerExtension(extension: Extension): void;
+    /**
+     * Must be called after all Occultist extensions have been registered.
+     * When some of the extensions have async setup tasks.
+     */
+    setupExtensions(): Promise<void>;
     addEventListener(type: RegistryEvents, callback: EventListener): void;
     removeEventListener(type: RegistryEvents, callback: EventListener): void;
 }

@@ -11,6 +11,7 @@ import type { ContextState, Middleware } from "./actions/spec.ts";
 import {ProblemDetailsError} from "./errors.ts"
 import {WrappedRequest} from "./request.ts";
 import {type CacheOperationResult} from "./mod.ts";
+import type {Extension} from "./types.ts";
 
 
 export interface Callable<
@@ -187,6 +188,7 @@ export class Registry<
   #middleware: Middleware[] = [];
   #actions: ImplementedAction[] | null = null;
   #handlers: HandlerDefinition[] | null = null;
+  #extensions: Extension[] = [];
 
   constructor(args: RegistryArgs) {
     const url = new URL(args.rootIRI);
@@ -728,6 +730,36 @@ export class Registry<
       });
       res.end(err.toContent('application/problem.json'));
       return res;
+    }
+  }
+
+  /**
+   * Registers an Occultist extension. This is usually done
+   * by extensions when they are created.
+   *
+   * @param The Occultist extension to register.
+   */
+  registerExtension(extension: Extension): void {
+    this.#extensions.push(extension);
+  }
+
+  /**
+   * Must be called after all Occultist extensions have been registered.
+   * When some of the extensions have async setup tasks.
+   */
+  async setupExtensions(): Promise<void> {
+    const setupStreams: ReadableStream[] = [];
+
+    for (let i = 0; i < this.#extensions.length; i++) {
+      if (typeof this.#extensions[i].setup === 'function') {
+        setupStreams.push(this.#extensions[i].setup());
+      }
+    }
+
+    for (let i = 0; i < setupStreams.length; i++) {
+      for await (const message of setupStreams[i]) {
+        console.log(message);
+      }
     }
   }
 

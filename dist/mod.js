@@ -1,3 +1,4 @@
+export * from "./types.js";
 export * from "./cache/types.js";
 export * from "./cache/cache.js";
 export * from "./cache/memory.js";

@@ -1,3 +1,14 @@
+
+export interface StaticContext {
+  link(alias: string, as: string): string;
+}
+
+export interface Extension {
+  name: string;
+  setup?(): ReadableStream;
+  createStaticContext?(): StaticContext;
+};
+
 export type ProblemDetailsParam = {
   name: string;
   reason: string;
