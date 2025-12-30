@@ -3,6 +3,8 @@ class EditableContext {
     etag;
     status;
     body;
+    staticAssets = new Map();
+    cspDirectives;
 }
 ;
 /**
@@ -120,6 +122,33 @@ export class Context {
     }
     set body(body) {
         this.#editable.body = body;
+    }
+    /**
+     * Returns the public facing URL of a static asset using its
+     * static file alias.
+     *
+     * @param assetAlias The alias of the static asset.
+     * @param cspDirective A directive to add the asset to when generating CSP headers.
+     * @returns The public facing URL of the static asset.
+     */
+    useAsset(assetAlias, cspDirective) {
+        const staticAlias = assetAlias.split('/')[0];
+        const extension = this.registry.getStaticExtension(staticAlias);
+        if (extension == null)
+            return;
+        const asset = extension.getAsset(assetAlias);
+        if (asset == null)
+            return;
+        this.#editable.staticAssets.set(asset.alias, asset);
+        if (typeof cspDirective === 'string' && cspDirective != null) {
+            if (!this.#editable.cspDirectives.has(cspDirective)) {
+                this.#editable.cspDirectives.set(cspDirective, [asset.alias]);
+            }
+            else {
+                this.#editable.cspDirectives.get(cspDirective).push(asset.alias);
+            }
+        }
+        return asset;
     }
     get [Symbol.toStringTag]() {
         return `action=${this.action.name} method=${this.method} contentType=${this.contentType}`;

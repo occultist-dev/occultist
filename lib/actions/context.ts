@@ -1,4 +1,4 @@
-import type {CacheOperation, HandlerDefinition} from "../mod.ts";
+import type {CacheOperation, HandlerDefinition, StaticAsset} from "../mod.ts";
 import type {Registry} from "../registry.ts";
 import type {ActionPayload, ActionSpec, ContextState, ParsedIRIValues} from "./spec.ts";
 import type {AuthState, ImplementedAction} from "./types.ts";
@@ -10,6 +10,8 @@ class EditableContext {
   etag?: string;
   status?: number;
   body?: ResponseBody;
+  staticAssets: Map<string, StaticAsset> = new Map();
+  cspDirectives: Map<string, string[]>;
 };
 
 export type CacheContextArgs<
@@ -185,6 +187,37 @@ export class Context<
 
   set body(body: ResponseBody) {
     this.#editable.body = body;
+  }
+
+  /**
+   * Returns the public facing URL of a static asset using its
+   * static file alias.
+   *
+   * @param assetAlias The alias of the static asset.
+   * @param cspDirective A directive to add the asset to when generating CSP headers.
+   * @returns The public facing URL of the static asset.
+   */
+  useAsset(assetAlias: string, cspDirective?: string): StaticAsset | undefined {
+    const staticAlias = assetAlias.split('/')[0];
+    const extension = this.registry.getStaticExtension(staticAlias);
+
+    if (extension == null) return;
+
+    const asset = extension.getAsset(assetAlias);
+
+    if (asset == null) return;
+
+    this.#editable.staticAssets.set(asset.alias, asset);
+
+    if (typeof cspDirective === 'string' && cspDirective != null) {
+      if (!this.#editable.cspDirectives.has(cspDirective)) {
+        this.#editable.cspDirectives.set(cspDirective, [asset.alias]);
+      } else {
+        this.#editable.cspDirectives.get(cspDirective).push(asset.alias);
+      }
+    }
+
+    return asset;
   }
 
   get [Symbol.toStringTag]() {

@@ -11,7 +11,7 @@ import type { ContextState, Middleware } from "./actions/spec.ts";
 import {ProblemDetailsError} from "./errors.ts"
 import {WrappedRequest} from "./request.ts";
 import {type CacheOperationResult} from "./mod.ts";
-import type {Extension} from "./types.ts";
+import type {Extension, StaticExtension} from "./types.ts";
 
 
 export interface Callable<
@@ -189,6 +189,7 @@ export class Registry<
   #actions: ImplementedAction[] | null = null;
   #handlers: HandlerDefinition[] | null = null;
   #extensions: Extension[] = [];
+  #staticExtensions: Map<string, StaticExtension> = new Map();
 
   constructor(args: RegistryArgs) {
     const url = new URL(args.rootIRI);
@@ -734,12 +735,38 @@ export class Registry<
   }
 
   /**
+   * Retrieves a static extension by one of the static aliases it uses.
+   *
+   * @param staticAlias A static alias used to create paths to files served
+   *   by the static extension.
+   */
+  getStaticExtension(staticAlias: string): StaticExtension | undefined {
+    return this.#staticExtensions.get(staticAlias);
+  }
+
+  /**
    * Registers an Occultist extension. This is usually done
    * by extensions when they are created.
    *
    * @param The Occultist extension to register.
    */
   registerExtension(extension: Extension): void {
+    let staticAlias: string;
+    if (
+      typeof extension.getAsset === 'function' &&
+      Array.isArray(extension.staticAliases)
+    ) {
+      for (let i = 0; i < extension.staticAliases.length; i++) {
+        staticAlias = extension.staticAliases[i];
+
+        if (this.#staticExtensions.has(staticAlias)) {
+          throw new Error(`Static alias '${staticAlias}' already used by other extension`);
+        }
+
+        this.#staticExtensions.set(staticAlias, extension as StaticExtension);
+      }
+    }
+
     this.#extensions.push(extension);
   }
 

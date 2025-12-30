@@ -123,6 +123,7 @@ export class Registry {
     #actions = null;
     #handlers = null;
     #extensions = [];
+    #staticExtensions = new Map();
     constructor(args) {
         const url = new URL(args.rootIRI);
         this.#rootIRI = args.rootIRI;
@@ -501,12 +502,32 @@ export class Registry {
         }
     }
     /**
+     * Retrieves a static extension by one of the static aliases it uses.
+     *
+     * @param staticAlias A static alias used to create paths to files served
+     *   by the static extension.
+     */
+    getStaticExtension(staticAlias) {
+        return this.#staticExtensions.get(staticAlias);
+    }
+    /**
      * Registers an Occultist extension. This is usually done
      * by extensions when they are created.
      *
      * @param The Occultist extension to register.
      */
     registerExtension(extension) {
+        let staticAlias;
+        if (typeof extension.getAsset === 'function' &&
+            Array.isArray(extension.staticAliases)) {
+            for (let i = 0; i < extension.staticAliases.length; i++) {
+                staticAlias = extension.staticAliases[i];
+                if (this.#staticExtensions.has(staticAlias)) {
+                    throw new Error(`Static alias '${staticAlias}' already used by other extension`);
+                }
+                this.#staticExtensions.set(staticAlias, extension);
+            }
+        }
         this.#extensions.push(extension);
     }
     /**

@@ -1,4 +1,4 @@
-import type { CacheOperation, HandlerDefinition } from "../mod.ts";
+import type { CacheOperation, HandlerDefinition, StaticAsset } from "../mod.ts";
 import type { Registry } from "../registry.ts";
 import type { ActionPayload, ActionSpec, ContextState, ParsedIRIValues } from "./spec.ts";
 import type { AuthState, ImplementedAction } from "./types.ts";
@@ -84,5 +84,14 @@ export declare class Context<State extends ContextState = ContextState, Auth ext
     set status(status: number);
     get body(): undefined | ResponseBody;
     set body(body: ResponseBody);
+    /**
+     * Returns the public facing URL of a static asset using its
+     * static file alias.
+     *
+     * @param assetAlias The alias of the static asset.
+     * @param cspDirective A directive to add the asset to when generating CSP headers.
+     * @returns The public facing URL of the static asset.
+     */
+    useAsset(assetAlias: string, cspDirective?: string): StaticAsset | undefined;
     get [Symbol.toStringTag](): string;
 }

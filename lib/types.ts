@@ -1,4 +1,11 @@
 
+export interface StaticAsset {
+  alias: string;
+  contentType: string;
+  url: string;
+  integrity?: string;
+};
+
 export interface StaticContext {
   link(alias: string, as: string): string;
 }
@@ -6,8 +13,31 @@ export interface StaticContext {
 export interface Extension {
   name: string;
   setup?(): ReadableStream;
-  createStaticContext?(): StaticContext;
+  getAsset?(): StaticAsset | undefined;
+  staticAliases?: string[];
 };
+
+export interface StaticExtension {
+
+  /**
+   * The name of the static extension.
+   */
+  name: string;
+
+  /**
+   * Root level aliases the extension uses to identify
+   * assets it manages.
+   */
+  staticAliases: string[];
+
+  /**
+   * Retrieves a static assets from the extension.
+   *
+   * @param assetAlias The alias for the asset.
+   */
+  getAsset(assetAlias: string): StaticAsset | undefined;
+
+}
 
 export type ProblemDetailsParam = {
   name: string;

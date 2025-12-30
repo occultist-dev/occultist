@@ -7,7 +7,7 @@ import { IncomingMessage, type ServerResponse } from "node:http";
 import type { Merge } from "./actions/spec.ts";
 import type { ContextState, Middleware } from "./actions/spec.ts";
 import { type CacheOperationResult } from "./mod.ts";
-import type { Extension } from "./types.ts";
+import type { Extension, StaticExtension } from "./types.ts";
 export interface Callable<State extends ContextState = ContextState> {
     method(method: string, name: string, path: string): ActionAuth<State>;
 }
@@ -249,6 +249,13 @@ export declare class Registry<State extends ContextState = ContextState> impleme
      * @returns A NodeJS server response instance.
      */
     handleRequest(req: IncomingMessage, res: ServerResponse): Promise<ServerResponse>;
+    /**
+     * Retrieves a static extension by one of the static aliases it uses.
+     *
+     * @param staticAlias A static alias used to create paths to files served
+     *   by the static extension.
+     */
+    getStaticExtension(staticAlias: string): StaticExtension | undefined;
     /**
      * Registers an Occultist extension. This is usually done
      * by extensions when they are created.
