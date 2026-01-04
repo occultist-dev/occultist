@@ -11,7 +11,7 @@ const typeDefs = makeTypeDefs([
 ]);
 
 const registry = new Registry({
-  rootIRI: 'https://example.com',
+  rootURL: 'https://example.com',
 });
 
 const scope = registry.scope('/actions')

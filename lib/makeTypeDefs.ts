@@ -32,6 +32,8 @@ export type MakeTypeDefArgs<A extends string, B extends string> =
   | MakeTypeDefArgsFromType<A, B>
   | MakeTypeDefArgsFromSchema<A, B>;
 
+export function makeTypeDef(url: string | URL): TypeDef;
+
 export function makeTypeDef<Term extends string, Schema extends string>(
   term: Term,
   type: Schema,
@@ -53,7 +55,16 @@ export function makeTypeDef<Term extends string, TypeOrSchema extends string>(
   let protect: boolean = false;
   let args: MakeTypeDefArgs<Term, TypeOrSchema>;
 
-  if (typeof arg1 === 'string') {
+  if ((typeof arg1 === 'string' && arg2 == null) || arg1 instanceof URL) {
+    const url = new URL(arg1);
+    const schema = url.origin + '/' as TypeOrSchema
+    const term = url.toString().replace(url.origin, '');
+    
+    args = {
+      term,
+      schema,
+    };
+  } else if (typeof arg1 === 'string') {
     args = {
       term: arg1,
       schema: arg2 as TypeOrSchema,

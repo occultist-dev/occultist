@@ -10,14 +10,15 @@ import type { Merge } from "./actions/spec.ts";
 import type { ContextState, Middleware } from "./actions/spec.ts";
 import {ProblemDetailsError} from "./errors.ts"
 import {WrappedRequest} from "./request.ts";
-import {type CacheOperationResult} from "./mod.ts";
-import type {Extension, StaticExtension} from "./types.ts";
+import {makeTypeDef, type CacheOperationResult} from "./mod.ts";
+import type {Extension, MethodArgs, StaticAssetExtension} from "./types.ts";
+import type { TypeDef } from "./jsonld.ts";
 
 
 export interface Callable<
   State extends ContextState = ContextState,
 > {
-  method(method: string, name: string, path: string): ActionAuth<State>;
+  method(method: string, path: string): ActionAuth<State>;
 }
 
 export class HTTP<
@@ -30,36 +31,36 @@ export class HTTP<
     this.#callable = callable;
   }
 
-  options(name: string, path: string): ActionAuth<State> {
-    return this.#callable.method('options', name, path);
+  options(path: string): ActionAuth<State> {
+    return this.#callable.method('options', path);
   }
 
-  head(name: string, path: string): ActionAuth<State> {
-    return this.#callable.method('head', name, path);
+  head(path: string): ActionAuth<State> {
+    return this.#callable.method('head', path);
   }
 
-  get(name: string, path: string): ActionAuth<State> {
-    return this.#callable.method('get', name, path);
+  get(path: string): ActionAuth<State> {
+    return this.#callable.method('get', path);
   }
 
-  put(name: string, path: string): ActionAuth<State> {
-    return this.#callable.method('put', name, path);
+  put(path: string): ActionAuth<State> {
+    return this.#callable.method('put', path);
   }
 
-  patch(name: string, path: string): ActionAuth<State> {
-    return this.#callable.method('patch', name, path);
+  patch(path: string): ActionAuth<State> {
+    return this.#callable.method('patch', path);
   }
 
-  post(name: string, path: string): ActionAuth<State> {
-    return this.#callable.method('post', name, path);
+  post(path: string): ActionAuth<State> {
+    return this.#callable.method('post', path);
   }
 
-  delete(name: string, path: string): ActionAuth<State> {
-    return this.#callable.method('delete', name, path);
+  delete(path: string): ActionAuth<State> {
+    return this.#callable.method('delete', path);
   }
 
-  query(name: string, path: string): ActionAuth<State> {
-    return this.#callable.method('query', name, path);
+  query(path: string): ActionAuth<State> {
+    return this.#callable.method('query', path);
   }
 
 }
@@ -101,7 +102,7 @@ export type RegistryArgs = {
   /**
    * The public root endpoint the registry is bound to.
    */
-  rootIRI: string;
+  rootURL: string;
 
   /**
    * Set to `true` if a cache header should be added to the response when
@@ -113,6 +114,48 @@ export type RegistryArgs = {
    * Enables adding server timing headers to the response.
    */
   serverTiming?: boolean;
+
+  /**
+   * Enables language and file extension handling by default.
+   */
+  autoRouteParams?: boolean;
+
+  /**
+   * Language code to use when selecting from translated content
+   * if no language has been specified via content negotiation
+   * or route parameters.
+   */
+  defaultLanguageCode?: string;
+
+  /**
+   * Adds optional language code handling to
+   * the route parameters if not otherwise specified.
+   */
+  autoLanguageCodes?: boolean;
+
+  /**
+   * Adds optional file extension handling to
+   * the route parameters if not otherwise specified. 
+   */
+  autoFileExtensions?: boolean;
+
+  /**
+   * The type definition to use when the action's language
+   * is set via a route instead of the accept-language header.
+   * 
+   * @default https://schema.occultist.dev/languageCode
+   */
+  languageCodeType?: TypeDef | string;
+
+  /**
+   * The type definition to use when the action's content
+   * type is set via a route using a file extension instead
+   * of the accept header.
+   * 
+   * @default https://schema.occultist.dev/fileExtension
+   */
+  fileExtensionType?: TypeDef | string;
+
 };
 
 /**
@@ -121,7 +164,7 @@ export type RegistryArgs = {
  * when userland actions have all been defined. Extensions can register themselves
  * with the registry and create more actions and endpoints using the actions defined
  * in userland. Userland code might also use the registry's querying functionality
- * to programically make API calls as though they were made over the network via HTTP.
+ * to programmatically make API calls as though they were made over the network via HTTP.
  *
  * @example <caption>Creates a simple registry that responds with a HTML document</caption>
  *
@@ -130,9 +173,9 @@ export type RegistryArgs = {
  * import {Registry} from '@occultist/occultist';
  * 
  * const server = createServer();
- * const registry = new Registry({ rootIRI: 'https://example.com' });
+ * const registry = new Registry({ rootURL: 'https://example.com' });
  *
- * registry.http.get('get-root', '/')
+ * registry.http.get('/')
  *   .handle('text/html', `
  *     <!doctype html>
  *     <html>
@@ -147,13 +190,13 @@ export type RegistryArgs = {
  * server.on('request', (req, res) => registry.handleRequest(req, res));
  * server.listen(3000);
  *
- * // makes a call programically to the registry
+ * // makes a call programmatically to the registry
  * const res = await registry.handleRequest(new Request('https://example.com'));
  * ```
  *
- * @param args.rootIRI The public root endpoint the registry is bound to. If the
+ * @param args.rootURL The public root endpoint the registry is bound to. If the
  *   registry responds to requests on a subpath, the subpath should be included
- *   in the `rootIRI` value.
+ *   in the `rootURL` value.
  *
  * @param args.cacheHitHeader A custom cache hit header. If set to true Occultist
  *   will use the standard `X-Cache` header and the value `HIT`. If a string is
@@ -169,6 +212,23 @@ export type RegistryArgs = {
  *   add these values to their network performance charts.
  *   Enabling server timing can leak information and is not recommended for
  *   production environments.
+ * 
+ * @param args.defaultLanguageCode Language code to use when selecting from
+ *   translated content if no language has been specified via content negotiation
+ *   or route parameters.
+ * 
+ * @param args.autoRouteParams Enables auto file extension and language code
+ *   handling to all actions. When enabled an endpoint such as:
+ * 
+ * @param args.autoLanguageCodes Enables auto language code handling on all actions.
+ * 
+ * @param args.autoFileExtensions Enables auto file extension handling on all actions.
+ * 
+ * @param args.languageCodeType Sets the type definition for language codes set via
+ *   routes.
+ * 
+ * @param args.fileExtensionType Sets the type definition for file extensions set via
+ *   routes.
  */
 export class Registry<
   State extends ContextState = ContextState,
@@ -176,7 +236,7 @@ export class Registry<
 
   #finalized: boolean = false;
   #path: string;
-  #rootIRI: string;
+  #rootURL: string;
   #serverTiming: boolean;
   #cacheHitHeader: CacheHitHeader;
   #http: HTTP<State>;
@@ -189,16 +249,36 @@ export class Registry<
   #actions: ImplementedAction[] | null = null;
   #handlers: HandlerDefinition[] | null = null;
   #extensions: Extension[] = [];
-  #staticExtensions: Map<string, StaticExtension> = new Map();
+  #staticExtensions: Map<string, StaticAssetExtension> = new Map();
+  #defaultLanguageCode: string | null;
+  #autoLanguageCodes: boolean;
+  #autoFileExtensions: boolean;
+  #languageCodeType: TypeDef | null = null;
+  #fileExtensionType: TypeDef | null = null;
 
   constructor(args: RegistryArgs) {
-    const url = new URL(args.rootIRI);
+    const url = new URL(args.rootURL);
 
-    this.#rootIRI = args.rootIRI;
+    this.#rootURL = args.rootURL;
     this.#path = url.pathname;
     this.#serverTiming = args.serverTiming ?? false;
     this.#cacheHitHeader = args.cacheHitHeader ?? false;
     this.#http = new HTTP<State>(this);
+    this.#defaultLanguageCode = args.defaultLanguageCode ?? null;
+    this.#autoLanguageCodes = args.autoLanguageCodes ?? args.autoRouteParams;
+    this.#autoFileExtensions = args.autoFileExtensions ?? args.autoRouteParams;
+
+    if (args.languageCodeType != null) {
+      this.#languageCodeType = makeTypeDef(args.languageCodeType);
+    } else {
+      this.#languageCodeType = makeTypeDef('https://schema.occultist.dev/languageCode');
+    }
+
+    if (args.fileExtensionType != null) {
+      this.#fileExtensionType = makeTypeDef(args.fileExtensionType);
+    } else {
+      this.#fileExtensionType = makeTypeDef('https://schema.occultist.dev/fileExtension');
+    }
   }
 
   scope(path: string): Scope<State> {
@@ -207,7 +287,7 @@ export class Registry<
       serverTiming: this.#serverTiming,
       registry: this,
       writer: this.#writer,
-      propergateMeta: (meta) => this.#children.push(meta),
+      propagateMeta: (meta) => this.#children.push(meta),
     });
 
     this.#scopes.push(scope);
@@ -215,8 +295,8 @@ export class Registry<
     return scope;
   }
 
-  get rootIRI(): string {
-    return this.#rootIRI;
+  get rootURL(): string {
+    return this.#rootURL;
   }
 
   get path(): string {
@@ -259,7 +339,7 @@ export class Registry<
    * @param name        - The name of the action.
    * @param contentType - The action's content type.
    */
-  get(name: string, contentType?: string): ImplementedAction | undefined {
+  getAction(name: string, contentType?: string): ImplementedAction | undefined {
     const actions = this.actions;
 
     for (let i = 0; i < actions.length; i++) {
@@ -358,26 +438,56 @@ export class Registry<
 
   /**
    * Creates an action for any HTTP method.
+   * 
+   * When handle alternatives is enabled the endpoint will automatically
+   * handle language codes and file type extensions via the route.
+   * 
+   * A route with language and extension handling enabled will respond to
+   * queries such as:
    *
+   * ```
+   * GET https://example.com/foo.en.html
+   * ```
+   * 
+   * For the action setup with:
+   * 
+   * ```
+   * registry.method('get', '/foo', { autoRouteParams: true })
+   *   .public()
+   *   .handle('text/html', () => {})
+   * ```
+   * 
    * @param method The HTTP method name.
-   * @param name   Name for the action being produced.
-   * @param path   Path the action responds to.
+   * @param path Path the action responds to.
+   * @param args.key A unique key for this action.
+   * @param args.tags Tags which this action may be queried by.
+   * @param args.autoRouteParams Enables language and file extension handling
+   *   if not already enabled.
+   * @param args.autoLanguageCodes Enables language handling via the route.
+   * @param args.autoFileExtensions Enables extension handling via the route. 
    */
-  public method(method: string, name: string, path: string): ActionAuth<State> {
-    const meta = new ActionCore<State>(
-      this.#rootIRI,
+  public method(method: string, path: string, args: MethodArgs = {}): ActionAuth<State> {
+    const core = new ActionCore<State>(
       method.toUpperCase(),
-      name,
       path,
       this,
-      this.#writer,
+      args.key,
+      args.tags,
+      args.autoLanguageCodes ?? this.#autoLanguageCodes,
+      args.autoFileExtensions ?? this.#autoFileExtensions,
     );
 
-    meta.recordServerTiming = this.#serverTiming;
+    core.recordServerTiming = this.#serverTiming;
 
-    this.#children.push(meta);
+    if (Array.isArray(args.tags)) {
+      core.tags = args.tags;
+    } else if (typeof args.tags === 'string') {
+      core.tags = [args.tags];
+    }
+
+    this.#children.push(core);
     
-    return new ActionAuth<State>(meta);
+    return new ActionAuth<State>(core);
   }
 
   public use<
@@ -390,9 +500,6 @@ export class Registry<
     return this as unknown as Registry<Merge<State, MiddlewareState>>;
   }
 
-  /**
-   *
-   */
   finalize() {
     if (this.#finalized) return;
       
@@ -431,7 +538,7 @@ export class Registry<
     for (const [normalized, methodSet] of groupedMeta.entries()) {
       for (const [method, meta] of methodSet.entries()) {
         const actionSet = new ActionSet(
-          this.#rootIRI,
+          this.#rootURL,
           method,
           normalized,
           meta,
@@ -506,7 +613,7 @@ export class Registry<
     }
 
     const startTime = performance.now();
-    const wrapped = new WrappedRequest(this.#rootIRI, req);
+    const wrapped = new WrappedRequest(this.#rootURL, req);
     const writer = new ResponseWriter();
     const match = this.matchRequest(wrapped);
 
@@ -552,7 +659,7 @@ export class Registry<
     }
 
     const startTime = performance.now();
-    const wrapped = new WrappedRequest(this.#rootIRI, req);
+    const wrapped = new WrappedRequest(this.#rootURL, req);
     const writer = new ResponseWriter();
     const match = this.matchRequest(wrapped);
 
@@ -591,7 +698,7 @@ export class Registry<
       this.finalize();
     }
 
-    const wrapped = new WrappedRequest(this.#rootIRI, req);
+    const wrapped = new WrappedRequest(this.#rootURL, req);
     const writer = new ResponseWriter();
     const match = this.matchRequest(wrapped);
 
@@ -686,7 +793,7 @@ export class Registry<
     }
 
     const startTime = performance.now();
-    const wrapped = new WrappedRequest(this.#rootIRI, req);
+    const wrapped = new WrappedRequest(this.#rootURL, req);
     const writer = new ResponseWriter(res);
     const match = this.matchRequest(wrapped);
 
@@ -740,7 +847,7 @@ export class Registry<
    * @param staticAlias A static alias used to create paths to files served
    *   by the static extension.
    */
-  getStaticExtension(staticAlias: string): StaticExtension | undefined {
+  getStaticExtension(staticAlias: string): StaticAssetExtension | undefined {
     return this.#staticExtensions.get(staticAlias);
   }
 
@@ -763,7 +870,7 @@ export class Registry<
           throw new Error(`Static alias '${staticAlias}' already used by other extension`);
         }
 
-        this.#staticExtensions.set(staticAlias, extension as StaticExtension);
+        this.#staticExtensions.set(staticAlias, extension as StaticAssetExtension);
       }
     }
 
@@ -795,6 +902,6 @@ export class Registry<
   };
 
   removeEventListener(type: RegistryEvents, callback: EventListener) {
-    this.#eventTarget.removeEventListener(type, callback)
+    this.#eventTarget.removeEventListener(type, callback);
   }
 }

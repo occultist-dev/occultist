@@ -204,7 +204,7 @@ export class FinalizedAction<
 
     return {
       '@context': action.context,
-      '@id': joinPaths(action.registry.rootIRI, scope.path, action.name),
+      '@id': joinPaths(action.registry.rootURL, scope.path, action.name),
       '@type': action.term,
       target: {
         '@type': 'https://schema.org/EntryPoint',
@@ -244,8 +244,8 @@ export class FinalizedAction<
     return this.#core.uriTemplate;
   }
 
-  get pattern(): URLPattern {
-    return this.#core.path.pattern;
+  get regexp(): RegExp {
+    return this.#core.path.re;
   }
 
   get spec(): Spec {
@@ -277,15 +277,15 @@ export class FinalizedAction<
   }
  
   url(): string {
-    return joinPaths(this.#core.registry.rootIRI, this.#core.path.normalized);
+    return joinPaths(this.#core.registry.rootURL, this.#core.path.normalized);
   }
 
   /**
-   * Retrives the handler configured for the given content type.
+   * Retrieves the handler configured for the given content type.
    *
    * @param contentType   The content type.
    */
-  handlerFor(contentType: string): HandlerDefinition<State, Auth, Spec> | undefined {
+  getHandler(contentType: string): HandlerDefinition<State, Auth, Spec> | undefined {
     return this.#handlers.get(contentType);
   }
 
@@ -474,8 +474,8 @@ export class DefinedAction<
     return this.#core.uriTemplate;
   }
 
-  get pattern(): URLPattern {
-    return this.#core.path.pattern;
+  get regexp(): RegExp {
+    return this.#core.path.re;
   }
 
   get path(): string {
@@ -511,7 +511,7 @@ export class DefinedAction<
    *
    * @param contentType   The content type.
    */
-  handlerFor(_contentType: string): undefined {}
+  getHandler(_contentType: string): undefined {}
 
   get context(): JSONLDContext {
     return getActionContext({
@@ -553,12 +553,12 @@ export class DefinedAction<
    */
   cache(args: CacheInstanceArgs): DefinedAction<State, Auth, Term, Spec> {
     if (this.#core.cache.length !== 0 &&
-        this.#core.cacheOccurance === BeforeDefinition) {
+        this.#core.cacheOccurrence === BeforeDefinition) {
       throw new Error(
         'Action cache may be defined either before or after ' +
         'the definition method is called, but not both.');
-    } else if (this.#core.cacheOccurance === BeforeDefinition) {
-      this.#core.cacheOccurance = AfterDefinition;
+    } else if (this.#core.cacheOccurrence === BeforeDefinition) {
+      this.#core.cacheOccurrence = AfterDefinition;
     }
 
     this.#core.cache.push(args);
@@ -665,8 +665,8 @@ export class Action<
     return this.#core.uriTemplate;
   }
 
-  get pattern(): URLPattern {
-    return this.#core.path.pattern;
+  get regexp(): RegExp {
+    return this.#core.path.re;
   }
 
 
@@ -711,7 +711,7 @@ export class Action<
    *
    * @param contentType   The content type.
    */
-  handlerFor(_contentType: string): undefined {}
+  getHandler(_contentType: string): undefined {}
 
   jsonld(): Promise<null> {
     return Promise.resolve(null);

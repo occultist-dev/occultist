@@ -26,22 +26,22 @@ export type ActionMatchResult =
  * A set of actions grouped by having equal methods and equivilent paths.
  */
 export class ActionSet {
-  #rootIRI: string;
+  #rootURL: string;
   #method: string;
   #urlPattern: URLPattern;
   #contentTypeActionMap: Map<string, ImplementedAction>;
   #ctc: ContentTypeCache;
 
   constructor(
-    rootIRI: string,
+    rootURL: string,
     method: string,
     path: string,
     meta: ActionCore[],
   ) {
-    this.#rootIRI = rootIRI;
+    this.#rootURL = rootURL;
     this.#method = method;
 
-    this.#urlPattern = makeURLPattern(path, rootIRI);
+    this.#urlPattern = makeURLPattern(path, rootURL);
 
     [this.#contentTypeActionMap, this.#ctc] = this.#process(meta);
   }
@@ -49,7 +49,7 @@ export class ActionSet {
   matches(method: string, path: string, accept: Accept): null | ActionMatchResult {
     if (method !== this.#method) {
       return null;
-    } else if (!this.#urlPattern.test(path, this.#rootIRI)) {
+    } else if (!this.#urlPattern.test(path, this.#rootURL)) {
       return null;
     }
 

@@ -136,13 +136,34 @@ export interface ImplementedAction<
   Auth extends AuthState = AuthState,
   Spec extends ActionSpec = ActionSpec,
 > {
+  
+  /**
+   * True if this action response to unauthenticated requests.
+   */
   readonly public: boolean;
+
+  /**
+   * The HTTP method this action responds to in uppercase.
+   */
   readonly method: string;
+
   readonly term?: string;
+  
   readonly type?: string;
+  
   readonly typeDef?: TypeDef;
-  readonly name: string;
-  readonly pattern: URLPattern;
+
+  /**
+   * The regexp expression used to match request pathnames
+   * to this action.
+   */
+  readonly regexp: RegExp;
+
+  // readonly pattern: URLPattern;
+
+  /**
+   * A URL template string which can be used to generate urls for this action.
+   */
   readonly template: string;
   readonly spec: Spec;
   readonly registry: Registry;
@@ -157,11 +178,11 @@ export interface ImplementedAction<
   url(): string;
     
   /**
-   * Retrives the handler configured for the given content type.
+   * Retrieves the handler configured for the given content type.
    *
    * @param contentType   The content type.
    */
-  handlerFor(contentType: string): HandlerDefinition<State, Auth, Spec> | undefined;
+  getHandler(contentType: string): HandlerDefinition<State, Auth, Spec> | undefined;
 
   /**
    * @todo

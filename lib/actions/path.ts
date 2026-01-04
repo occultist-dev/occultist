@@ -12,17 +12,27 @@ const paramsRe = /((?<s>[^\{\}]+)|({(?<t>[\?\#])?(?<v>[^}]+)}))/g
  * it in conflict with the URITemplate. To be fixed...
  */
 export class Path {
-  #rootIRI: string;
+  #rootURL: string;
   #template: string;
+  #regexp: RegExp;
   #pattern: URLPattern;
   #normalized: string;
   #paramKeys: Set<string> = new Set();
   #queryKeys: Set<string> = new Set();
   #fragmentKeys: Set<string> = new Set();
+  #autoLanguageCode: boolean;
+  #autoFileExtension: boolean;
 
-  constructor(template: string, rootIRI: string) {
+  constructor(
+    template: string,
+    rootURL: string,
+    autoLanguageCode?: boolean,
+    autoFileExtension?: boolean,
+  ) {
     this.#template = template;
-    this.#rootIRI = rootIRI;
+    this.#rootURL = rootURL;
+    this.#autoLanguageCode = autoLanguageCode ?? false;
+    this.#autoFileExtension = autoFileExtension ?? false;
 
     [this.#pattern, this.#normalized] = this.#makePatterns()
   }
@@ -31,10 +41,20 @@ export class Path {
     return this.#template;
   }
 
+  get regexp(): RegExp {
+    return this.#regexp;
+  }
+
   get pattern(): URLPattern {
     return this.#pattern;
   }
 
+  /**
+   * A normalized form of the url template where arguments are named
+   * in order of appearance instead of with the provided names. This 
+   * allows two paths to be compared based of their ability to match
+   * to the same request.
+   */
   get normalized(): string {
     return this.#normalized;
   }
@@ -56,7 +76,7 @@ export class Path {
   }
 
   #makePatterns(): [URLPattern, string] {
-    const paramsRe = /((?<s>[^\{\}]+)|({(?<t>[\?\#])?(?<v>[^}]+)}))/g
+    const paramsRe = /((?<s>[^\{\}]+)|({(?<t>[\?\#\.])?(?<v>[^}]+)}))/g
     let pattern: string = '';
     let normalized: string = '';
     
@@ -64,17 +84,33 @@ export class Path {
     let match: RegExpExecArray | null;
     let foundQueryOrFragment = false;
     let index = 0;
+    let template: string = '';
+    let regexpStr: string = '^';
+
+    const languageCodeReStr = '(?:\\.(?<languageCode>[a-zA-Z0-9][a-zA-Z0-9\\-]+))';
+    const fileExtensionReStr = '(?:\\.(?<fileExtension>[a-z][a-zA-Z0-9\\-]+))';
 
     while ((match = paramsRe.exec(this.#template))) {
       const segment = match.groups?.s;
       const type = match.groups?.t;
       const value = match.groups?.v;
 
-      if (type != null) {
+      if (type != null && type !== '.' && !foundQueryOrFragment) {
         foundQueryOrFragment = true;
+
+        if (this.#autoLanguageCode && this.#autoFileExtension) {
+          regexpStr += `(${languageCodeReStr}?${fileExtensionReStr})?`
+          template += '{.languageCode,fileExtension}';
+        } else if (this.#autoFileExtension) {
+          regexpStr += fileExtensionReStr + '?';
+          template += '{.fileExtension}';
+        }
       }
+      
+      template += match[0];
 
       if (!foundQueryOrFragment && segment != null && type == null) {
+        regexpStr += segment;
         normalized += segment;
         pattern += segment;
       }
@@ -83,17 +119,37 @@ export class Path {
         continue;
       }
 
-      if (!foundQueryOrFragment && value != null) {
+      if (type === '.' && !foundQueryOrFragment && value != null) {
         index++;
+        regexpStr += `(\\.(?<${value}>[^\\/\\.]+))`
+        pattern += `.:${value}`;
+        normalized += `.:value${index}`;
+      } else if (!foundQueryOrFragment && value != null) {
+        index++;
+        regexpStr += `(?<${value}>[^\\/\\.]+)`
         pattern += `:${value}`;
         normalized += `:value${index}`;
       }
     }
 
+    if (!foundQueryOrFragment) {
+      if (this.#autoLanguageCode && this.#autoFileExtension) {
+        regexpStr += `(${languageCodeReStr}?${fileExtensionReStr})`
+        template += '{.languageCode,fileExtension}';
+      } else if (this.#autoFileExtension) {
+        regexpStr += fileExtensionReStr;
+        template += '{.fileExtension}';
+      }
+    }
+
+    regexpStr += '$';
+
+    this.#template = template;
+    this.#regexp = new RegExp(regexpStr)
+
     return [
-      makeURLPattern(pattern, this.#rootIRI),
+      makeURLPattern(pattern, this.#rootURL),
       normalized,
     ];
   }
-  
 }

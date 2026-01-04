@@ -1,7 +1,7 @@
 
-export function urlToIRI(value: string, rootIRI: string) {
+export function urlToIRI(value: string, rootURL: string) {
   const url = new URL(value);
-  const iri = new URL(rootIRI);
+  const iri = new URL(rootURL);
 
   iri.pathname = url.pathname;
   iri.search = url.search;

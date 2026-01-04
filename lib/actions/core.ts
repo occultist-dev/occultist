@@ -44,7 +44,7 @@ export class MiddlewareRefs<
   cacheCtx?: CacheContext;
   handlerCtx?: Context;
   next: NextFn = (() => {}) as NextFn;
-  headers: Headers;
+  headers: Headers = new Headers();
   handler?: HandlerDefinition<State, Auth, Spec>;
   contentType: string | null;
   writer: HTTPWriter;
@@ -53,6 +53,10 @@ export class MiddlewareRefs<
   prevTime: number | null;
   serverTimes: string[] = [];
   cacheHitHeader: CacheHitHeader;
+  key: string | null = null;
+  tags: string[] = [];
+  autoLanguageCodes: boolean = false;
+  autoFileExtensions: boolean = false;
 
   constructor(
     req: Request,
@@ -64,7 +68,6 @@ export class MiddlewareRefs<
     this.writer = writer;
     this.contentType = contentType;
     this.prevTime = prevTime;
-    this.headers = new Headers();
   }
 
   recordServerTime(name: string): void {
@@ -87,56 +90,91 @@ export class ActionCore<
   Auth extends AuthState = AuthState,
   Spec extends ActionSpec = ActionSpec,
 > {
-  rootIRI: string;
-  method: string;
-  isSafe: boolean = false;
-  name: string;
+  rootURL: string;
   uriTemplate: string;
-  public: boolean = false;
-  authKey?: string;
   path: Path;
-  hints: HintArgs[] = [];
-  transformers: Map<string, TransformerFn<JSONValue | FileValue, State, Spec>> = new Map();
+  method: string;
+  isSafe: boolean;
+  key: string | null;
+  tags: string[];
   scope?: Scope;
   registry: Registry;
-  writer: HTTPWriter;
-  action?: ImplementedAction<State, Auth, Spec>;
-  acceptCache = new Set<string>();
-  compressBeforeCache: boolean = false;
-  cacheOccurance: 0 | 1 = BeforeDefinition;
-  auth?: AuthMiddleware<Auth>;
-  cache: CacheInstanceArgs[] = [];
+  autoLanguageCodes: boolean = false;
+  autoFileExtensions: boolean = false;
   recordServerTiming: boolean = false;
+  
+  action?: ImplementedAction<State, Auth, Spec>;
+
+  /**
+   * Auth middleware if defined
+   */
+  auth?: AuthMiddleware<Auth>;
+
+  /**
+   * True if this action can be accessed without authentication.
+   */
+  public: boolean = false;
+
+  /**
+   * Set by the hint middleware to dispatch early hints
+   */
+  hints: HintArgs[] = [];
+
+  /**
+   * Cache rules.
+   */
+  cache: CacheInstanceArgs[] = [];
+
+  /**
+   * The action's spec definition.
+   */
+  spec: Spec = {};
+
+  /**
+   * Populated once the action is finalized to speed up the
+   * request matching and content negotiation logic.
+   */
+  acceptCache = new Set<string>();
+
+  // not implemented
+  cacheOccurrence: 0 | 1 = BeforeDefinition;
+  compressBeforeCache: boolean = false;
+  transformers: Map<string, TransformerFn<JSONValue | FileValue, State, Spec>> = new Map();
 
   constructor(
-    rootIRI: string,
     method: string,
-    name: string,
-    uriTemplate: string,
+    path: string,
     registry: Registry,
-    writer: HTTPWriter,
-    scope?: Scope,
+    scope: Scope | null,
+    key: string | null,
+    tags: string | string[],
+    autoFileExtensions: boolean,
+    autoLanguageCodes: boolean,
   ) {
-    this.rootIRI = rootIRI;
+    this.rootURL = registry.rootURL;
     this.method = method.toUpperCase()
     this.isSafe = safeMethods.has(this.method);
-    this.name = name;
-    this.uriTemplate = joinPaths(rootIRI, uriTemplate);
+    this.uriTemplate = joinPaths(rootURL, path);
     this.registry = registry;
-    this.writer = writer;
     this.scope = scope;
-    this.path = new Path(uriTemplate, rootIRI);
+    this.path = new Path(path, rootURL);
+
+    if (Array.isArray(tags)) {
+      this.tags = tags;
+    } else if (typeof tags === 'string') {
+      this.tags = [tags];
+    }
   }
 
   /**
-   * Called when the API is defined to compute all uncomputed values.
+   * Called when the API is defined to compute all uncompleted values.
    */
   finalize() {
     this.#setAcceptCache();
   }
 
   /**
-   * Selects the cache entry descriptor which is best used for this requert.
+   * Selects the cache entry descriptor which is best used for this request.
    *
    * @param contentType The content type of the response.
    * @param req The request instance.
@@ -498,6 +536,6 @@ export class ActionCore<
   }
 
   get [Symbol.toStringTag]() {
-    return `[Meta ${this.name} ${this.uriTemplate}]`;
+    return `[Meta ${this.uriTemplate}]`;
   }
 }

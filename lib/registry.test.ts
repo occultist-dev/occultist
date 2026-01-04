@@ -5,7 +5,7 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
 const registry = new Registry({
-  rootIRI: 'https://example.com',
+  rootURL: 'https://example.com',
 });
 
  registry.http.get('get-index', '/')
@@ -162,7 +162,7 @@ test('It handles request payloads for application/json requests', async () => {
 
 test('It fires beforefinalize and after finalize events', { only: true }, () => {
   const called: string[] = [];
-  const registry = new Registry({ rootIRI: 'https://example.com' });
+  const registry = new Registry({ rootURL: 'https://example.com' });
 
   registry.addEventListener('beforefinalize', () => called.push('beforefinalize'));
   registry.addEventListener('afterfinalize', () => called.push('afterfinalize'))

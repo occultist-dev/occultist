@@ -5,6 +5,7 @@ import type { ContextState } from "./actions/spec.ts";
 import type { AuthMiddleware, ImplementedAction } from "./actions/types.ts";
 import type { HTTPWriter } from "./actions/writer.ts";
 import { type Callable, HTTP, type Registry } from './registry.ts';
+import type { MethodArgs } from "./types.ts";
 
 
 export type MetaPropatator = (meta: ActionCore) => void;
@@ -14,7 +15,7 @@ export type ScopeArgs = {
   serverTiming?: boolean;
   registry: Registry;
   writer: HTTPWriter;
-  propergateMeta: MetaPropatator;
+  propagateMeta: MetaPropatator;
 }
 
 
@@ -29,21 +30,21 @@ export class Scope<
   #children: Array<ActionCore> = [];
   #public: boolean = true;
   #auth: AuthMiddleware | undefined;
-  #propergateMeta: (meta: ActionCore) => void;
+  #propagateMeta: (meta: ActionCore) => void;
   
   constructor({
     path,
     serverTiming,
     registry,
     writer,
-    propergateMeta,
+    propagateMeta,
   }: ScopeArgs) {
     this.#path = path;
     this.#serverTiming = serverTiming;
     this.#registry = registry;
     this.#writer = writer;
     this.#http = new HTTP<State>(this);
-    this.#propergateMeta = propergateMeta;
+    this.#propagateMeta = propagateMeta;
   }
 
   get path(): string {
@@ -95,11 +96,9 @@ export class Scope<
    * @param name   Name for the action being produced.
    * @param path   Path the action responds to.
    */
-  method(method: string, name: string, path: string): ActionAuth<State> {
+  method(method: string, path: string, args: MethodArgs = {}): ActionAuth<State> {
     const meta = new ActionCore<State>(
-      this.#registry.rootIRI,
       method.toUpperCase(),
-      name,
       path,
       this.#registry,
       this.#writer,
@@ -109,13 +108,13 @@ export class Scope<
     meta.recordServerTiming = this.#serverTiming;
 
     this.#children.push(meta);
-    this.#propergateMeta(meta);
+    this.#propagateMeta(meta);
     
     return new ActionAuth<State>(meta);
   }
   
   url(): string {
-    return joinPaths(this.#registry.rootIRI, this.#path);
+    return joinPaths(this.#registry.rootURL, this.#path);
   }
 
   finalize(): void {

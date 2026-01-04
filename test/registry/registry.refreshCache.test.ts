@@ -6,7 +6,7 @@ import {type CacheOperation, MemoryCache} from '../../lib/mod.ts';
 
 async function makeRegistry() {
   const registry = new Registry({
-    rootIRI: 'https://example.com',
+    rootURL: 'https://example.com',
     cacheHitHeader: true,
   });
 

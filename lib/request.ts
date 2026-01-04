@@ -11,9 +11,9 @@ export class WrappedRequest implements Request {
   #bodyUsed: boolean = false;
   #headers: Headers = new Headers();
 
-  constructor(rootIRI: string, req: Request | IncomingMessage) {
+  constructor(rootURL: string, req: Request | IncomingMessage) {
     this.#req = req;
-    this.#url = normalizeURL(rootIRI, req.url);
+    this.#url = normalizeURL(rootURL, req.url);
 
     if (req instanceof Request) {
       this.#stream = req.body;

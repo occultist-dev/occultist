@@ -1,3 +1,4 @@
+import type { Scope } from "./scopes.ts";
 
 export interface StaticAsset {
   alias: string;
@@ -17,7 +18,7 @@ export interface Extension {
   staticAliases?: string[];
 };
 
-export interface StaticExtension {
+export interface StaticAssetExtension {
 
   /**
    * The name of the static extension.
@@ -52,3 +53,34 @@ export type ProblemDetails = {
   instance?: string;
   errors?: Array<ProblemDetailsParam>;
 };
+
+export type MethodArgs = {
+
+  /**
+   * A unique key for this action.
+   */
+  key?: string;
+
+  /**
+   * An array of tags to query this action by.
+   */
+  tags?: string | string[];
+
+  /**
+   * Enables language and file extension handling
+   * if not already enabled.
+   */
+  autoRouteParams?: boolean;
+
+  /**
+   * Adds optional language code handling to
+   * the route parameters if not otherwise specified. 
+   */
+  autoLanguageCodes?: boolean;
+
+  /**
+   * Adds optional file extension handling to
+   * the route parameters if not otherwise specified. 
+   */
+  autoFileExtensions?: boolean;
+}

@@ -6,7 +6,7 @@ import {setTimeout} from 'node:timers/promises';
 
 function makeRegistry() {
   const registry = new Registry({
-    rootIRI: 'https://example.com',
+    rootURL: 'https://example.com',
     serverTiming: true,
     cacheHitHeader: true,
   });
