@@ -1,23 +1,21 @@
-import { Accept } from "./accept.ts";
-import { ActionAuth, HandlerDefinition } from "./actions/actions.ts";
-import { type ActionMatchResult, ActionSet } from "./actions/actionSets.ts";
-import { ActionCore, MiddlewareRefs } from "./actions/core.ts";
-import type { CacheHitHeader, ImplementedAction } from "./actions/types.ts";
-import { ResponseWriter } from "./actions/writer.ts";
-import { Scope } from './scopes.ts';
-import { IncomingMessage, type ServerResponse } from "node:http";
-import type { Merge } from "./actions/spec.ts";
-import type { ContextState, Middleware } from "./actions/spec.ts";
-import {ProblemDetailsError} from "./errors.ts"
+import {IncomingMessage, type ServerResponse} from "node:http";
+import {Accept} from "./accept.ts";
+import {ActionAuth, HandlerDefinition} from "./actions/actions.ts";
+import {type ActionMatchResult, ActionSet} from "./actions/actionSets.ts";
+import {ActionCore, MiddlewareRefs} from "./actions/core.ts";
+import type {ContextState, Merge, Middleware} from "./actions/spec.ts";
+import type {CacheHitHeader, ImplementedAction} from "./actions/types.ts";
+import {ResponseWriter} from "./actions/writer.ts";
+import {ProblemDetailsError} from "./errors.ts";
 import {WrappedRequest} from "./request.ts";
-import {type CacheOperationResult} from "./mod.ts";
-import type {Extension, StaticExtension} from "./types.ts";
+import {Scope} from './scopes.ts';
+import type {EndpointArgs, Extension, StaticAssetExtension} from "./types.ts";
 
 
 export interface Callable<
   State extends ContextState = ContextState,
 > {
-  method(method: string, name: string, path: string): ActionAuth<State>;
+  endpoint(method: string, path: string, args: EndpointArgs): ActionAuth<State>;
 }
 
 export class HTTP<
@@ -30,36 +28,36 @@ export class HTTP<
     this.#callable = callable;
   }
 
-  options(name: string, path: string): ActionAuth<State> {
-    return this.#callable.method('options', name, path);
+  options(path: string, args?: EndpointArgs): ActionAuth<State> {
+    return this.#callable.endpoint('options', path, args);
   }
 
-  head(name: string, path: string): ActionAuth<State> {
-    return this.#callable.method('head', name, path);
+  head(path: string, args?: EndpointArgs): ActionAuth<State> {
+    return this.#callable.endpoint('head', path, args);
   }
 
-  get(name: string, path: string): ActionAuth<State> {
-    return this.#callable.method('get', name, path);
+  get(path: string, args?: EndpointArgs): ActionAuth<State> {
+    return this.#callable.endpoint('get', path, args);
   }
 
-  put(name: string, path: string): ActionAuth<State> {
-    return this.#callable.method('put', name, path);
+  put(path: string, args?: EndpointArgs): ActionAuth<State> {
+    return this.#callable.endpoint('put', path, args);
   }
 
-  patch(name: string, path: string): ActionAuth<State> {
-    return this.#callable.method('patch', name, path);
+  patch(path: string, args?: EndpointArgs): ActionAuth<State> {
+    return this.#callable.endpoint('patch', path, args);
   }
 
-  post(name: string, path: string): ActionAuth<State> {
-    return this.#callable.method('post', name, path);
+  post(path: string, args?: EndpointArgs): ActionAuth<State> {
+    return this.#callable.endpoint('post', path, args);
   }
 
-  delete(name: string, path: string): ActionAuth<State> {
-    return this.#callable.method('delete', name, path);
+  delete(path: string, args?: EndpointArgs): ActionAuth<State> {
+    return this.#callable.endpoint('delete', path, args);
   }
 
   query(name: string, path: string): ActionAuth<State> {
-    return this.#callable.method('query', name, path);
+    return this.#callable.endpoint('query', name, path);
   }
 
 }
@@ -113,6 +111,23 @@ export type RegistryArgs = {
    * Enables adding server timing headers to the response.
    */
   serverTiming?: boolean;
+
+ /**
+  * Enables language code and file extension route params for all actions
+  * in this registry.
+  */
+  autoRouteParams?: boolean;
+
+ /**
+  * Enables the language code route param for all actions.
+  */
+  autoLanguageCodes?: boolean;
+
+ /**
+  * Enables the file extension route param for all actions.
+  */
+  autoFileExtensions?: boolean;
+
 };
 
 /**
@@ -169,6 +184,19 @@ export type RegistryArgs = {
  *   add these values to their network performance charts.
  *   Enabling server timing can leak information and is not recommended for
  *   production environments.
+ *
+ * @param args.autoRouteParams Enables language code and file extension route
+ *   params for all actions in this registry. When enabled all actions will
+ *   have `{.languageCode,fileExtension}` added to the pathname part of their
+ *   route's URI template as optional parameters. If an action is called using
+ *   these parameters the URI value takes precedence over the related accept
+ *   header.
+ *
+ * @param args.autoLanguageCodes Enables the language code route param for all
+ *   actions.
+ *
+ * @param args.autoFileExtensions Enables the file extension route param for
+ *   all actions.
  */
 export class Registry<
   State extends ContextState = ContextState,
@@ -177,8 +205,10 @@ export class Registry<
   #finalized: boolean = false;
   #path: string;
   #rootIRI: string;
-  #serverTiming: boolean;
+  #recordServerTiming: boolean;
   #cacheHitHeader: CacheHitHeader;
+  #autoLanguageCodes: boolean;
+  #autoFileExtensions: boolean;
   #http: HTTP<State>;
   #scopes: Scope[] = [];
   #children: ActionCore[] = [];
@@ -189,26 +219,30 @@ export class Registry<
   #actions: ImplementedAction[] | null = null;
   #handlers: HandlerDefinition[] | null = null;
   #extensions: Extension[] = [];
-  #staticExtensions: Map<string, StaticExtension> = new Map();
+  #staticExtensions: Map<string, StaticAssetExtension> = new Map();
 
   constructor(args: RegistryArgs) {
     const url = new URL(args.rootIRI);
 
     this.#rootIRI = args.rootIRI;
     this.#path = url.pathname;
-    this.#serverTiming = args.serverTiming ?? false;
+    this.#recordServerTiming = args.serverTiming ?? false;
+    this.#autoLanguageCodes = args.autoLanguageCodes ?? args.autoRouteParams ?? false;
+    this.#autoFileExtensions = args.autoFileExtensions ?? args.autoRouteParams ?? false;
     this.#cacheHitHeader = args.cacheHitHeader ?? false;
     this.#http = new HTTP<State>(this);
   }
 
   scope(path: string): Scope<State> {
-    const scope = new Scope<State>({
+    const scope = new Scope<State>(
       path,
-      serverTiming: this.#serverTiming,
-      registry: this,
-      writer: this.#writer,
-      propergateMeta: (meta) => this.#children.push(meta),
-    });
+      this,
+      this.#writer,
+      (meta) => this.#children.push(meta),
+      this.#recordServerTiming,
+      this.#autoLanguageCodes,
+      this.#autoFileExtensions,
+    );
 
     this.#scopes.push(scope);
     
@@ -363,17 +397,21 @@ export class Registry<
    * @param name   Name for the action being produced.
    * @param path   Path the action responds to.
    */
-  public method(method: string, name: string, path: string): ActionAuth<State> {
+  public endpoint(method: string, path: string, args?: EndpointArgs): ActionAuth<State> {
     const meta = new ActionCore<State>(
       this.#rootIRI,
-      method.toUpperCase(),
-      name,
+      method,
+      args?.name,
       path,
       this,
       this.#writer,
+      undefined,
+      args?.autoLanguageCodes ?? args?.autoRouteParams ?? this.#autoLanguageCodes,
+      args?.autoFileExtensions ?? args?.autoRouteParams ?? this.#autoFileExtensions,
+      this.#recordServerTiming,
     );
 
-    meta.recordServerTiming = this.#serverTiming;
+    meta.recordServerTiming = this.#recordServerTiming;
 
     this.#children.push(meta);
     
@@ -740,7 +778,7 @@ export class Registry<
    * @param staticAlias A static alias used to create paths to files served
    *   by the static extension.
    */
-  getStaticExtension(staticAlias: string): StaticExtension | undefined {
+  getStaticExtension(staticAlias: string): StaticAssetExtension | undefined {
     return this.#staticExtensions.get(staticAlias);
   }
 
@@ -763,7 +801,7 @@ export class Registry<
           throw new Error(`Static alias '${staticAlias}' already used by other extension`);
         }
 
-        this.#staticExtensions.set(staticAlias, extension as StaticExtension);
+        this.#staticExtensions.set(staticAlias, extension as StaticAssetExtension);
       }
     }
 

@@ -106,16 +106,21 @@ export class ActionCore<
   cacheOccurance: 0 | 1 = BeforeDefinition;
   auth?: AuthMiddleware<Auth>;
   cache: CacheInstanceArgs[] = [];
-  recordServerTiming: boolean = false;
+  autoLanguageCodes: boolean;
+  autoFileExtensions: boolean;
+  recordServerTiming: boolean;
 
   constructor(
     rootIRI: string,
     method: string,
-    name: string,
+    name: string | undefined,
     uriTemplate: string,
     registry: Registry,
     writer: HTTPWriter,
-    scope?: Scope,
+    scope: Scope | undefined,
+    autoLanguageCodes: boolean,
+    autoFileExtensions: boolean,
+    recordServerTiming: boolean | undefined,
   ) {
     this.rootIRI = rootIRI;
     this.method = method.toUpperCase()
@@ -126,6 +131,9 @@ export class ActionCore<
     this.writer = writer;
     this.scope = scope;
     this.path = new Path(uriTemplate, rootIRI);
+    this.autoLanguageCodes = autoLanguageCodes;
+    this.autoFileExtensions = autoFileExtensions;
+    this.recordServerTiming = recordServerTiming ?? false;
   }
 
   /**

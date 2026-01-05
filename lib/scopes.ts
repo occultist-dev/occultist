@@ -5,6 +5,7 @@ import type { ContextState } from "./actions/spec.ts";
 import type { AuthMiddleware, ImplementedAction } from "./actions/types.ts";
 import type { HTTPWriter } from "./actions/writer.ts";
 import { type Callable, HTTP, type Registry } from './registry.ts';
+import type {EndpointArgs} from "./types.ts";
 
 
 export type MetaPropatator = (meta: ActionCore) => void;
@@ -22,28 +23,34 @@ export class Scope<
   State extends ContextState = ContextState,
 > implements Callable<State> {
   #path: string;
-  #serverTiming: boolean = false;
+  #recordServerTiming: boolean;
   #registry: Registry;
   #writer: HTTPWriter;
   #http: HTTP<State>;
   #children: Array<ActionCore> = [];
   #public: boolean = true;
   #auth: AuthMiddleware | undefined;
-  #propergateMeta: (meta: ActionCore) => void;
+  #propergateMeta: MetaPropatator;
+  #autoLanguageCodes: boolean;
+  #autoFileExtensions: boolean;
   
-  constructor({
-    path,
-    serverTiming,
-    registry,
-    writer,
-    propergateMeta,
-  }: ScopeArgs) {
+  constructor(
+    path: string,
+    registry: Registry,
+    writer: HTTPWriter,
+    propergateMeta: MetaPropatator,
+    recordServerTiming: boolean,
+    autoLanguageCodes: boolean,
+    autoFileExtensions: boolean,
+  ) {
     this.#path = path;
-    this.#serverTiming = serverTiming;
     this.#registry = registry;
     this.#writer = writer;
     this.#http = new HTTP<State>(this);
     this.#propergateMeta = propergateMeta;
+    this.#recordServerTiming = recordServerTiming;
+    this.#autoLanguageCodes = autoLanguageCodes;
+    this.#autoFileExtensions = autoFileExtensions;
   }
 
   get path(): string {
@@ -89,27 +96,29 @@ export class Scope<
   }
 
   /**
-   * Creates any HTTP method.
+   * Creates an action for any HTTP method.
    *
-   * @param method The HTTP method.
+   * @param method The HTTP method name.
    * @param name   Name for the action being produced.
    * @param path   Path the action responds to.
    */
-  method(method: string, name: string, path: string): ActionAuth<State> {
+  public endpoint(method: string, path: string, args?: EndpointArgs): ActionAuth<State> {
     const meta = new ActionCore<State>(
-      this.#registry.rootIRI,
-      method.toUpperCase(),
-      name,
+      this.registry.rootIRI,
+      method,
+      args?.name,
       path,
       this.#registry,
       this.#writer,
       this,
+      args?.autoLanguageCodes ?? args?.autoRouteParams ?? this.#autoLanguageCodes,
+      args?.autoFileExtensions ?? args?.autoRouteParams ?? this.#autoFileExtensions,
+      this.#recordServerTiming,
     );
 
-    meta.recordServerTiming = this.#serverTiming;
+    meta.recordServerTiming = this.#recordServerTiming;
 
     this.#children.push(meta);
-    this.#propergateMeta(meta);
     
     return new ActionAuth<State>(meta);
   }
@@ -142,13 +151,13 @@ export class Scope<
     }
 
     if (this.#public) {
-      this.#registry.http.get('scope', this.#path)
+      this.#registry.http.get(this.#path)
         .public()
         .handle('application/ld+json', (ctx) => {
           ctx.body = JSON.stringify(partials);
         });
     } else {
-      this.#registry.http.get('scope', this.#path)
+      this.#registry.http.get(this.#path)
         .public()
         .handle('application/ld+json', (ctx) => {
            ctx.body = JSON.stringify(partials);
@@ -163,13 +172,13 @@ export class Scope<
       }
 
       if (this.#public) {
-        this.#registry.http.get('scope-action', joinPaths(this.url(), action.name))
+        this.#registry.http.get(joinPaths(this.url(), action.name))
           .public(this.#auth)
           .handle('application/ld+json', async (ctx) => {
             ctx.body = JSON.stringify(await action.jsonld());
           });
       } else {
-        this.#registry.http.get('scope-action', joinPaths(this.url(), action.name))
+        this.#registry.http.get(joinPaths(this.url(), action.name))
           .private(this.#auth)
           .handle('application/ld+json', async (ctx) => {
             ctx.body = JSON.stringify(await action.jsonld());

@@ -24,7 +24,7 @@ describe('registry.invalidateCache()', () => {
     let hitCount = 0;
     const { registry, cache } = await makeRegistry();
 
-    registry.http.get('cachable', '/cacheable')
+    registry.http.get('/cacheable')
       .public()
       .cache(cache.store())
       .handle('text/plain', (ctx) => {
@@ -63,7 +63,7 @@ describe('registry.invalidateCache()', () => {
     let hitCount = 0;
     const { registry, cache } = await makeRegistry();
 
-    registry.http.post('cachable', '/cacheable')
+    registry.http.post('/cacheable')
       .public()
       .cache(cache.store({ semantics: 'get' }))
       .handle('text/plain', (ctx) => {
@@ -102,7 +102,7 @@ describe('registry.invalidateCache()', () => {
 
     let handlerCalled = false;
 
-    registry.http.get('cachable-1', '/cacheable')
+    registry.http.get('/cacheable')
       .public()
       .cache(cache.store())
       .handle('text/plain', (ctx) => {
