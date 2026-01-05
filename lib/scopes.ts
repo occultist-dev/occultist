@@ -69,7 +69,7 @@ export class Scope<
     return this.#children
       .filter((meta) => {
         if (meta.action == null) {
-          console.warn(`Action ${meta.method}: ${meta.path} not fully implemented before processing`);
+          console.warn(`Action ${meta.method}: ${meta.route} not fully implemented before processing`);
         }
 
         return meta.action != null;

@@ -10,6 +10,7 @@ import {ProblemDetailsError} from "./errors.ts";
 import {WrappedRequest} from "./request.ts";
 import {Scope} from './scopes.ts';
 import type {EndpointArgs, Extension, StaticAssetExtension} from "./types.ts";
+import {CacheOperationResult} from "./mod.ts";
 
 
 export interface Callable<
@@ -56,8 +57,8 @@ export class HTTP<
     return this.#callable.endpoint('delete', path, args);
   }
 
-  query(name: string, path: string): ActionAuth<State> {
-    return this.#callable.endpoint('query', name, path);
+  query(path: string, args?: EndpointArgs): ActionAuth<State> {
+    return this.#callable.endpoint('query', path, args);
   }
 
 }
@@ -450,7 +451,7 @@ export class Registry<
     for (let index = 0; index < this.#children.length; index++) {
       const meta = this.#children[index];
       const method = meta.method;
-      const normalized = meta.path.normalized;
+      const normalized = meta.route.normalized;
 
       meta.finalize();
 

@@ -3,7 +3,7 @@ import { ProblemDetailsError } from "../errors.js";
 import { processAction } from "../processAction.js";
 import { joinPaths } from "../utils/joinPaths.js";
 import { CacheContext, Context } from "./context.js";
-import { Path } from "./path.js";
+import { Route } from "./route.js";
 const safeMethods = new Set([
     'OPTIONS',
     'HEAD',
@@ -59,12 +59,12 @@ export class MiddlewareRefs {
 export class ActionCore {
     rootIRI;
     method;
-    isSafe = false;
+    isSafe;
     name;
     uriTemplate;
     public = false;
     authKey;
-    path;
+    route;
     hints = [];
     transformers = new Map();
     scope;
@@ -76,8 +76,10 @@ export class ActionCore {
     cacheOccurance = BeforeDefinition;
     auth;
     cache = [];
-    recordServerTiming = false;
-    constructor(rootIRI, method, name, uriTemplate, registry, writer, scope) {
+    autoLanguageCodes;
+    autoFileExtensions;
+    recordServerTiming;
+    constructor(rootIRI, method, name, uriTemplate, registry, writer, scope, autoLanguageCodes, autoFileExtensions, recordServerTiming) {
         this.rootIRI = rootIRI;
         this.method = method.toUpperCase();
         this.isSafe = safeMethods.has(this.method);
@@ -86,7 +88,10 @@ export class ActionCore {
         this.registry = registry;
         this.writer = writer;
         this.scope = scope;
-        this.path = new Path(uriTemplate, rootIRI);
+        this.route = new Route(uriTemplate, rootIRI, autoLanguageCodes, autoFileExtensions);
+        this.autoLanguageCodes = autoLanguageCodes;
+        this.autoFileExtensions = autoFileExtensions;
+        this.recordServerTiming = recordServerTiming ?? false;
     }
     /**
      * Called when the API is defined to compute all uncomputed values.
@@ -340,7 +345,9 @@ export class ActionCore {
         if (this.hints.length !== 0) {
             const downstream = refs.next;
             refs.next = async () => {
-                await Promise.all(this.hints.map((hint) => refs.writer.writeEarlyHints(hint)));
+                for (let i = 0; i < this.hints.length; i++) {
+                    refs.writer.writeEarlyHints(this.hints[i]);
+                }
                 await downstream();
             };
         }

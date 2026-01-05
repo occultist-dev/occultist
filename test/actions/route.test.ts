@@ -1,12 +1,12 @@
 import {describe, it} from 'node:test';
 import assert from "node:assert";
-import { Path } from "../../lib/actions/path.ts";
+import { Route } from "../../lib/actions/path.ts";
 
 const rootURL = 'https://example.com';
 
 describe('Path', () => {
-  it('URI template style path creates valid URL Pattern', () => {
-    const path = new Path(
+  it('URI template style path creates valid RegExp', () => {
+    const path = new Route(
       '/api/recipes/{recipeUUID}/ingredients/{ingredientUUID}/units'
         + '{?search,page,pageSize}'
         + '{#sliceStart,sliceEnd}',
@@ -15,31 +15,41 @@ describe('Path', () => {
       false,
     );
   
-    assert(path.pattern.test('https://example.com/api/recipes/xxxx-xxxx-xxxx-xxxx/ingredients/xxxx-xxxx-xxxx-xxxx/units'));
+    assert(path.regexp.test('/api/recipes/xxxx-xxxx-xxxx-xxxx/ingredients/xxxx-xxxx-xxxx-xxxx/units'));
   });
   
+  it('Matches route path params and query params', () => {
+    const template = '/foo/{xxx}/bar{?search,page}';
+    const route = new Route(template, rootURL, true, true);
+    const match = route.match('https://example.com/foo/123/bar.en-NZ.html?search=foo&page=10');
+
+    assert.deepEqual(match, {
+      path: { xxx: '123', languageCode: 'en-NZ', fileExtension: 'html' },
+      query: { search: 'foo', page: '10' },
+    });
+  });
   
   it('Auto adds language code and file extension parameters if setting enabled', () => {
     const route = '/foo/{xxx}/baa{?search,page}{#sliceStart,sliceEnd}';
-    const path = new Path(
+    const path = new Route(
       route,
       rootURL,
       false,    
       false,
     );
-    const path2 = new Path(
+    const path2 = new Route(
       route,
       rootURL,
       true,    
       false,
     );
-    const path3 = new Path(
+    const path3 = new Route(
       route,
       rootURL,
       false,    
       true,
     );
-    const path4 = new Path(
+    const path4 = new Route(
       route,
       rootURL,
       true,    
@@ -117,7 +127,7 @@ describe('Path', () => {
   
   it('Does not conflict with other dot separated values when matching language code and file extension parameters', () => {
     const route = '/foo/{xxx}{.rev}{?search,page}{#sliceStart,sliceEnd}';
-    const path = new Path(
+    const path = new Route(
       route,
       rootURL,
       true,    

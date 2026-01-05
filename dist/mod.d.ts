@@ -7,7 +7,7 @@ export * from './actions/types.ts';
 export * from './actions/core.ts';
 export * from './actions/spec.ts';
 export * from './actions/context.ts';
-export * from './actions/path.ts';
+export * from './actions/route.ts';
 export * from './actions/actions.ts';
 export * from './actions/actionSets.ts';
 export * from './request.ts';

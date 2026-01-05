@@ -8,30 +8,14 @@ export interface StaticContext {
     link(alias: string, as: string): string;
 }
 export interface Extension {
-    /**
-     * The name of the extension.
-     */
     name: string;
-    /**
-     * Setup method which can perform async setup tasks
-     * and report status via a readable stream.
-     */
     setup?(): ReadableStream;
-    /**
-     * Retrieves a static assets from the extension.
-     *
-     * @param assetAlias The alias for the asset.
-     */
-    getAsset?(assetAlias: string): StaticAsset | undefined;
-    /**
-     * Root level aliases the extension uses to identify
-     * the assets it manages.
-     */
+    getAsset?(): StaticAsset | undefined;
     staticAliases?: string[];
 }
-export interface StaticExtension {
+export interface StaticAssetExtension {
     /**
-     * The name of the extension.
+     * The name of the static extension.
      */
     name: string;
     /**
@@ -57,4 +41,25 @@ export type ProblemDetails = {
     detail?: string;
     instance?: string;
     errors?: Array<ProblemDetailsParam>;
+};
+export type EndpointArgs = {
+    /**
+     * The name of the endpoint.
+     */
+    name?: string;
+    /**
+     * Enables language and file extension handling
+     * if not already enabled.
+     */
+    autoRouteParams?: boolean;
+    /**
+     * Adds optional language code handling to
+     * the route parameters if not otherwise specified.
+     */
+    autoLanguageCodes?: boolean;
+    /**
+     * Adds optional file extension handling to
+     * the route parameters if not otherwise specified.
+     */
+    autoFileExtensions?: boolean;
 };

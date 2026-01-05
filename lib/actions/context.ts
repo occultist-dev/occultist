@@ -1,4 +1,4 @@
-import type {CacheOperation, HandlerDefinition} from "../mod.ts";
+import type {CacheOperation, HandlerDefinition, StaticAsset} from "../mod.ts";
 import type {Registry} from "../registry.ts";
 import type {ActionPayload, ActionSpec, ContextState, ParsedIRIValues} from "./spec.ts";
 import type {AuthState, ImplementedAction} from "./types.ts";

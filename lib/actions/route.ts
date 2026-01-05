@@ -4,6 +4,12 @@ const paramsRe = /((?<s>[^\{\}]+)|({(?<t>[\?\#\.])?(?<v>[^}]+)}))/g
 const languageCodeReStr = '(?:\\.(?<languageCode>[a-zA-Z0-9][a-zA-Z0-9\\-]+))';
 const fileExtensionReStr = '(?:\\.(?<fileExtension>[a-z][a-zA-Z0-9\\-]+))';
 
+
+export type RouteMatchResult = {
+  path: Record<string, string>;
+  query: Record<string, undefined | string | string[]>;
+};
+
 /**
  * Util class for handling paths defined using URI templates.
  * https://datatracker.ietf.org/doc/html/rfc6570.
@@ -13,13 +19,13 @@ const fileExtensionReStr = '(?:\\.(?<fileExtension>[a-z][a-zA-Z0-9\\-]+))';
  * regex syntax which would end up in the generated URLPattern making
  * it in conflict with the URITemplate. To be fixed...
  */
-export class Path {
+export class Route {
   #rootURL: string;
   #template: string;
   #regexp: RegExp;
   #pattern: URLPattern;
   #normalized: string;
-  #paramKeys: Set<string> = new Set();
+  #pathKeys: Set<string> = new Set();
   #queryKeys: Set<string> = new Set();
   #fragmentKeys: Set<string> = new Set();
   #autoLanguageCode: boolean;
@@ -62,12 +68,50 @@ export class Path {
   }
 
   /**
+   * Matches a URL against this route and returns the
+   * path and query values.
+   *
+   * @param url The URL to match.
+   */
+  match(url: string | URL): undefined | RouteMatchResult {
+    if (!url.toString().startsWith(this.#rootURL)) {
+      return;
+    }
+
+    const url2 = new URL(url);
+    const match = this.#regexp.exec(url2.pathname);
+
+    if (match?.groups == null) {
+      return;
+    }
+
+    const path = Object.create(null);
+    const query = Object.create(null);
+
+    for (const [key, value] of Object.entries(match.groups)) {
+      path[key] = value;
+    }
+
+    for (const key of url2.searchParams.keys()) {
+      const value = url2.searchParams.getAll(key);
+
+      if (value.length > 1) {
+        query[key] = value;
+      } else {
+        query[key] = value[0];
+      }
+    }
+
+    return { path, query };
+  }
+  
+  /**
    * Returns the location of the given key if it is present in
    * the path.
    */
-  locationOf(key: string): 'params' | 'query' | 'fragment' | null {
-    if (this.#paramKeys.has(key)) {
-      return 'params';
+  locationOf(key: string): 'path' | 'query' | 'fragment' | null {
+    if (this.#pathKeys.has(key)) {
+      return 'path';
     } else if (this.#queryKeys.has(key)) {
       return 'query';
     } else if (this.#fragmentKeys.has(key)) {
@@ -122,11 +166,13 @@ export class Path {
         regexpStr += `(\\.(?<${value}>[^\\/\\.]+))`
         pattern += `.:${value}`;
         normalized += `.:value${index}`;
+        this.#pathKeys.add(value);
       } else if (!foundQueryOrFragment && value != null) {
         index++;
         regexpStr += `(?<${value}>[^\\/\\.]+)`
         pattern += `:${value}`;
         normalized += `:value${index}`;
+        this.#pathKeys.add(value);
       }
     }
 
@@ -134,9 +180,12 @@ export class Path {
       if (this.#autoLanguageCode && this.#autoFileExtension) {
         regexpStr += `(${languageCodeReStr}?${fileExtensionReStr})`
         template += '{.languageCode,fileExtension}';
+        this.#pathKeys.add('languageCode');
+        this.#pathKeys.add('fileExtension');
       } else if (this.#autoFileExtension) {
         regexpStr += fileExtensionReStr;
         template += '{.fileExtension}';
+        this.#pathKeys.add('fileExtension');
       }
     }
 

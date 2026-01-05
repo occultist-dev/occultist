@@ -8,7 +8,7 @@ import type {Scope} from "../scopes.ts";
 import {joinPaths} from '../utils/joinPaths.ts';
 import {HandlerDefinition} from './actions.ts';
 import {CacheContext, Context} from './context.ts';
-import {Path} from "./path.ts";
+import {Route} from "./route.ts";
 import type {ActionSpec, ContextState, FileValue, NextFn, TransformerFn} from './spec.ts';
 import type {AuthMiddleware, AuthState, CacheHitHeader, HintArgs, ImplementedAction} from './types.ts';
 import {type HTTPWriter, type ResponseTypes} from "./writer.ts";
@@ -94,7 +94,7 @@ export class ActionCore<
   uriTemplate: string;
   public: boolean = false;
   authKey?: string;
-  path: Path;
+  route: Route;
   hints: HintArgs[] = [];
   transformers: Map<string, TransformerFn<JSONValue | FileValue, State, Spec>> = new Map();
   scope?: Scope;
@@ -130,7 +130,7 @@ export class ActionCore<
     this.registry = registry;
     this.writer = writer;
     this.scope = scope;
-    this.path = new Path(
+    this.route = new Route(
       uriTemplate,
       rootIRI,
       autoLanguageCodes,
@@ -459,9 +459,10 @@ export class ActionCore<
     if (this.hints.length !== 0) {
       const downstream = refs.next;
       refs.next = async () => {
-        await Promise.all(
-          this.hints.map((hint) => refs.writer.writeEarlyHints(hint))
-        );
+        for (let i = 0; i < this.hints.length; i++) {
+          refs.writer.writeEarlyHints(this.hints[i]);
+        }
+
         await downstream();
       }
     }

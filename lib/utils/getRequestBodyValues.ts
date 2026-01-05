@@ -30,6 +30,8 @@ export async function getRequestBodyValues<
     propertySpec: PropertySpec;
   }> = Object.entries<PropertySpec>(action.spec)
     .reduce((acc, [term, propertySpec]) => {
+      if (propertySpec.typeDef == null) return acc;
+
       return {
         ...acc,
         [propertySpec.typeDef.term]: {

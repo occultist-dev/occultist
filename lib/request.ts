@@ -1,6 +1,5 @@
 import {IncomingMessage} from "node:http";
 import {Readable} from "node:stream";
-import {normalizeURL} from "./utils/normalizeURL.ts";
 
 
 export class WrappedRequest implements Request {
@@ -13,7 +12,7 @@ export class WrappedRequest implements Request {
 
   constructor(rootIRI: string, req: Request | IncomingMessage) {
     this.#req = req;
-    this.#url = normalizeURL(rootIRI, req.url);
+    this.#url = new URL(req.url, rootIRI).toString();
 
     if (req instanceof Request) {
       this.#stream = req.body;

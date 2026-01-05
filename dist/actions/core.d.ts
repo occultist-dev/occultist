@@ -5,7 +5,7 @@ import type { Registry } from '../registry.ts';
 import type { Scope } from "../scopes.ts";
 import { HandlerDefinition } from './actions.ts';
 import { CacheContext, Context } from './context.ts';
-import { Path } from "./path.ts";
+import { Route } from "./route.ts";
 import type { ActionSpec, ContextState, FileValue, NextFn, TransformerFn } from './spec.ts';
 import type { AuthMiddleware, AuthState, CacheHitHeader, HintArgs, ImplementedAction } from './types.ts';
 import { type HTTPWriter, type ResponseTypes } from "./writer.ts";
@@ -45,11 +45,11 @@ export declare class ActionCore<State extends ContextState = ContextState, Auth 
     rootIRI: string;
     method: string;
     isSafe: boolean;
-    name: string;
+    name?: string;
     uriTemplate: string;
     public: boolean;
     authKey?: string;
-    path: Path;
+    route: Route;
     hints: HintArgs[];
     transformers: Map<string, TransformerFn<JSONValue | FileValue, State, Spec>>;
     scope?: Scope;
@@ -61,8 +61,10 @@ export declare class ActionCore<State extends ContextState = ContextState, Auth 
     cacheOccurance: 0 | 1;
     auth?: AuthMiddleware<Auth>;
     cache: CacheInstanceArgs[];
+    autoLanguageCodes: boolean;
+    autoFileExtensions: boolean;
     recordServerTiming: boolean;
-    constructor(rootIRI: string, method: string, name: string, uriTemplate: string, registry: Registry, writer: HTTPWriter, scope?: Scope);
+    constructor(rootIRI: string, method: string, name: string | undefined, uriTemplate: string, registry: Registry, writer: HTTPWriter, scope: Scope | undefined, autoLanguageCodes: boolean, autoFileExtensions: boolean, recordServerTiming: boolean | undefined);
     /**
      * Called when the API is defined to compute all uncomputed values.
      */

@@ -1,25 +1,22 @@
 import { ProblemDetailsError } from "../errors.js";
-import { getParamLocation } from "./getParamLocation.js";
 export function getRequestIRIValues({ iri, action, }) {
     const pathValues = Object.create(null);
     const queryValues = Object.create(null);
     // deno-lint-ignore no-explicit-any
     const iriValues = Object.create(null);
-    const urlPatternResult = action.pattern.exec(iri);
-    const pathParams = urlPatternResult?.pathname.groups || Object.create(null);
-    const searchParams = new URL(iri).searchParams;
+    const match = action.route.match(iri);
+    const pathParams = match?.path ?? Object.create(null);
+    const searchParams = match?.query ?? Object.create(null);
     const valueNames = Object.values(action.spec)
         .filter((specItem) => typeof specItem.valueName === 'string')
         .map((specItem) => specItem.valueName);
-    //if (action.strict) {
-    for (const valueName of searchParams.keys()) {
+    for (const valueName of Object.keys(searchParams)) {
         if (!valueNames.includes(valueName)) {
             throw new ProblemDetailsError(400, {
                 title: `Unexpected value "${valueName}"`,
             });
         }
     }
-    //}
     for (const [term, specItem] of Object.entries(action.spec)) {
         if (typeof specItem.valueName !== 'string') {
             continue;
@@ -27,12 +24,12 @@ export function getRequestIRIValues({ iri, action, }) {
         let value;
         const valueName = specItem.valueName;
         const multipleValues = Boolean(specItem.multipleValues);
-        const paramLocation = getParamLocation(valueName, action.pattern);
+        const paramLocation = action.route.locationOf(valueName);
         if (paramLocation === 'path') {
             value = pathParams[valueName];
         }
         else {
-            value = searchParams.getAll(valueName);
+            value = searchParams[valueName];
         }
         if (value === null) {
             value = undefined;

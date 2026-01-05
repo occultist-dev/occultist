@@ -19,7 +19,7 @@ export declare class ResponseWriter implements HTTPWriter {
      * Runtimes which do not support writing early hints will have the
      * headers added to the headers of the main response instead.
      */
-    writeEarlyHints(args: HintArgs): Promise<void>;
+    writeEarlyHints(args: HintArgs): void;
     mergeHeaders(headersInit: HeadersInit): void;
     writeHead(status: number, headers?: Headers): void;
     writeBody(body: ResponseBody): void;

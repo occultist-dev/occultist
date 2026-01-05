@@ -1,7 +1,6 @@
 import type { ImplementedAction } from "../actions/types.ts";
 import { ProblemDetailsError } from "../errors.ts";
 import type { ActionSpec, ContextState, FileSingleSpec, FileMultiSpec, BooleanSingleSpec, BooleanMultiSpec, NumberSingleSpec, NumberMultiSpec, StringSingleSpec, StringMultiSpec, ParsedIRIValues, PropertySpec } from "../actions/spec.ts";
-import { getParamLocation } from "./getParamLocation.ts";
 
 
 export type IRIValue<
@@ -44,23 +43,21 @@ export function getRequestIRIValues<
   const queryValues: ParsedIRIValues = Object.create(null);
   // deno-lint-ignore no-explicit-any
   const iriValues = Object.create(null) as IRIValue<any>;
-  const urlPatternResult = action.pattern.exec(iri);
-  const pathParams = urlPatternResult?.pathname.groups || Object.create(null);
-  const searchParams = new URL(iri).searchParams;
+  const match = action.route.match(iri);
+  const pathParams = match?.path ?? Object.create(null);
+  const searchParams = match?.query ?? Object.create(null);
 
   const valueNames = Object.values<PropertySpec>(action.spec)
     .filter((specItem) => typeof specItem.valueName === 'string')
     .map((specItem) => specItem.valueName);
 
-  //if (action.strict) {
-    for (const valueName of searchParams.keys()) {
-      if (!valueNames.includes(valueName)) {
-        throw new ProblemDetailsError(400, {
-          title: `Unexpected value "${valueName}"`,
-        });
-      }
+  for (const valueName of Object.keys(searchParams)) {
+    if (!valueNames.includes(valueName)) {
+      throw new ProblemDetailsError(400, {
+        title: `Unexpected value "${valueName}"`,
+      });
     }
-  //}
+  }
 
   for (
     const [term, specItem] of Object.entries(
@@ -74,12 +71,12 @@ export function getRequestIRIValues<
     let value: string | string[] | undefined | null;
     const valueName = specItem.valueName;
     const multipleValues = Boolean(specItem.multipleValues);
-    const paramLocation = getParamLocation(valueName, action.pattern);
+    const paramLocation = action.route.locationOf(valueName);
 
     if (paramLocation === 'path') {
       value = pathParams[valueName];
     } else {
-      value = searchParams.getAll(valueName);
+      value = searchParams[valueName];
     }
 
     if (value === null) {
