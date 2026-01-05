@@ -130,7 +130,12 @@ export class ActionCore<
     this.registry = registry;
     this.writer = writer;
     this.scope = scope;
-    this.path = new Path(uriTemplate, rootIRI);
+    this.path = new Path(
+      uriTemplate,
+      rootIRI,
+      autoLanguageCodes,
+      autoFileExtensions,
+    );
     this.autoLanguageCodes = autoLanguageCodes;
     this.autoFileExtensions = autoFileExtensions;
     this.recordServerTiming = recordServerTiming ?? false;
