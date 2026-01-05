@@ -141,7 +141,7 @@ export interface ImplementedAction<
   readonly term?: string;
   readonly type?: string;
   readonly typeDef?: TypeDef;
-  readonly name: string;
+  readonly name?: string;
   readonly pattern: URLPattern;
   readonly template: string;
   readonly spec: Spec;

@@ -89,8 +89,8 @@ export class ActionCore<
 > {
   rootIRI: string;
   method: string;
-  isSafe: boolean = false;
-  name: string;
+  isSafe: boolean;
+  name?: string;
   uriTemplate: string;
   public: boolean = false;
   authKey?: string;

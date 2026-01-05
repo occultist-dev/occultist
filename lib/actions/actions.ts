@@ -38,7 +38,7 @@ export class HandlerDefinition<
   Auth extends AuthState = AuthState,
   Spec extends ActionSpec = ActionSpec,
 > {
-  name: string;
+  name?: string;
   contentType: string;
   handler: HandlerFn | HandlerValue;
   meta: HandlerMeta;
@@ -46,7 +46,7 @@ export class HandlerDefinition<
   cache: ReadonlyArray<CacheInstanceArgs>;
   
   constructor(
-    name: string,
+    name: string | undefined,
     contentType: string,
     handler: HandlerFn | HandlerValue,
     meta: HandlerMeta,
@@ -71,7 +71,7 @@ export class HandlerDefinition<
   }
 
   get [Symbol.toStringTag]() {
-    return `name=${this.name} contentType=${this.contentType}`;
+    return `name=${this.name ?? 'anon'} contentType=${this.contentType}`;
   }
 }
 
@@ -196,7 +196,7 @@ export class FinalizedAction<
     action: ImplementedAction,
     scope: Scope,
   ): Promise<JSONObject | null> {
-    if (scope == null || action.typeDef == null) {
+    if (scope == null || action.typeDef == null || action.name == null) {
       return null;
     }
 
@@ -236,7 +236,7 @@ export class FinalizedAction<
     return this.#typeDef;
   }
 
-  get name(): string {
+  get name(): string | undefined {
     return this.#core.name;
   }
 
@@ -466,7 +466,7 @@ export class DefinedAction<
     return this.#typeDef;
   }
 
-  get name(): string {
+  get name(): string | undefined {
     return this.#core.name;
   }
 
@@ -657,7 +657,7 @@ export class Action<
     return undefined;
   }
 
-  get name(): string {
+  get name(): string | undefined {
     return this.#core.name;
   }
 
