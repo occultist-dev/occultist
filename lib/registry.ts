@@ -10,7 +10,18 @@ import {ProblemDetailsError} from "./errors.ts";
 import {WrappedRequest} from "./request.ts";
 import {Scope} from './scopes.ts';
 import type {EndpointArgs, Extension, StaticAssetExtension} from "./types.ts";
-import {CacheOperationResult} from "./mod.ts";
+import {type CacheOperationResult} from "./mod.ts";
+
+
+export const defaultFileExtensions = {
+  'txt': 'text/plain',
+  'html': 'text/html',
+  'js': 'application/javascript',
+  'json': 'application/json',
+  'svg': 'application/svg+xml',
+  'xml': 'application/xml',
+} as const;
+
 
 
 export interface Callable<
@@ -113,6 +124,12 @@ export type RegistryArgs = {
    */
   serverTiming?: boolean;
 
+  /**
+   * Map of file extensions to their content types. Used by the auto route file extensions
+   * feature to pick the related action for a given file extension.
+   */
+  extensions?: Record<string, string>;
+
  /**
   * Enables language code and file extension route params for all actions
   * in this registry.
@@ -210,6 +227,8 @@ export class Registry<
   #cacheHitHeader: CacheHitHeader;
   #autoLanguageCodes: boolean;
   #autoFileExtensions: boolean;
+  #fileExtensions: Map<string, string> = new Map();
+  #reverseExtensions: Map<string, string> = new Map();
   #http: HTTP<State>;
   #scopes: Scope[] = [];
   #children: ActionCore[] = [];
@@ -232,6 +251,11 @@ export class Registry<
     this.#autoFileExtensions = args.autoFileExtensions ?? args.autoRouteParams ?? false;
     this.#cacheHitHeader = args.cacheHitHeader ?? false;
     this.#http = new HTTP<State>(this);
+
+    for (const [extension, contentType] of Object.entries(args.extensions ?? defaultFileExtensions)) {
+      this.#fileExtensions.set(extension, contentType);
+      this.#reverseExtensions.set(contentType, extension);
+    }
   }
 
   scope(path: string): Scope<State> {
@@ -429,9 +453,6 @@ export class Registry<
     return this as unknown as Registry<Merge<State, MiddlewareState>>;
   }
 
-  /**
-   *
-   */
   finalize() {
     if (this.#finalized) return;
       
@@ -474,6 +495,7 @@ export class Registry<
           method,
           normalized,
           meta,
+          this.#reverseExtensions,
         );
 
         actionSets.push(actionSet);

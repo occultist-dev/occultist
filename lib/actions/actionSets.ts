@@ -32,31 +32,69 @@ export class ActionSet {
   #contentTypeActionMap: Map<string, ImplementedAction>;
   #ctc: ContentTypeCache;
 
+  #regexp: RegExp;
+  #extensionMap: Map<string, string> = new Map();
+
   constructor(
     rootIRI: string,
     method: string,
     path: string,
     meta: ActionCore[],
+    reverseExtensions: Map<string, string>,
   ) {
     this.#rootIRI = rootIRI;
     this.#method = method;
 
-    this.#urlPattern = makeURLPattern(path, rootIRI);
+    [this.#contentTypeActionMap, this.#extensionMap, this.#ctc] = this.#process(
+      meta,
+      reverseExtensions,
+    );
 
-    [this.#contentTypeActionMap, this.#ctc] = this.#process(meta);
+    if (this.#extensionMap.size > 0) {
+      path += ':fileExtension(\\.[\\w\\-]+)?';
+    }
+
+    this.#urlPattern = makeURLPattern(
+      path,
+      rootIRI,
+    );
   }
 
+  /**
+   * @param method HTTP method to match against.
+   * @param path The pathname of the request.
+   * @param accept The accept cache of th erequest.
+   */
   matches(method: string, path: string, accept: Accept): null | ActionMatchResult {
     if (method !== this.#method) {
       return null;
-    } else if (!this.#urlPattern.test(path, this.#rootIRI)) {
+    }
+
+    const res = this.#urlPattern.exec(path, this.#rootIRI);
+
+    if (res == null) {
       return null;
     }
 
-    const contentType = accept.negotiate(this.#ctc);
-    const action = this.#contentTypeActionMap.get(contentType as string);
+    let contentType: string;
 
-    if (contentType != null && action != null) {
+    if (res.pathname.groups.fileExtension != null) {
+      const fileExtension = res.pathname.groups.fileExtension.replace('.', '');
+
+      contentType = this.#extensionMap.get(fileExtension);
+
+      if (contentType == null) return null;
+    }
+
+    if (contentType == null) {
+      contentType = accept.negotiate(this.#ctc);
+    }
+
+    if (contentType == null) return null;
+
+    const action = this.#contentTypeActionMap.get(contentType);
+
+    if (action != null) {
       return {
         type: 'match',
         action,
@@ -67,22 +105,42 @@ export class ActionSet {
     return null;
   }
 
-  #process(meta: ActionCore[]): [Map<string, ImplementedAction>, ContentTypeCache] {
+  #process(
+    meta: ActionCore[],
+    reverseExtensions: Map<string, string>,
+  ): [
+    Map<string, ImplementedAction>,
+    Map<string, string>,
+    ContentTypeCache,
+  ] {
     const contentTypes: string[] = [];
     const contentTypeActionMap: Map<string, ImplementedAction> = new Map();
+    const extensionMap: Map<string, string> = new Map();
 
-    for (let i = 0; i < meta.length; i++) {
+    let l1 = meta.length;
+    for (let i = 0; i < l1; i++) {
       const action = meta[i].action as ImplementedAction;
 
-      for (let j = 0; j < action.contentTypes.length; j++) {
+      let l2 = action.contentTypes.length;
+      for (let j = 0; j < l2; j++) {
         const contentType = action.contentTypes[j];
 
         contentTypes.push(contentType);
         contentTypeActionMap.set(contentType, action);
+
+        if (meta[i].autoFileExtensions &&
+            reverseExtensions.has(contentType) &&
+            !extensionMap.has(contentType)) {
+          extensionMap.set(reverseExtensions.get(contentType), contentType);
+        }
       }
     }
 
-    return [contentTypeActionMap, new ContentTypeCache(contentTypes)];
+    return [
+      contentTypeActionMap,
+      extensionMap,
+      new ContentTypeCache(contentTypes),
+    ];
   }
 }
 

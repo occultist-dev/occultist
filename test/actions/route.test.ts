@@ -1,6 +1,6 @@
 import {describe, it} from 'node:test';
 import assert from "node:assert";
-import { Route } from "../../lib/actions/path.ts";
+import { Route } from "../../lib/actions/route.ts";
 
 const rootURL = 'https://example.com';
 
