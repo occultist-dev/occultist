@@ -81,7 +81,7 @@ describe('Registry({ autoRouteParams })', () => {
   it('Favours the file extension over the accept header', async () => {
     const { registry } = makeRegistry();
 
-    const requestInit = { headers: { 'Accept': 'text/plain' } };
+    const requestInit = { headers: { 'Accept': 'text/html' } };
     const [
       r1,
       r2,
@@ -96,8 +96,8 @@ describe('Registry({ autoRouteParams })', () => {
       registry.handleRequest(new Request('https://example.com/hello.xml', requestInit)),
     ]);
 
-    assert.equal(r1.headers.get('content-type'), 'text/plain');
-    assert.equal(await r1.text(), text);
+    assert.equal(r1.headers.get('content-type'), 'text/html');
+    assert.equal(await r1.text(), html);
     assert.equal(r2.headers.get('content-type'), 'text/plain');
     assert.equal(await r2.text(), text);
     assert.equal(r3.headers.get('content-type'), 'text/html');

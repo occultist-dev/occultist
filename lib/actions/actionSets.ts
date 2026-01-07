@@ -30,10 +30,8 @@ export class ActionSet {
   #method: string;
   #urlPattern: URLPattern;
   #contentTypeActionMap: Map<string, ImplementedAction>;
-  #ctc: ContentTypeCache;
-
-  #regexp: RegExp;
   #extensionMap: Map<string, string> = new Map();
+  #ctc: ContentTypeCache;
 
   constructor(
     rootIRI: string,
