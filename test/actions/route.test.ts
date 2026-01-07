@@ -4,7 +4,7 @@ import { Route } from "../../lib/actions/route.ts";
 
 const rootURL = 'https://example.com';
 
-describe('Path', () => {
+describe('Route', () => {
   it('URI template style path creates valid RegExp', () => {
     const path = new Route(
       '/api/recipes/{recipeUUID}/ingredients/{ingredientUUID}/units'
