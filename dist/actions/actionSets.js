@@ -8,42 +8,99 @@ export class ActionSet {
     #method;
     #urlPattern;
     #contentTypeActionMap;
+    #extensionMap = new Map();
     #ctc;
-    constructor(rootIRI, method, path, meta) {
+    #autoLanguageCodes;
+    constructor(rootIRI, method, path, meta, reverseExtensions) {
         this.#rootIRI = rootIRI;
         this.#method = method;
+        [
+            this.#contentTypeActionMap,
+            this.#extensionMap,
+            this.#ctc,
+            this.#autoLanguageCodes,
+        ] = this.#process(meta, reverseExtensions);
+        if (this.#extensionMap.size > 0) {
+            path += ':auto1(\\.[\\w\\-]+)?';
+            if (this.#autoLanguageCodes) {
+                path += ':auto2(\\.[\\w\\-]+)?';
+            }
+        }
         this.#urlPattern = makeURLPattern(path, rootIRI);
-        [this.#contentTypeActionMap, this.#ctc] = this.#process(meta);
     }
+    /**
+     * @param method HTTP method to match against.
+     * @param path The pathname of the request.
+     * @param accept The accept cache of th erequest.
+     */
     matches(method, path, accept) {
         if (method !== this.#method) {
             return null;
         }
-        else if (!this.#urlPattern.test(path, this.#rootIRI)) {
+        const res = this.#urlPattern.exec(path, this.#rootIRI);
+        if (res == null) {
             return null;
         }
-        const contentType = accept.negotiate(this.#ctc);
+        let contentType;
+        let languageCode;
+        if (res.pathname.groups.auto1 != null && res.pathname.groups.auto2 != null) {
+            languageCode = res.pathname.groups.auto1.replace('.', '');
+            const fileExtension = res.pathname.groups.auto2.replace('.', '');
+            contentType = this.#extensionMap.get(fileExtension);
+            if (contentType == null)
+                return null;
+        }
+        else if (res.pathname.groups.auto1 != null || res.pathname.groups.auto2 != null) {
+            const autoParam = res.pathname.groups.auto1 ?? res.pathname.groups.auto2;
+            const fileExtension = autoParam.replace('.', '');
+            contentType = this.#extensionMap.get(fileExtension);
+            if (contentType == null)
+                return null;
+        }
+        if (contentType == null) {
+            contentType = accept.negotiate(this.#ctc);
+        }
+        if (contentType == null)
+            return null;
         const action = this.#contentTypeActionMap.get(contentType);
-        if (contentType != null && action != null) {
+        if (action != null) {
             return {
                 type: 'match',
                 action,
                 contentType,
+                languageCode,
             };
         }
         return null;
     }
-    #process(meta) {
+    #process(meta, reverseExtensions) {
+        let autoLanguageCodes = false;
         const contentTypes = [];
         const contentTypeActionMap = new Map();
-        for (let i = 0; i < meta.length; i++) {
+        const extensionMap = new Map();
+        let l1 = meta.length;
+        for (let i = 0; i < l1; i++) {
             const action = meta[i].action;
-            for (let j = 0; j < action.contentTypes.length; j++) {
+            let l2 = action.contentTypes.length;
+            for (let j = 0; j < l2; j++) {
                 const contentType = action.contentTypes[j];
                 contentTypes.push(contentType);
                 contentTypeActionMap.set(contentType, action);
+                if (!autoLanguageCodes && meta[i].autoLanguageCodes) {
+                    autoLanguageCodes = true;
+                }
+                if (meta[i].autoFileExtensions &&
+                    reverseExtensions.has(contentType) &&
+                    !extensionMap.has(contentType)) {
+                    extensionMap.set(reverseExtensions.get(contentType), contentType);
+                }
             }
         }
-        return [contentTypeActionMap, new ContentTypeCache(contentTypes)];
+        return [
+            contentTypeActionMap,
+            extensionMap,
+            new ContentTypeCache(contentTypes),
+            autoLanguageCodes,
+        ];
     }
 }

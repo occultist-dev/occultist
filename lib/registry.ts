@@ -580,7 +580,8 @@ export class Registry<
     const refs = new MiddlewareRefs(
       wrapped,
       writer,
-      match.contentType ?? null,
+      match.contentType,
+      match.languageCode,
       startTime,
     );
 
@@ -626,7 +627,8 @@ export class Registry<
     const refs = new MiddlewareRefs(
       wrapped,
       writer,
-      match.contentType ?? null,
+      match.contentType,
+      match.languageCode,
       startTime,
     );
 
@@ -665,7 +667,8 @@ export class Registry<
     const refs = new MiddlewareRefs(
       wrapped,
       writer,
-      match.contentType ?? null,
+      match.contentType,
+      match.languageCode,
       null,
     );
 
@@ -758,7 +761,8 @@ export class Registry<
         const refs = new MiddlewareRefs(
           wrapped,
           writer,
-          match.contentType ?? null,
+          match.contentType,
+          match.languageCode,
           startTime,
         );
 

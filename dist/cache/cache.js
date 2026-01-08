@@ -166,14 +166,16 @@ export class Cache {
  */
 export class CacheDescriptor {
     contentType;
+    languageCode;
     semantics;
     action;
     req;
     args;
     safe;
     lock;
-    constructor(contentType, action, req, args) {
+    constructor(contentType, languageCode, action, req, args) {
         this.contentType = contentType;
+        this.languageCode = languageCode;
         this.semantics = args.semantics ?? req.method.toLowerCase();
         this.action = action;
         this.req = req;
@@ -280,11 +282,11 @@ export class CacheMiddleware {
         }
         const args = descriptor.args;
         const cache = args.cache;
-        const key = makeCacheKey(ctx.method, ctx.req.url, ctx.contentType, null, null, ctx.req.headers, ctx.authKey ?? null, descriptor.args.public ?? false, descriptor.args.version ?? null, descriptor.args.vary);
+        const key = makeCacheKey(ctx.method, ctx.req.url, ctx.contentType, ctx.languageCode, null, ctx.req.headers, ctx.authKey ?? null, descriptor.args.public ?? false, descriptor.args.version ?? null, descriptor.args.vary);
         await cache.invalidate(key, ctx.url);
     }
     async #useEtag(descriptor, ctx, next) {
-        const key = makeCacheKey(ctx.method, ctx.req.url, ctx.contentType, null, null, ctx.req.headers, ctx.authKey ?? null, descriptor.args.public ?? false, descriptor.args.version ?? null, descriptor.args.vary);
+        const key = makeCacheKey(ctx.method, ctx.req.url, ctx.contentType, ctx.languageCode, null, ctx.req.headers, ctx.authKey ?? null, descriptor.args.public ?? false, descriptor.args.version ?? null, descriptor.args.vary);
         const rules = new EtagConditions(ctx.req.headers);
         const resourceState = await descriptor.args.cache.meta.get(key);
         if (resourceState.type === 'cache-hit') {
@@ -300,7 +302,7 @@ export class CacheMiddleware {
         await next();
     }
     async #useStore(descriptor, ctx, next) {
-        const key = makeCacheKey(ctx.method, ctx.req.url, ctx.contentType, null, null, ctx.req.headers, ctx.authKey ?? null, descriptor.args.public ?? false, descriptor.args.version ?? null, descriptor.args.vary);
+        const key = makeCacheKey(ctx.method, ctx.req.url, ctx.contentType, ctx.languageCode, null, ctx.req.headers, ctx.authKey ?? null, descriptor.args.public ?? false, descriptor.args.version ?? null, descriptor.args.vary);
         let resourceState;
         const args = descriptor.args;
         const cache = args.cache;

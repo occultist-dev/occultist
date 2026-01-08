@@ -215,6 +215,7 @@ export class Cache implements CacheBuilder {
  */
 export class CacheDescriptor {
   contentType: string;
+  languageCode: string;
   semantics: CacheSemantics;
   action: ImplementedAction;
   req: Request;
@@ -224,11 +225,13 @@ export class CacheDescriptor {
 
   constructor(
     contentType: string,
+    languageCode: string | undefined,
     action: ImplementedAction,
     req: Request,
     args: CacheInstanceArgs,
   ) {
     this.contentType = contentType;
+    this.languageCode = languageCode;
     this.semantics = args.semantics ?? req.method.toLowerCase() as CacheSemantics;
     this.action = action;
     this.req = req;
@@ -367,7 +370,7 @@ export class CacheMiddleware {
       ctx.method,
       ctx.req.url,
       ctx.contentType,
-      null,
+      ctx.languageCode,
       null,
       ctx.req.headers,
       ctx.authKey ?? null,
@@ -391,7 +394,7 @@ export class CacheMiddleware {
       ctx.method,
       ctx.req.url,
       ctx.contentType,
-      null,
+      ctx.languageCode,
       null,
       ctx.req.headers,
       ctx.authKey ?? null,
@@ -425,7 +428,7 @@ export class CacheMiddleware {
       ctx.method,
       ctx.req.url,
       ctx.contentType,
-      null,
+      ctx.languageCode,
       null,
       ctx.req.headers,
       ctx.authKey ?? null,

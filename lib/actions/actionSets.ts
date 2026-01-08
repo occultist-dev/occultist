@@ -13,7 +13,7 @@ export type ActionAcceptMatch = {
   type: 'match';
   action: ImplementedAction;
   contentType?: string;
-  language?: string;
+  languageCode?: string;
   encoding?: string;
 };
 
@@ -32,6 +32,7 @@ export class ActionSet {
   #contentTypeActionMap: Map<string, ImplementedAction>;
   #extensionMap: Map<string, string> = new Map();
   #ctc: ContentTypeCache;
+  #autoLanguageCodes: boolean;
 
   constructor(
     rootIRI: string,
@@ -43,13 +44,22 @@ export class ActionSet {
     this.#rootIRI = rootIRI;
     this.#method = method;
 
-    [this.#contentTypeActionMap, this.#extensionMap, this.#ctc] = this.#process(
+    [
+      this.#contentTypeActionMap,
+      this.#extensionMap,
+      this.#ctc,
+      this.#autoLanguageCodes,
+    ] = this.#process(
       meta,
       reverseExtensions,
     );
 
     if (this.#extensionMap.size > 0) {
-      path += ':fileExtension(\\.[\\w\\-]+)?';
+      path += ':auto1(\\.[\\w\\-]+)?';
+
+      if (this.#autoLanguageCodes) {
+        path += ':auto2(\\.[\\w\\-]+)?';
+      }
     }
 
     this.#urlPattern = makeURLPattern(
@@ -75,9 +85,18 @@ export class ActionSet {
     }
 
     let contentType: string;
+    let languageCode: string;
 
-    if (res.pathname.groups.fileExtension != null) {
-      const fileExtension = res.pathname.groups.fileExtension.replace('.', '');
+    if (res.pathname.groups.auto1 != null && res.pathname.groups.auto2 != null) {
+      languageCode = res.pathname.groups.auto1.replace('.', '');
+      const fileExtension = res.pathname.groups.auto2.replace('.', '');
+
+      contentType = this.#extensionMap.get(fileExtension);
+
+      if (contentType == null) return null;
+    } else if (res.pathname.groups.auto1 != null || res.pathname.groups.auto2 != null) {
+      const autoParam = res.pathname.groups.auto1 ?? res.pathname.groups.auto2;
+      const fileExtension = autoParam.replace('.', '');
 
       contentType = this.#extensionMap.get(fileExtension);
 
@@ -97,6 +116,7 @@ export class ActionSet {
         type: 'match',
         action,
         contentType,
+        languageCode,
       };
     }
 
@@ -107,10 +127,12 @@ export class ActionSet {
     meta: ActionCore[],
     reverseExtensions: Map<string, string>,
   ): [
-    Map<string, ImplementedAction>,
-    Map<string, string>,
-    ContentTypeCache,
+    contentTypeActionMap: Map<string, ImplementedAction>,
+    extensionMap: Map<string, string>,
+    ctc: ContentTypeCache,
+    autoLanguageCodes: boolean,
   ] {
+    let autoLanguageCodes: boolean = false;
     const contentTypes: string[] = [];
     const contentTypeActionMap: Map<string, ImplementedAction> = new Map();
     const extensionMap: Map<string, string> = new Map();
@@ -126,6 +148,10 @@ export class ActionSet {
         contentTypes.push(contentType);
         contentTypeActionMap.set(contentType, action);
 
+        if (!autoLanguageCodes && meta[i].autoLanguageCodes) {
+          autoLanguageCodes = true;
+        }
+
         if (meta[i].autoFileExtensions &&
             reverseExtensions.has(contentType) &&
             !extensionMap.has(contentType)) {
@@ -138,6 +164,7 @@ export class ActionSet {
       contentTypeActionMap,
       extensionMap,
       new ContentTypeCache(contentTypes),
+      autoLanguageCodes,
     ];
   }
 }

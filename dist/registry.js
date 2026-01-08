@@ -6,6 +6,14 @@ import { ResponseWriter } from "./actions/writer.js";
 import { ProblemDetailsError } from "./errors.js";
 import { WrappedRequest } from "./request.js";
 import { Scope } from "./scopes.js";
+export const defaultFileExtensions = {
+    'txt': 'text/plain',
+    'html': 'text/html',
+    'js': 'application/javascript',
+    'json': 'application/json',
+    'svg': 'application/svg+xml',
+    'xml': 'application/xml',
+};
 export class HTTP {
     #callable;
     constructor(callable) {
@@ -128,6 +136,8 @@ export class Registry {
     #cacheHitHeader;
     #autoLanguageCodes;
     #autoFileExtensions;
+    #fileExtensions = new Map();
+    #reverseExtensions = new Map();
     #http;
     #scopes = [];
     #children = [];
@@ -148,6 +158,10 @@ export class Registry {
         this.#autoFileExtensions = args.autoFileExtensions ?? args.autoRouteParams ?? false;
         this.#cacheHitHeader = args.cacheHitHeader ?? false;
         this.#http = new HTTP(this);
+        for (const [extension, contentType] of Object.entries(args.extensions ?? defaultFileExtensions)) {
+            this.#fileExtensions.set(extension, contentType);
+            this.#reverseExtensions.set(contentType, extension);
+        }
     }
     scope(path) {
         const scope = new Scope(path, this, this.#writer, (meta) => this.#children.push(meta), this.#recordServerTiming, this.#autoLanguageCodes, this.#autoFileExtensions);
@@ -284,9 +298,6 @@ export class Registry {
         this.#middleware.push(middleware);
         return this;
     }
-    /**
-     *
-     */
     finalize() {
         if (this.#finalized)
             return;
@@ -316,7 +327,7 @@ export class Registry {
         }
         for (const [normalized, methodSet] of groupedMeta.entries()) {
             for (const [method, meta] of methodSet.entries()) {
-                const actionSet = new ActionSet(this.#rootIRI, method, normalized, meta);
+                const actionSet = new ActionSet(this.#rootIRI, method, normalized, meta, this.#reverseExtensions);
                 actionSets.push(actionSet);
             }
         }
@@ -380,7 +391,7 @@ export class Registry {
         else if (match.type === 'unsupported-content-type') {
             return Promise.resolve('skipped');
         }
-        const refs = new MiddlewareRefs(wrapped, writer, match.contentType ?? null, startTime);
+        const refs = new MiddlewareRefs(wrapped, writer, match.contentType, match.languageCode, startTime);
         refs.cacheHitHeader = this.#cacheHitHeader;
         return match.action.primeCache(refs);
     }
@@ -416,7 +427,7 @@ export class Registry {
         else if (match.type === 'unsupported-content-type') {
             return Promise.resolve('skipped');
         }
-        const refs = new MiddlewareRefs(wrapped, writer, match.contentType ?? null, startTime);
+        const refs = new MiddlewareRefs(wrapped, writer, match.contentType, match.languageCode, startTime);
         refs.cacheHitHeader = this.#cacheHitHeader;
         return match.action.refreshCache(refs);
     }
@@ -445,7 +456,7 @@ export class Registry {
         else if (match.type === 'unsupported-content-type') {
             return Promise.resolve('skipped');
         }
-        const refs = new MiddlewareRefs(wrapped, writer, match.contentType ?? null, null);
+        const refs = new MiddlewareRefs(wrapped, writer, match.contentType, match.languageCode, null);
         return match.action.invalidateCache(refs);
     }
     /**
@@ -479,7 +490,7 @@ export class Registry {
         let err;
         try {
             if (match?.type === 'match') {
-                const refs = new MiddlewareRefs(wrapped, writer, match.contentType ?? null, startTime);
+                const refs = new MiddlewareRefs(wrapped, writer, match.contentType, match.languageCode, startTime);
                 refs.cacheHitHeader = this.#cacheHitHeader;
                 return await match.action.handleRequest(refs);
             }

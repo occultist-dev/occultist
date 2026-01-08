@@ -6,7 +6,15 @@ import type { ContextState, Merge, Middleware } from "./actions/spec.ts";
 import type { CacheHitHeader, ImplementedAction } from "./actions/types.ts";
 import { Scope } from './scopes.ts';
 import type { EndpointArgs, Extension, StaticAssetExtension } from "./types.ts";
-import { CacheOperationResult } from "./mod.ts";
+import { type CacheOperationResult } from "./mod.ts";
+export declare const defaultFileExtensions: {
+    readonly txt: "text/plain";
+    readonly html: "text/html";
+    readonly js: "application/javascript";
+    readonly json: "application/json";
+    readonly svg: "application/svg+xml";
+    readonly xml: "application/xml";
+};
 export interface Callable<State extends ContextState = ContextState> {
     endpoint(method: string, path: string, args: EndpointArgs): ActionAuth<State>;
 }
@@ -45,6 +53,11 @@ export type RegistryArgs = {
      * Enables adding server timing headers to the response.
      */
     serverTiming?: boolean;
+    /**
+     * Map of file extensions to their content types. Used by the auto route file extensions
+     * feature to pick the related action for a given file extension.
+     */
+    extensions?: Record<string, string>;
     /**
      * Enables language code and file extension route params for all actions
      * in this registry.
@@ -173,9 +186,6 @@ export declare class Registry<State extends ContextState = ContextState> impleme
      */
     endpoint(method: string, path: string, args?: EndpointArgs): ActionAuth<State>;
     use<const MiddlewareState extends ContextState = ContextState>(middleware: Middleware<MiddlewareState>): Registry<Merge<State, MiddlewareState>>;
-    /**
-     *
-     */
     finalize(): void;
     /**
      * Matches a request against the action configured to handle

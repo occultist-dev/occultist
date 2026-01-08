@@ -44,13 +44,14 @@ export declare class Cache implements CacheBuilder {
  */
 export declare class CacheDescriptor {
     contentType: string;
+    languageCode: string;
     semantics: CacheSemantics;
     action: ImplementedAction;
     req: Request;
     args: CacheInstanceArgs;
     safe: boolean;
     lock: boolean;
-    constructor(contentType: string, action: ImplementedAction, req: Request, args: CacheInstanceArgs);
+    constructor(contentType: string, languageCode: string | undefined, action: ImplementedAction, req: Request, args: CacheInstanceArgs);
 }
 /**
  * Used internally by Occultist to apply caching rules to

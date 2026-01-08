@@ -27,13 +27,14 @@ export declare class MiddlewareRefs<State extends ContextState, Auth extends Aut
     headers: Headers;
     handler?: HandlerDefinition<State, Auth, Spec>;
     contentType: string | null;
+    languageCode: string | null;
     writer: HTTPWriter;
     req: Request;
     recordServerTiming: boolean;
     prevTime: number | null;
     serverTimes: string[];
     cacheHitHeader: CacheHitHeader;
-    constructor(req: Request, writer: HTTPWriter, contentType: string | null, prevTime: number | null);
+    constructor(req: Request, writer: HTTPWriter, contentType: string | null, languageCode: string | null, prevTime: number | null);
     recordServerTime(name: string): void;
 }
 /**
