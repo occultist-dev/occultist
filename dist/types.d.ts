@@ -53,10 +53,10 @@ export type EndpointArgs = {
      */
     autoRouteParams?: boolean;
     /**
-     * Adds optional language code handling to
+     * Adds optional language tag handling to
      * the route parameters if not otherwise specified.
      */
-    autoLanguageCodes?: boolean;
+    autoLanguageTags?: boolean;
     /**
      * Adds optional file extension handling to
      * the route parameters if not otherwise specified.

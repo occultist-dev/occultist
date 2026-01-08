@@ -10,7 +10,7 @@ export class ActionSet {
     #contentTypeActionMap;
     #extensionMap = new Map();
     #ctc;
-    #autoLanguageCodes;
+    #autoLanguageTags;
     constructor(rootIRI, method, path, meta, reverseExtensions) {
         this.#rootIRI = rootIRI;
         this.#method = method;
@@ -18,12 +18,13 @@ export class ActionSet {
             this.#contentTypeActionMap,
             this.#extensionMap,
             this.#ctc,
-            this.#autoLanguageCodes,
+            this.#autoLanguageTags,
         ] = this.#process(meta, reverseExtensions);
         if (this.#extensionMap.size > 0) {
             path += ':auto1(\\.[\\w\\-]+)?';
-            if (this.#autoLanguageCodes) {
-                path += ':auto2(\\.[\\w\\-]+)?';
+            // language tags are only enabled if file extensions are
+            if (this.#autoLanguageTags) {
+                path += ':auto2(\\.[a-zA-Z0-9\\-]+)?';
             }
         }
         this.#urlPattern = makeURLPattern(path, rootIRI);
@@ -42,9 +43,9 @@ export class ActionSet {
             return null;
         }
         let contentType;
-        let languageCode;
+        let languageTag;
         if (res.pathname.groups.auto1 != null && res.pathname.groups.auto2 != null) {
-            languageCode = res.pathname.groups.auto1.replace('.', '');
+            languageTag = res.pathname.groups.auto1.replace('.', '');
             const fileExtension = res.pathname.groups.auto2.replace('.', '');
             contentType = this.#extensionMap.get(fileExtension);
             if (contentType == null)
@@ -68,13 +69,13 @@ export class ActionSet {
                 type: 'match',
                 action,
                 contentType,
-                languageCode,
+                languageTag,
             };
         }
         return null;
     }
     #process(meta, reverseExtensions) {
-        let autoLanguageCodes = false;
+        let autoLanguageTags = false;
         const contentTypes = [];
         const contentTypeActionMap = new Map();
         const extensionMap = new Map();
@@ -86,8 +87,8 @@ export class ActionSet {
                 const contentType = action.contentTypes[j];
                 contentTypes.push(contentType);
                 contentTypeActionMap.set(contentType, action);
-                if (!autoLanguageCodes && meta[i].autoLanguageCodes) {
-                    autoLanguageCodes = true;
+                if (!autoLanguageTags && meta[i].autoLanguageTags) {
+                    autoLanguageTags = true;
                 }
                 if (meta[i].autoFileExtensions &&
                     reverseExtensions.has(contentType) &&
@@ -100,7 +101,7 @@ export class ActionSet {
             contentTypeActionMap,
             extensionMap,
             new ContentTypeCache(contentTypes),
-            autoLanguageCodes,
+            autoLanguageTags,
         ];
     }
 }

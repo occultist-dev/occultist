@@ -29,18 +29,18 @@ export class MiddlewareRefs {
     headers;
     handler;
     contentType;
-    languageCode;
+    languageTag;
     writer;
     req;
     recordServerTiming;
     prevTime;
     serverTimes = [];
     cacheHitHeader;
-    constructor(req, writer, contentType, languageCode, prevTime) {
+    constructor(req, writer, contentType, languageTag, prevTime) {
         this.req = req;
         this.writer = writer;
         this.contentType = contentType;
-        this.languageCode = languageCode;
+        this.languageTag = languageTag;
         this.prevTime = prevTime;
         this.headers = new Headers();
     }
@@ -78,10 +78,10 @@ export class ActionCore {
     cacheOccurance = BeforeDefinition;
     auth;
     cache = [];
-    autoLanguageCodes;
+    autoLanguageTags;
     autoFileExtensions;
     recordServerTiming;
-    constructor(rootIRI, method, name, uriTemplate, registry, writer, scope, autoLanguageCodes, autoFileExtensions, recordServerTiming) {
+    constructor(rootIRI, method, name, uriTemplate, registry, writer, scope, autoLanguageTags, autoFileExtensions, recordServerTiming) {
         this.rootIRI = rootIRI;
         this.method = method.toUpperCase();
         this.isSafe = safeMethods.has(this.method);
@@ -90,8 +90,8 @@ export class ActionCore {
         this.registry = registry;
         this.writer = writer;
         this.scope = scope;
-        this.route = new Route(uriTemplate, rootIRI, autoLanguageCodes, autoFileExtensions);
-        this.autoLanguageCodes = autoLanguageCodes;
+        this.route = new Route(uriTemplate, rootIRI, autoLanguageTags, autoFileExtensions);
+        this.autoLanguageTags = autoLanguageTags;
         this.autoFileExtensions = autoFileExtensions;
         this.recordServerTiming = recordServerTiming ?? false;
     }
@@ -141,7 +141,7 @@ export class ActionCore {
                 found = when(cacheCtx);
             }
             if (found) {
-                return new CacheDescriptor(contentType, cacheCtx.languageCode, this.action, req, this.cache[i]);
+                return new CacheDescriptor(contentType, cacheCtx.languageTag, this.action, req, this.cache[i]);
             }
         }
         return null;
@@ -283,7 +283,7 @@ export class ActionCore {
             refs.handlerCtx = new Context({
                 req: refs.req,
                 contentType: refs.contentType,
-                languageCode: refs.languageCode,
+                languageTag: refs.languageTag,
                 public: this.public && refs.authKey == null,
                 auth: refs.auth,
                 authKey: refs.authKey,
@@ -315,7 +315,7 @@ export class ActionCore {
             refs.cacheCtx = new CacheContext({
                 req: refs.req,
                 contentType: refs.contentType,
-                languageCode: refs.languageCode,
+                languageTag: refs.languageTag,
                 public: this.public && refs.authKey == null,
                 cacheOperation: refs.cacheOperation,
                 auth: refs.auth,

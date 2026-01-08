@@ -15,7 +15,7 @@ export type ScopeArgs = {
 };
 export declare class Scope<State extends ContextState = ContextState> implements Callable<State> {
     #private;
-    constructor(path: string, registry: Registry, writer: HTTPWriter, propergateMeta: MetaPropatator, recordServerTiming: boolean, autoLanguageCodes: boolean, autoFileExtensions: boolean);
+    constructor(path: string, registry: Registry, writer: HTTPWriter, propergateMeta: MetaPropatator, recordServerTiming: boolean, autoLanguageTags: boolean, autoFileExtensions: boolean);
     get path(): string;
     get registry(): Registry;
     get http(): HTTP<State>;

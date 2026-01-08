@@ -12,16 +12,16 @@ export class Scope {
     #public = true;
     #auth;
     #propergateMeta;
-    #autoLanguageCodes;
+    #autoLanguageTags;
     #autoFileExtensions;
-    constructor(path, registry, writer, propergateMeta, recordServerTiming, autoLanguageCodes, autoFileExtensions) {
+    constructor(path, registry, writer, propergateMeta, recordServerTiming, autoLanguageTags, autoFileExtensions) {
         this.#path = path;
         this.#registry = registry;
         this.#writer = writer;
         this.#http = new HTTP(this);
         this.#propergateMeta = propergateMeta;
         this.#recordServerTiming = recordServerTiming;
-        this.#autoLanguageCodes = autoLanguageCodes;
+        this.#autoLanguageTags = autoLanguageTags;
         this.#autoFileExtensions = autoFileExtensions;
     }
     get path() {
@@ -64,7 +64,7 @@ export class Scope {
      * @param path   Path the action responds to.
      */
     endpoint(method, path, args) {
-        const meta = new ActionCore(this.registry.rootIRI, method, args?.name, path, this.#registry, this.#writer, this, args?.autoLanguageCodes ?? args?.autoRouteParams ?? this.#autoLanguageCodes, args?.autoFileExtensions ?? args?.autoRouteParams ?? this.#autoFileExtensions, this.#recordServerTiming);
+        const meta = new ActionCore(this.registry.rootIRI, method, args?.name, path, this.#registry, this.#writer, this, args?.autoLanguageTags ?? args?.autoRouteParams ?? this.#autoLanguageTags, args?.autoFileExtensions ?? args?.autoRouteParams ?? this.#autoFileExtensions, this.#recordServerTiming);
         meta.recordServerTiming = this.#recordServerTiming;
         this.#children.push(meta);
         return new ActionAuth(meta);

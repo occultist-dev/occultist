@@ -13,7 +13,7 @@ export type RouteMatchResult = {
  */
 export declare class Route {
     #private;
-    constructor(template: string, rootURL: string, autoLanguageCode: boolean, autoFileExtension: boolean);
+    constructor(template: string, rootURL: string, autoLanguageTag: boolean, autoFileExtension: boolean);
     get template(): string;
     get regexp(): RegExp;
     get pattern(): URLPattern;

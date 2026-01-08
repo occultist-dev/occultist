@@ -9,7 +9,7 @@ export type ActionAcceptMatch = {
     type: 'match';
     action: ImplementedAction;
     contentType?: string;
-    languageCode?: string;
+    languageTag?: string;
     encoding?: string;
 };
 export type ActionMatchResult = UnsupportedContentTypeMatch | ActionAcceptMatch;

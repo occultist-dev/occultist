@@ -27,14 +27,14 @@ export declare class MiddlewareRefs<State extends ContextState, Auth extends Aut
     headers: Headers;
     handler?: HandlerDefinition<State, Auth, Spec>;
     contentType: string | null;
-    languageCode: string | null;
+    languageTag: string | null;
     writer: HTTPWriter;
     req: Request;
     recordServerTiming: boolean;
     prevTime: number | null;
     serverTimes: string[];
     cacheHitHeader: CacheHitHeader;
-    constructor(req: Request, writer: HTTPWriter, contentType: string | null, languageCode: string | null, prevTime: number | null);
+    constructor(req: Request, writer: HTTPWriter, contentType: string | null, languageTag: string | null, prevTime: number | null);
     recordServerTime(name: string): void;
 }
 /**
@@ -62,10 +62,10 @@ export declare class ActionCore<State extends ContextState = ContextState, Auth 
     cacheOccurance: 0 | 1;
     auth?: AuthMiddleware<Auth>;
     cache: CacheInstanceArgs[];
-    autoLanguageCodes: boolean;
+    autoLanguageTags: boolean;
     autoFileExtensions: boolean;
     recordServerTiming: boolean;
-    constructor(rootIRI: string, method: string, name: string | undefined, uriTemplate: string, registry: Registry, writer: HTTPWriter, scope: Scope | undefined, autoLanguageCodes: boolean, autoFileExtensions: boolean, recordServerTiming: boolean | undefined);
+    constructor(rootIRI: string, method: string, name: string | undefined, uriTemplate: string, registry: Registry, writer: HTTPWriter, scope: Scope | undefined, autoLanguageTags: boolean, autoFileExtensions: boolean, recordServerTiming: boolean | undefined);
     /**
      * Called when the API is defined to compute all uncomputed values.
      */

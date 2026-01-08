@@ -115,14 +115,14 @@ export class IndexEntry {
  *   Enabling server timing can leak information and is not recommended for
  *   production environments.
  *
- * @param args.autoRouteParams Enables language code and file extension route
+ * @param args.autoRouteParams Enables language tag and file extension route
  *   params for all actions in this registry. When enabled all actions will
- *   have `{.languageCode,fileExtension}` added to the pathname part of their
+ *   have `{.languageTag,fileExtension}` added to the pathname part of their
  *   route's URI template as optional parameters. If an action is called using
  *   these parameters the URI value takes precedence over the related accept
  *   header.
  *
- * @param args.autoLanguageCodes Enables the language code route param for all
+ * @param args.autoLanguageTags Enables the language tag route param for all
  *   actions.
  *
  * @param args.autoFileExtensions Enables the file extension route param for
@@ -134,7 +134,7 @@ export class Registry {
     #rootIRI;
     #recordServerTiming;
     #cacheHitHeader;
-    #autoLanguageCodes;
+    #autoLanguageTags;
     #autoFileExtensions;
     #fileExtensions = new Map();
     #reverseExtensions = new Map();
@@ -154,7 +154,7 @@ export class Registry {
         this.#rootIRI = args.rootIRI;
         this.#path = url.pathname;
         this.#recordServerTiming = args.serverTiming ?? false;
-        this.#autoLanguageCodes = args.autoLanguageCodes ?? args.autoRouteParams ?? false;
+        this.#autoLanguageTags = args.autoLanguageTags ?? args.autoRouteParams ?? false;
         this.#autoFileExtensions = args.autoFileExtensions ?? args.autoRouteParams ?? false;
         this.#cacheHitHeader = args.cacheHitHeader ?? false;
         this.#http = new HTTP(this);
@@ -164,7 +164,7 @@ export class Registry {
         }
     }
     scope(path) {
-        const scope = new Scope(path, this, this.#writer, (meta) => this.#children.push(meta), this.#recordServerTiming, this.#autoLanguageCodes, this.#autoFileExtensions);
+        const scope = new Scope(path, this, this.#writer, (meta) => this.#children.push(meta), this.#recordServerTiming, this.#autoLanguageTags, this.#autoFileExtensions);
         this.#scopes.push(scope);
         return scope;
     }
@@ -289,7 +289,7 @@ export class Registry {
      * @param path   Path the action responds to.
      */
     endpoint(method, path, args) {
-        const meta = new ActionCore(this.#rootIRI, method, args?.name, path, this, this.#writer, undefined, args?.autoLanguageCodes ?? args?.autoRouteParams ?? this.#autoLanguageCodes, args?.autoFileExtensions ?? args?.autoRouteParams ?? this.#autoFileExtensions, this.#recordServerTiming);
+        const meta = new ActionCore(this.#rootIRI, method, args?.name, path, this, this.#writer, undefined, args?.autoLanguageTags ?? args?.autoRouteParams ?? this.#autoLanguageTags, args?.autoFileExtensions ?? args?.autoRouteParams ?? this.#autoFileExtensions, this.#recordServerTiming);
         meta.recordServerTiming = this.#recordServerTiming;
         this.#children.push(meta);
         return new ActionAuth(meta);
@@ -391,7 +391,7 @@ export class Registry {
         else if (match.type === 'unsupported-content-type') {
             return Promise.resolve('skipped');
         }
-        const refs = new MiddlewareRefs(wrapped, writer, match.contentType, match.languageCode, startTime);
+        const refs = new MiddlewareRefs(wrapped, writer, match.contentType, match.languageTag, startTime);
         refs.cacheHitHeader = this.#cacheHitHeader;
         return match.action.primeCache(refs);
     }
@@ -427,7 +427,7 @@ export class Registry {
         else if (match.type === 'unsupported-content-type') {
             return Promise.resolve('skipped');
         }
-        const refs = new MiddlewareRefs(wrapped, writer, match.contentType, match.languageCode, startTime);
+        const refs = new MiddlewareRefs(wrapped, writer, match.contentType, match.languageTag, startTime);
         refs.cacheHitHeader = this.#cacheHitHeader;
         return match.action.refreshCache(refs);
     }
@@ -456,7 +456,7 @@ export class Registry {
         else if (match.type === 'unsupported-content-type') {
             return Promise.resolve('skipped');
         }
-        const refs = new MiddlewareRefs(wrapped, writer, match.contentType, match.languageCode, null);
+        const refs = new MiddlewareRefs(wrapped, writer, match.contentType, match.languageTag, null);
         return match.action.invalidateCache(refs);
     }
     /**
@@ -490,7 +490,7 @@ export class Registry {
         let err;
         try {
             if (match?.type === 'match') {
-                const refs = new MiddlewareRefs(wrapped, writer, match.contentType, match.languageCode, startTime);
+                const refs = new MiddlewareRefs(wrapped, writer, match.contentType, match.languageTag, startTime);
                 refs.cacheHitHeader = this.#cacheHitHeader;
                 return await match.action.handleRequest(refs);
             }
