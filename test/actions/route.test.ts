@@ -24,12 +24,12 @@ describe('Route', () => {
     const match = route.match('https://example.com/foo/123/bar.en-NZ.html?search=foo&page=10');
 
     assert.deepEqual(match, {
-      path: { xxx: '123', languageCode: 'en-NZ', fileExtension: 'html' },
+      path: { xxx: '123', languageTag: 'en-NZ', fileExtension: 'html' },
       query: { search: 'foo', page: '10' },
     });
   });
   
-  it('Auto adds language code and file extension parameters if setting enabled', () => {
+  it('Auto adds language tag and file extension parameters if setting enabled', () => {
     const route = '/foo/{xxx}/baa{?search,page}{#sliceStart,sliceEnd}';
     const path = new Route(
       route,
@@ -109,23 +109,23 @@ describe('Route', () => {
   
     assert.deepEqual(
       path4.regexp.exec('/foo/123/baa')?.groups,
-      { xxx: '123', languageCode: undefined, fileExtension: undefined },
+      { xxx: '123', languageTag: undefined, fileExtension: undefined },
     );
     assert.deepEqual(
       path4.regexp.exec('/foo/123/baa.en-NZ')?.groups,
-      { xxx: '123', languageCode: undefined, fileExtension: 'en-NZ' },
+      { xxx: '123', languageTag: undefined, fileExtension: 'en-NZ' },
     );
     assert.deepEqual(
       path4.regexp.exec('/foo/123/baa.html')?.groups,
-      { xxx: '123' , languageCode: undefined, fileExtension: 'html' },
+      { xxx: '123' , languageTag: undefined, fileExtension: 'html' },
     );
     assert.deepEqual(
       path4.regexp.exec('/foo/123/baa.en-NZ.html')?.groups,
-      { xxx: '123' , languageCode: 'en-NZ', fileExtension: 'html' },
+      { xxx: '123' , languageTag: 'en-NZ', fileExtension: 'html' },
     );
   });
   
-  it('Does not conflict with other dot separated values when matching language code and file extension parameters', () => {
+  it('Does not conflict with other dot separated values when matching language tag and file extension parameters', () => {
     const route = '/foo/{xxx}{.rev}{?search,page}{#sliceStart,sliceEnd}';
     const path = new Route(
       route,
@@ -136,7 +136,7 @@ describe('Route', () => {
   
     assert.deepEqual(
       path.regexp.exec('/foo/doc.42341.en-NZ.html')?.groups,
-      { xxx: 'doc', rev: '42341', languageCode: 'en-NZ', fileExtension: 'html' },
+      { xxx: 'doc', rev: '42341', languageTag: 'en-NZ', fileExtension: 'html' },
     );
   });
 });

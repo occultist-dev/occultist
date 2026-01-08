@@ -31,7 +31,7 @@ export class Scope<
   #public: boolean = true;
   #auth: AuthMiddleware | undefined;
   #propergateMeta: MetaPropatator;
-  #autoLanguageCodes: boolean;
+  #autoLanguageTags: boolean;
   #autoFileExtensions: boolean;
   
   constructor(
@@ -40,7 +40,7 @@ export class Scope<
     writer: HTTPWriter,
     propergateMeta: MetaPropatator,
     recordServerTiming: boolean,
-    autoLanguageCodes: boolean,
+    autoLanguageTags: boolean,
     autoFileExtensions: boolean,
   ) {
     this.#path = path;
@@ -49,7 +49,7 @@ export class Scope<
     this.#http = new HTTP<State>(this);
     this.#propergateMeta = propergateMeta;
     this.#recordServerTiming = recordServerTiming;
-    this.#autoLanguageCodes = autoLanguageCodes;
+    this.#autoLanguageTags = autoLanguageTags;
     this.#autoFileExtensions = autoFileExtensions;
   }
 
@@ -111,7 +111,7 @@ export class Scope<
       this.#registry,
       this.#writer,
       this,
-      args?.autoLanguageCodes ?? args?.autoRouteParams ?? this.#autoLanguageCodes,
+      args?.autoLanguageTags ?? args?.autoRouteParams ?? this.#autoLanguageTags,
       args?.autoFileExtensions ?? args?.autoRouteParams ?? this.#autoFileExtensions,
       this.#recordServerTiming,
     );

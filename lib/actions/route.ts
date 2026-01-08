@@ -1,7 +1,7 @@
 import { makeURLPattern } from "../utils/makeURLPattern.ts";
 
 const paramsRe = /((?<s>[^\{\}]+)|({(?<t>[\?\#\.])?(?<v>[^}]+)}))/g
-const languageCodeReStr = '(?:\\.(?<languageCode>[a-zA-Z0-9][a-zA-Z0-9\\-]+))';
+const languageTagReStr = '(?:\\.(?<languageTag>[a-zA-Z0-9][a-zA-Z0-9\\-]+))';
 const fileExtensionReStr = '(?:\\.(?<fileExtension>[a-z][a-zA-Z0-9\\-]+))';
 
 
@@ -28,18 +28,18 @@ export class Route {
   #pathKeys: Set<string> = new Set();
   #queryKeys: Set<string> = new Set();
   #fragmentKeys: Set<string> = new Set();
-  #autoLanguageCode: boolean;
+  #autoLanguageTag: boolean;
   #autoFileExtension: boolean;
 
   constructor(
     template: string,
     rootURL: string,
-    autoLanguageCode: boolean,
+    autoLanguageTag: boolean,
     autoFileExtension: boolean,
   ) {
     this.#template = template;
     this.#rootURL = rootURL;
-    this.#autoLanguageCode = autoLanguageCode;
+    this.#autoLanguageTag = autoLanguageTag;
     this.#autoFileExtension = autoFileExtension;
 
     [this.#pattern, this.#normalized] = this.#makePatterns()
@@ -140,9 +140,9 @@ export class Route {
       if (type != null && type !== '.' && !foundQueryOrFragment) {
         foundQueryOrFragment = true;
 
-        if (this.#autoLanguageCode && this.#autoFileExtension) {
-          regexpStr += `(${languageCodeReStr}?${fileExtensionReStr})?`
-          template += '{.languageCode,fileExtension}';
+        if (this.#autoLanguageTag && this.#autoFileExtension) {
+          regexpStr += `(${languageTagReStr}?${fileExtensionReStr})?`
+          template += '{.languageTag,fileExtension}';
         } else if (this.#autoFileExtension) {
           regexpStr += fileExtensionReStr + '?';
           template += '{.fileExtension}';
@@ -177,10 +177,10 @@ export class Route {
     }
 
     if (!foundQueryOrFragment) {
-      if (this.#autoLanguageCode && this.#autoFileExtension) {
-        regexpStr += `(${languageCodeReStr}?${fileExtensionReStr})`
-        template += '{.languageCode,fileExtension}';
-        this.#pathKeys.add('languageCode');
+      if (this.#autoLanguageTag && this.#autoFileExtension) {
+        regexpStr += `(${languageTagReStr}?${fileExtensionReStr})`
+        template += '{.languageTag,fileExtension}';
+        this.#pathKeys.add('languageTag');
         this.#pathKeys.add('fileExtension');
       } else if (this.#autoFileExtension) {
         regexpStr += fileExtensionReStr;

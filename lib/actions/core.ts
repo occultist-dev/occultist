@@ -47,7 +47,7 @@ export class MiddlewareRefs<
   headers: Headers;
   handler?: HandlerDefinition<State, Auth, Spec>;
   contentType: string | null;
-  languageCode: string | null;
+  languageTag: string | null;
   writer: HTTPWriter;
   req: Request;
   recordServerTiming: boolean; 
@@ -59,13 +59,13 @@ export class MiddlewareRefs<
     req: Request,
     writer: HTTPWriter,
     contentType: string | null,
-    languageCode: string | null,
+    languageTag: string | null,
     prevTime: number | null,
   ) {
     this.req = req;
     this.writer = writer;
     this.contentType = contentType;
-    this.languageCode = languageCode;
+    this.languageTag = languageTag;
     this.prevTime = prevTime;
     this.headers = new Headers();
   }
@@ -109,7 +109,7 @@ export class ActionCore<
   cacheOccurance: 0 | 1 = BeforeDefinition;
   auth?: AuthMiddleware<Auth>;
   cache: CacheInstanceArgs[] = [];
-  autoLanguageCodes: boolean;
+  autoLanguageTags: boolean;
   autoFileExtensions: boolean;
   recordServerTiming: boolean;
 
@@ -121,7 +121,7 @@ export class ActionCore<
     registry: Registry,
     writer: HTTPWriter,
     scope: Scope | undefined,
-    autoLanguageCodes: boolean,
+    autoLanguageTags: boolean,
     autoFileExtensions: boolean,
     recordServerTiming: boolean | undefined,
   ) {
@@ -136,10 +136,10 @@ export class ActionCore<
     this.route = new Route(
       uriTemplate,
       rootIRI,
-      autoLanguageCodes,
+      autoLanguageTags,
       autoFileExtensions,
     );
-    this.autoLanguageCodes = autoLanguageCodes;
+    this.autoLanguageTags = autoLanguageTags;
     this.autoFileExtensions = autoFileExtensions;
     this.recordServerTiming = recordServerTiming ?? false;
   }
@@ -194,7 +194,7 @@ export class ActionCore<
       if (found) {
         return new CacheDescriptor(
           contentType,
-          cacheCtx.languageCode,
+          cacheCtx.languageTag,
           this.action,
           req,
           this.cache[i],
@@ -385,7 +385,7 @@ export class ActionCore<
       refs.handlerCtx = new Context<State, Auth, Spec>({
         req: refs.req,
         contentType: refs.contentType,
-        languageCode: refs.languageCode,
+        languageTag: refs.languageTag,
         public: this.public && refs.authKey == null,
         auth: refs.auth,
         authKey: refs.authKey,
@@ -423,7 +423,7 @@ export class ActionCore<
       refs.cacheCtx = new CacheContext({
         req: refs.req,
         contentType: refs.contentType,
-        languageCode: refs.languageCode,
+        languageTag: refs.languageTag,
         public: this.public && refs.authKey == null,
         cacheOperation: refs.cacheOperation,
         auth: refs.auth,

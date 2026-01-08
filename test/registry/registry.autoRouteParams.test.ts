@@ -57,9 +57,9 @@ const xmlFr = `\
 
 function enOrFr(enValue: string, frValue: string): HandlerFn {
   return (ctx) => {
-    if (ctx.languageCode === 'en-NZ' || ctx.languageCode === 'en') {
+    if (ctx.languageTag === 'en-NZ' || ctx.languageTag === 'en') {
       ctx.body = enValue;
-    } else if (ctx.languageCode === 'fr') {
+    } else if (ctx.languageTag === 'fr') {
       ctx.body = frValue;
     } else {
       ctx.body = enValue;
@@ -145,7 +145,7 @@ describe('Registry({ autoRouteParams })', () => {
     assert.equal(await r5.text(), xmlEn);
   });
 
-  it('Adds the language code to the context if the language param is used', async () => {
+  it('Adds the language tag to the context if the language param is used', async () => {
     const { registry } = makeRegistry();
 
     const [

@@ -13,7 +13,7 @@ export type ActionAcceptMatch = {
   type: 'match';
   action: ImplementedAction;
   contentType?: string;
-  languageCode?: string;
+  languageTag?: string;
   encoding?: string;
 };
 
@@ -32,7 +32,7 @@ export class ActionSet {
   #contentTypeActionMap: Map<string, ImplementedAction>;
   #extensionMap: Map<string, string> = new Map();
   #ctc: ContentTypeCache;
-  #autoLanguageCodes: boolean;
+  #autoLanguageTags: boolean;
 
   constructor(
     rootIRI: string,
@@ -48,7 +48,7 @@ export class ActionSet {
       this.#contentTypeActionMap,
       this.#extensionMap,
       this.#ctc,
-      this.#autoLanguageCodes,
+      this.#autoLanguageTags,
     ] = this.#process(
       meta,
       reverseExtensions,
@@ -57,8 +57,9 @@ export class ActionSet {
     if (this.#extensionMap.size > 0) {
       path += ':auto1(\\.[\\w\\-]+)?';
 
-      if (this.#autoLanguageCodes) {
-        path += ':auto2(\\.[\\w\\-]+)?';
+      // language tags are only enabled if file extensions are
+      if (this.#autoLanguageTags) {
+        path += ':auto2(\\.[a-zA-Z0-9\\-]+)?';
       }
     }
 
@@ -85,10 +86,10 @@ export class ActionSet {
     }
 
     let contentType: string;
-    let languageCode: string;
+    let languageTag: string;
 
     if (res.pathname.groups.auto1 != null && res.pathname.groups.auto2 != null) {
-      languageCode = res.pathname.groups.auto1.replace('.', '');
+      languageTag = res.pathname.groups.auto1.replace('.', '');
       const fileExtension = res.pathname.groups.auto2.replace('.', '');
 
       contentType = this.#extensionMap.get(fileExtension);
@@ -116,7 +117,7 @@ export class ActionSet {
         type: 'match',
         action,
         contentType,
-        languageCode,
+        languageTag,
       };
     }
 
@@ -130,9 +131,9 @@ export class ActionSet {
     contentTypeActionMap: Map<string, ImplementedAction>,
     extensionMap: Map<string, string>,
     ctc: ContentTypeCache,
-    autoLanguageCodes: boolean,
+    autoLanguageTags: boolean,
   ] {
-    let autoLanguageCodes: boolean = false;
+    let autoLanguageTags: boolean = false;
     const contentTypes: string[] = [];
     const contentTypeActionMap: Map<string, ImplementedAction> = new Map();
     const extensionMap: Map<string, string> = new Map();
@@ -148,8 +149,8 @@ export class ActionSet {
         contentTypes.push(contentType);
         contentTypeActionMap.set(contentType, action);
 
-        if (!autoLanguageCodes && meta[i].autoLanguageCodes) {
-          autoLanguageCodes = true;
+        if (!autoLanguageTags && meta[i].autoLanguageTags) {
+          autoLanguageTags = true;
         }
 
         if (meta[i].autoFileExtensions &&
@@ -164,7 +165,7 @@ export class ActionSet {
       contentTypeActionMap,
       extensionMap,
       new ContentTypeCache(contentTypes),
-      autoLanguageCodes,
+      autoLanguageTags,
     ];
   }
 }

@@ -131,15 +131,15 @@ export type RegistryArgs = {
   extensions?: Record<string, string>;
 
  /**
-  * Enables language code and file extension route params for all actions
+  * Enables language tag and file extension route params for all actions
   * in this registry.
   */
   autoRouteParams?: boolean;
 
  /**
-  * Enables the language code route param for all actions.
+  * Enables the language tag route param for all actions.
   */
-  autoLanguageCodes?: boolean;
+  autoLanguageTags?: boolean;
 
  /**
   * Enables the file extension route param for all actions.
@@ -203,14 +203,14 @@ export type RegistryArgs = {
  *   Enabling server timing can leak information and is not recommended for
  *   production environments.
  *
- * @param args.autoRouteParams Enables language code and file extension route
+ * @param args.autoRouteParams Enables language tag and file extension route
  *   params for all actions in this registry. When enabled all actions will
- *   have `{.languageCode,fileExtension}` added to the pathname part of their
+ *   have `{.languageTag,fileExtension}` added to the pathname part of their
  *   route's URI template as optional parameters. If an action is called using
  *   these parameters the URI value takes precedence over the related accept
  *   header.
  *
- * @param args.autoLanguageCodes Enables the language code route param for all
+ * @param args.autoLanguageTags Enables the language tag route param for all
  *   actions.
  *
  * @param args.autoFileExtensions Enables the file extension route param for
@@ -225,7 +225,7 @@ export class Registry<
   #rootIRI: string;
   #recordServerTiming: boolean;
   #cacheHitHeader: CacheHitHeader;
-  #autoLanguageCodes: boolean;
+  #autoLanguageTags: boolean;
   #autoFileExtensions: boolean;
   #fileExtensions: Map<string, string> = new Map();
   #reverseExtensions: Map<string, string> = new Map();
@@ -247,7 +247,7 @@ export class Registry<
     this.#rootIRI = args.rootIRI;
     this.#path = url.pathname;
     this.#recordServerTiming = args.serverTiming ?? false;
-    this.#autoLanguageCodes = args.autoLanguageCodes ?? args.autoRouteParams ?? false;
+    this.#autoLanguageTags = args.autoLanguageTags ?? args.autoRouteParams ?? false;
     this.#autoFileExtensions = args.autoFileExtensions ?? args.autoRouteParams ?? false;
     this.#cacheHitHeader = args.cacheHitHeader ?? false;
     this.#http = new HTTP<State>(this);
@@ -265,7 +265,7 @@ export class Registry<
       this.#writer,
       (meta) => this.#children.push(meta),
       this.#recordServerTiming,
-      this.#autoLanguageCodes,
+      this.#autoLanguageTags,
       this.#autoFileExtensions,
     );
 
@@ -431,7 +431,7 @@ export class Registry<
       this,
       this.#writer,
       undefined,
-      args?.autoLanguageCodes ?? args?.autoRouteParams ?? this.#autoLanguageCodes,
+      args?.autoLanguageTags ?? args?.autoRouteParams ?? this.#autoLanguageTags,
       args?.autoFileExtensions ?? args?.autoRouteParams ?? this.#autoFileExtensions,
       this.#recordServerTiming,
     );
@@ -581,7 +581,7 @@ export class Registry<
       wrapped,
       writer,
       match.contentType,
-      match.languageCode,
+      match.languageTag,
       startTime,
     );
 
@@ -628,7 +628,7 @@ export class Registry<
       wrapped,
       writer,
       match.contentType,
-      match.languageCode,
+      match.languageTag,
       startTime,
     );
 
@@ -668,7 +668,7 @@ export class Registry<
       wrapped,
       writer,
       match.contentType,
-      match.languageCode,
+      match.languageTag,
       null,
     );
 
@@ -762,7 +762,7 @@ export class Registry<
           wrapped,
           writer,
           match.contentType,
-          match.languageCode,
+          match.languageTag,
           startTime,
         );
 
