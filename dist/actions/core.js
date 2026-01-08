@@ -3,7 +3,7 @@ import { ProblemDetailsError } from "../errors.js";
 import { processAction } from "../processAction.js";
 import { joinPaths } from "../utils/joinPaths.js";
 import { CacheContext, Context } from "./context.js";
-import { Path } from "./path.js";
+import { Route } from "./route.js";
 const safeMethods = new Set([
     'OPTIONS',
     'HEAD',
@@ -29,16 +29,18 @@ export class MiddlewareRefs {
     headers;
     handler;
     contentType;
+    languageTag;
     writer;
     req;
     recordServerTiming;
     prevTime;
     serverTimes = [];
     cacheHitHeader;
-    constructor(req, writer, contentType, prevTime) {
+    constructor(req, writer, contentType, languageTag, prevTime) {
         this.req = req;
         this.writer = writer;
         this.contentType = contentType;
+        this.languageTag = languageTag;
         this.prevTime = prevTime;
         this.headers = new Headers();
     }
@@ -59,12 +61,12 @@ export class MiddlewareRefs {
 export class ActionCore {
     rootIRI;
     method;
-    isSafe = false;
+    isSafe;
     name;
     uriTemplate;
     public = false;
     authKey;
-    path;
+    route;
     hints = [];
     transformers = new Map();
     scope;
@@ -76,8 +78,10 @@ export class ActionCore {
     cacheOccurance = BeforeDefinition;
     auth;
     cache = [];
-    recordServerTiming = false;
-    constructor(rootIRI, method, name, uriTemplate, registry, writer, scope) {
+    autoLanguageTags;
+    autoFileExtensions;
+    recordServerTiming;
+    constructor(rootIRI, method, name, uriTemplate, registry, writer, scope, autoLanguageTags, autoFileExtensions, recordServerTiming) {
         this.rootIRI = rootIRI;
         this.method = method.toUpperCase();
         this.isSafe = safeMethods.has(this.method);
@@ -86,7 +90,10 @@ export class ActionCore {
         this.registry = registry;
         this.writer = writer;
         this.scope = scope;
-        this.path = new Path(uriTemplate, rootIRI);
+        this.route = new Route(uriTemplate, rootIRI, autoLanguageTags, autoFileExtensions);
+        this.autoLanguageTags = autoLanguageTags;
+        this.autoFileExtensions = autoFileExtensions;
+        this.recordServerTiming = recordServerTiming ?? false;
     }
     /**
      * Called when the API is defined to compute all uncomputed values.
@@ -134,7 +141,7 @@ export class ActionCore {
                 found = when(cacheCtx);
             }
             if (found) {
-                return new CacheDescriptor(contentType, this.action, req, this.cache[i]);
+                return new CacheDescriptor(contentType, cacheCtx.languageTag, this.action, req, this.cache[i]);
             }
         }
         return null;
@@ -276,6 +283,7 @@ export class ActionCore {
             refs.handlerCtx = new Context({
                 req: refs.req,
                 contentType: refs.contentType,
+                languageTag: refs.languageTag,
                 public: this.public && refs.authKey == null,
                 auth: refs.auth,
                 authKey: refs.authKey,
@@ -307,6 +315,7 @@ export class ActionCore {
             refs.cacheCtx = new CacheContext({
                 req: refs.req,
                 contentType: refs.contentType,
+                languageTag: refs.languageTag,
                 public: this.public && refs.authKey == null,
                 cacheOperation: refs.cacheOperation,
                 auth: refs.auth,
@@ -340,7 +349,9 @@ export class ActionCore {
         if (this.hints.length !== 0) {
             const downstream = refs.next;
             refs.next = async () => {
-                await Promise.all(this.hints.map((hint) => refs.writer.writeEarlyHints(hint)));
+                for (let i = 0; i < this.hints.length; i++) {
+                    refs.writer.writeEarlyHints(this.hints[i]);
+                }
                 await downstream();
             };
         }

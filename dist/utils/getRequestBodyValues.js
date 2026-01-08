@@ -5,6 +5,8 @@ export async function getRequestBodyValues({ req, action, }) {
     const contentType = req.headers.get('content-type');
     const mappedTypes = Object.entries(action.spec)
         .reduce((acc, [term, propertySpec]) => {
+        if (propertySpec.typeDef == null)
+            return acc;
         return {
             ...acc,
             [propertySpec.typeDef.term]: {

@@ -12,7 +12,7 @@ function makeRegistry() {
   });
   const cache = new MemoryCache(registry);
 
-  registry.http.get('root', '/')
+  registry.http.get('/')
     .public()
     .cache(cache.store())
     .handle('text/plain', 'Hello, World!')
@@ -26,21 +26,21 @@ function makeRegistry() {
       </html>
     `);
 
-  registry.http.get('public', '/public')
+  registry.http.get('/public')
     .public()
     .cache(cache.store())
     .handle('text/plain', (ctx) => {
       ctx.body = `PUBLIC`;
     });
 
-  registry.http.get('open', '/open')
+  registry.http.get('/open')
     .public(testAuthMiddleware)
     .cache(cache.store())
     .handle('text/plain', (ctx) => {
       ctx.body = `OPEN(${ctx.authKey ?? 'unauthenticated'})`;
     });
 
-  registry.http.get('private', '/private')
+  registry.http.get('/private')
     .private(testAuthMiddleware)
     .cache(cache.store())
     .handle('text/plain', (ctx) => {
@@ -124,7 +124,7 @@ describe('InMemoryCache', () => {
   it('does not lock parallel requests when locking not enabled', async () => {
     const { registry, cache } = makeRegistry();
 
-    registry.http.get('lockable', '/lockable')
+    registry.http.get('/lockable')
       .public()
       .cache(cache.store())
       .handle('text/plain', async (ctx) => {
@@ -147,7 +147,7 @@ describe('InMemoryCache', () => {
   it('locks parallel requests when locking is enabled', async () => {
     const { registry, cache } = makeRegistry();
 
-    registry.http.get('lockable', '/lockable')
+    registry.http.get('/lockable')
       .public()
       .cache(cache.store({ lock: true }))
       .handle('text/plain', async (ctx) => {
@@ -170,7 +170,7 @@ describe('InMemoryCache', () => {
   it('responds correctly when the cache is flushed between responses', async () => {
     const { registry, cache } = makeRegistry();
 
-    registry.http.get('not-lockable', '/not-lockable')
+    registry.http.get('/not-lockable')
       .public()
       .cache(cache.store())
       .handle('text/plain', async (ctx) => {
@@ -179,7 +179,7 @@ describe('InMemoryCache', () => {
         ctx.body = `LOCK`;
       });
 
-    registry.http.get('lockable', '/lockable')
+    registry.http.get('/lockable')
       .public()
       .cache(cache.store({ lock: true }))
       .handle('text/plain', async (ctx) => {

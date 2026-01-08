@@ -1,27 +1,34 @@
+import { IncomingMessage, type ServerResponse } from "node:http";
 import { Accept } from "./accept.ts";
 import { ActionAuth, HandlerDefinition } from "./actions/actions.ts";
 import { type ActionMatchResult, ActionSet } from "./actions/actionSets.ts";
+import type { ContextState, Merge, Middleware } from "./actions/spec.ts";
 import type { CacheHitHeader, ImplementedAction } from "./actions/types.ts";
 import { Scope } from './scopes.ts';
-import { IncomingMessage, type ServerResponse } from "node:http";
-import type { Merge } from "./actions/spec.ts";
-import type { ContextState, Middleware } from "./actions/spec.ts";
+import type { EndpointArgs, Extension, StaticAssetExtension } from "./types.ts";
 import { type CacheOperationResult } from "./mod.ts";
-import type { Extension, StaticExtension } from "./types.ts";
+export declare const defaultFileExtensions: {
+    readonly txt: "text/plain";
+    readonly html: "text/html";
+    readonly js: "application/javascript";
+    readonly json: "application/json";
+    readonly svg: "application/svg+xml";
+    readonly xml: "application/xml";
+};
 export interface Callable<State extends ContextState = ContextState> {
-    method(method: string, name: string, path: string): ActionAuth<State>;
+    endpoint(method: string, path: string, args: EndpointArgs): ActionAuth<State>;
 }
 export declare class HTTP<State extends ContextState = ContextState> {
     #private;
     constructor(callable: Callable<State>);
-    options(name: string, path: string): ActionAuth<State>;
-    head(name: string, path: string): ActionAuth<State>;
-    get(name: string, path: string): ActionAuth<State>;
-    put(name: string, path: string): ActionAuth<State>;
-    patch(name: string, path: string): ActionAuth<State>;
-    post(name: string, path: string): ActionAuth<State>;
-    delete(name: string, path: string): ActionAuth<State>;
-    query(name: string, path: string): ActionAuth<State>;
+    options(path: string, args?: EndpointArgs): ActionAuth<State>;
+    head(path: string, args?: EndpointArgs): ActionAuth<State>;
+    get(path: string, args?: EndpointArgs): ActionAuth<State>;
+    put(path: string, args?: EndpointArgs): ActionAuth<State>;
+    patch(path: string, args?: EndpointArgs): ActionAuth<State>;
+    post(path: string, args?: EndpointArgs): ActionAuth<State>;
+    delete(path: string, args?: EndpointArgs): ActionAuth<State>;
+    query(path: string, args?: EndpointArgs): ActionAuth<State>;
 }
 export type IndexMatchArgs = {
     debug?: boolean;
@@ -46,6 +53,24 @@ export type RegistryArgs = {
      * Enables adding server timing headers to the response.
      */
     serverTiming?: boolean;
+    /**
+     * Map of file extensions to their content types. Used by the auto route file extensions
+     * feature to pick the related action for a given file extension.
+     */
+    extensions?: Record<string, string>;
+    /**
+     * Enables language tag and file extension route params for all actions
+     * in this registry.
+     */
+    autoRouteParams?: boolean;
+    /**
+     * Enables the language tag route param for all actions.
+     */
+    autoLanguageTags?: boolean;
+    /**
+     * Enables the file extension route param for all actions.
+     */
+    autoFileExtensions?: boolean;
 };
 /**
  * All actions of an Occultist based API are created through an action registry.
@@ -101,6 +126,19 @@ export type RegistryArgs = {
  *   add these values to their network performance charts.
  *   Enabling server timing can leak information and is not recommended for
  *   production environments.
+ *
+ * @param args.autoRouteParams Enables language tag and file extension route
+ *   params for all actions in this registry. When enabled all actions will
+ *   have `{.languageTag,fileExtension}` added to the pathname part of their
+ *   route's URI template as optional parameters. If an action is called using
+ *   these parameters the URI value takes precedence over the related accept
+ *   header.
+ *
+ * @param args.autoLanguageTags Enables the language tag route param for all
+ *   actions.
+ *
+ * @param args.autoFileExtensions Enables the file extension route param for
+ *   all actions.
  */
 export declare class Registry<State extends ContextState = ContextState> implements Callable<State> {
     #private;
@@ -146,11 +184,8 @@ export declare class Registry<State extends ContextState = ContextState> impleme
      * @param name   Name for the action being produced.
      * @param path   Path the action responds to.
      */
-    method(method: string, name: string, path: string): ActionAuth<State>;
+    endpoint(method: string, path: string, args?: EndpointArgs): ActionAuth<State>;
     use<const MiddlewareState extends ContextState = ContextState>(middleware: Middleware<MiddlewareState>): Registry<Merge<State, MiddlewareState>>;
-    /**
-     *
-     */
     finalize(): void;
     /**
      * Matches a request against the action configured to handle
@@ -255,7 +290,7 @@ export declare class Registry<State extends ContextState = ContextState> impleme
      * @param staticAlias A static alias used to create paths to files served
      *   by the static extension.
      */
-    getStaticExtension(staticAlias: string): StaticExtension | undefined;
+    getStaticExtension(staticAlias: string): StaticAssetExtension | undefined;
     /**
      * Registers an Occultist extension. This is usually done
      * by extensions when they are created.

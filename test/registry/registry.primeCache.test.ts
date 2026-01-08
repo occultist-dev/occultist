@@ -23,7 +23,7 @@ describe('registry.primeCache()', () => {
     let hitCount = 0;
     const { registry, cache } = await makeRegistry();
 
-    registry.http.get('cachable', '/cacheable')
+    registry.http.get('/cacheable')
       .public()
       .cache(cache.store())
       .handle('text/plain', (ctx) => {
@@ -48,7 +48,7 @@ describe('registry.primeCache()', () => {
     let hitCount = 0;
     const { registry, cache } = await makeRegistry();
 
-    registry.http.post('cachable', '/cacheable')
+    registry.http.post('/cacheable')
       .public()
       .cache(cache.store({ semantics: 'get' }))
       .handle('text/plain', (ctx) => {
@@ -77,7 +77,7 @@ describe('registry.primeCache()', () => {
     let cacheRun2: boolean;
     let cacheOp2: CacheOperation;
 
-    registry.http.get('cachable-1', '/cacheable-1')
+    registry.http.get('/cacheable-1')
       .public()
       .cache(cache.store())
       .handle('text/plain', (ctx) => {
@@ -86,7 +86,7 @@ describe('registry.primeCache()', () => {
         ctx.body = 'Cacheable';
       });
 
-    registry.http.get('cachable-2', '/cacheable-2')
+    registry.http.get('/cacheable-2')
       .public()
       .cache(cache.store())
       .handle('text/plain', (ctx) => {

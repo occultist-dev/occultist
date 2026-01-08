@@ -60,9 +60,7 @@ export class ResponseWriter {
             this.#headers.append('Link', links.join(', '));
         }
         else {
-            return new Promise((resolve) => {
-                this.#res.writeEarlyHints({ 'Link': links.join(', ') }, resolve);
-            });
+            this.#res.writeEarlyHints({ 'Link': links.join(', ') });
         }
     }
     mergeHeaders(headersInit) {

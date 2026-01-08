@@ -30,7 +30,7 @@ const safeSemantics = new Set([
  * @param httpMethod The method the action accepts.
  * @param requestURL The url of the request.
  * @param contentType The negotiated content type of the response.
- * @param languageCode The negotiated language of the response.
+ * @param languageTag The negotiated language of the response.
  * @param encoding The negotiated encoding of the response.
  * @param requestHeaders The request headers.
  * @param authKey The auth key produced by the action's auth middleware.
@@ -39,7 +39,7 @@ const safeSemantics = new Set([
  * @param cacheVary String separated header names to vary on.
  * @returns A unique cache key for the response.
  */
-export function makeCacheKey(httpMethod, requestURL, contentType, languageCode, encoding, requestHeaders, authKey, publicWhenAuthenticated, cacheVersion, cacheVary) {
+export function makeCacheKey(httpMethod, requestURL, contentType, languageTag, encoding, requestHeaders, authKey, publicWhenAuthenticated, cacheVersion, cacheVary) {
     if (cacheVersion != null && (typeof cacheVersion !== 'number' ||
         cacheVersion < 0)) {
         throw new Error('Invalid version');
@@ -72,11 +72,11 @@ export function makeCacheKey(httpMethod, requestURL, contentType, languageCode, 
     }
     key += '|' + encodeURIComponent(contentType.toLowerCase());
     key += '|' + encodeURI(requestURL);
-    if (languageCode == null || languageCode.trim() === '') {
+    if (languageTag == null || languageTag.trim() === '') {
         key += '|';
     }
     else {
-        key += '|' + encodeURIComponent(languageCode.toLowerCase());
+        key += '|' + encodeURIComponent(languageTag.toLowerCase());
     }
     if (encoding == null || encoding.trim() === '') {
         key += '|';
@@ -166,14 +166,16 @@ export class Cache {
  */
 export class CacheDescriptor {
     contentType;
+    languageTag;
     semantics;
     action;
     req;
     args;
     safe;
     lock;
-    constructor(contentType, action, req, args) {
+    constructor(contentType, languageTag, action, req, args) {
         this.contentType = contentType;
+        this.languageTag = languageTag;
         this.semantics = args.semantics ?? req.method.toLowerCase();
         this.action = action;
         this.req = req;
@@ -280,11 +282,11 @@ export class CacheMiddleware {
         }
         const args = descriptor.args;
         const cache = args.cache;
-        const key = makeCacheKey(ctx.method, ctx.req.url, ctx.contentType, null, null, ctx.req.headers, ctx.authKey ?? null, descriptor.args.public ?? false, descriptor.args.version ?? null, descriptor.args.vary);
+        const key = makeCacheKey(ctx.method, ctx.req.url, ctx.contentType, ctx.languageTag, null, ctx.req.headers, ctx.authKey ?? null, descriptor.args.public ?? false, descriptor.args.version ?? null, descriptor.args.vary);
         await cache.invalidate(key, ctx.url);
     }
     async #useEtag(descriptor, ctx, next) {
-        const key = makeCacheKey(ctx.method, ctx.req.url, ctx.contentType, null, null, ctx.req.headers, ctx.authKey ?? null, descriptor.args.public ?? false, descriptor.args.version ?? null, descriptor.args.vary);
+        const key = makeCacheKey(ctx.method, ctx.req.url, ctx.contentType, ctx.languageTag, null, ctx.req.headers, ctx.authKey ?? null, descriptor.args.public ?? false, descriptor.args.version ?? null, descriptor.args.vary);
         const rules = new EtagConditions(ctx.req.headers);
         const resourceState = await descriptor.args.cache.meta.get(key);
         if (resourceState.type === 'cache-hit') {
@@ -300,7 +302,7 @@ export class CacheMiddleware {
         await next();
     }
     async #useStore(descriptor, ctx, next) {
-        const key = makeCacheKey(ctx.method, ctx.req.url, ctx.contentType, null, null, ctx.req.headers, ctx.authKey ?? null, descriptor.args.public ?? false, descriptor.args.version ?? null, descriptor.args.vary);
+        const key = makeCacheKey(ctx.method, ctx.req.url, ctx.contentType, ctx.languageTag, null, ctx.req.headers, ctx.authKey ?? null, descriptor.args.public ?? false, descriptor.args.version ?? null, descriptor.args.vary);
         let resourceState;
         const args = descriptor.args;
         const cache = args.cache;

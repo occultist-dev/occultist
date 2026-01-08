@@ -4,7 +4,7 @@ import { ActionCore } from "./actions/core.js";
 import { HTTP } from "./registry.js";
 export class Scope {
     #path;
-    #serverTiming = false;
+    #recordServerTiming;
     #registry;
     #writer;
     #http;
@@ -12,13 +12,17 @@ export class Scope {
     #public = true;
     #auth;
     #propergateMeta;
-    constructor({ path, serverTiming, registry, writer, propergateMeta, }) {
+    #autoLanguageTags;
+    #autoFileExtensions;
+    constructor(path, registry, writer, propergateMeta, recordServerTiming, autoLanguageTags, autoFileExtensions) {
         this.#path = path;
-        this.#serverTiming = serverTiming;
         this.#registry = registry;
         this.#writer = writer;
         this.#http = new HTTP(this);
         this.#propergateMeta = propergateMeta;
+        this.#recordServerTiming = recordServerTiming;
+        this.#autoLanguageTags = autoLanguageTags;
+        this.#autoFileExtensions = autoFileExtensions;
     }
     get path() {
         return this.#path;
@@ -33,7 +37,7 @@ export class Scope {
         return this.#children
             .filter((meta) => {
             if (meta.action == null) {
-                console.warn(`Action ${meta.method}: ${meta.path} not fully implemented before processing`);
+                console.warn(`Action ${meta.method}: ${meta.route} not fully implemented before processing`);
             }
             return meta.action != null;
         })
@@ -53,17 +57,16 @@ export class Scope {
         return this;
     }
     /**
-     * Creates any HTTP method.
+     * Creates an action for any HTTP method.
      *
-     * @param method The HTTP method.
+     * @param method The HTTP method name.
      * @param name   Name for the action being produced.
      * @param path   Path the action responds to.
      */
-    method(method, name, path) {
-        const meta = new ActionCore(this.#registry.rootIRI, method.toUpperCase(), name, path, this.#registry, this.#writer, this);
-        meta.recordServerTiming = this.#serverTiming;
+    endpoint(method, path, args) {
+        const meta = new ActionCore(this.registry.rootIRI, method, args?.name, path, this.#registry, this.#writer, this, args?.autoLanguageTags ?? args?.autoRouteParams ?? this.#autoLanguageTags, args?.autoFileExtensions ?? args?.autoRouteParams ?? this.#autoFileExtensions, this.#recordServerTiming);
+        meta.recordServerTiming = this.#recordServerTiming;
         this.#children.push(meta);
-        this.#propergateMeta(meta);
         return new ActionAuth(meta);
     }
     url() {
@@ -87,14 +90,14 @@ export class Scope {
             partials[partial['@type']] = partial;
         }
         if (this.#public) {
-            this.#registry.http.get('scope', this.#path)
+            this.#registry.http.get(this.#path)
                 .public()
                 .handle('application/ld+json', (ctx) => {
                 ctx.body = JSON.stringify(partials);
             });
         }
         else {
-            this.#registry.http.get('scope', this.#path)
+            this.#registry.http.get(this.#path)
                 .public()
                 .handle('application/ld+json', (ctx) => {
                 ctx.body = JSON.stringify(partials);
@@ -106,14 +109,14 @@ export class Scope {
                 continue;
             }
             if (this.#public) {
-                this.#registry.http.get('scope-action', joinPaths(this.url(), action.name))
+                this.#registry.http.get(joinPaths(this.url(), action.name))
                     .public(this.#auth)
                     .handle('application/ld+json', async (ctx) => {
                     ctx.body = JSON.stringify(await action.jsonld());
                 });
             }
             else {
-                this.#registry.http.get('scope-action', joinPaths(this.url(), action.name))
+                this.#registry.http.get(joinPaths(this.url(), action.name))
                     .private(this.#auth)
                     .handle('application/ld+json', async (ctx) => {
                     ctx.body = JSON.stringify(await action.jsonld());

@@ -9,7 +9,7 @@ export type ActionAcceptMatch = {
     type: 'match';
     action: ImplementedAction;
     contentType?: string;
-    language?: string;
+    languageTag?: string;
     encoding?: string;
 };
 export type ActionMatchResult = UnsupportedContentTypeMatch | ActionAcceptMatch;
@@ -18,6 +18,11 @@ export type ActionMatchResult = UnsupportedContentTypeMatch | ActionAcceptMatch;
  */
 export declare class ActionSet {
     #private;
-    constructor(rootIRI: string, method: string, path: string, meta: ActionCore[]);
+    constructor(rootIRI: string, method: string, path: string, meta: ActionCore[], reverseExtensions: Map<string, string>);
+    /**
+     * @param method HTTP method to match against.
+     * @param path The pathname of the request.
+     * @param accept The accept cache of th erequest.
+     */
     matches(method: string, path: string, accept: Accept): null | ActionMatchResult;
 }

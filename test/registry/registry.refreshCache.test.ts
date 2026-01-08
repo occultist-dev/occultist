@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
-import {Registry} from '../../lib/registry.ts';
+import {describe, it} from 'node:test';
 import {type CacheOperation, MemoryCache} from '../../lib/mod.ts';
+import {Registry} from '../../lib/registry.ts';
 
 
 async function makeRegistry() {
@@ -24,7 +24,7 @@ describe('registry.refreshCache()', () => {
     let hitCount = 0;
     const { registry, cache } = await makeRegistry();
 
-    registry.http.get('cachable', '/cacheable')
+    registry.http.get('/cacheable')
       .public()
       .cache(cache.store())
       .handle('text/plain', (ctx) => {
@@ -60,7 +60,7 @@ describe('registry.refreshCache()', () => {
     let hitCount = 0;
     const { registry, cache } = await makeRegistry();
 
-    registry.http.post('cachable', '/cacheable')
+    registry.http.post('/cacheable')
       .public()
       .cache(cache.store({ semantics: 'get' }))
       .handle('text/plain', (ctx) => {
@@ -95,12 +95,12 @@ describe('registry.refreshCache()', () => {
   it('Sets the context cache run flag', async () => {
     const { registry, cache } = await makeRegistry();
 
-    let cacheRun1: boolean;
-    let cacheOp1: CacheOperation;
-    let cacheRun2: boolean;
-    let cacheOp2: CacheOperation;
+    let cacheRun1: boolean | undefined;
+    let cacheOp1: CacheOperation | undefined;
+    let cacheRun2: boolean | undefined;
+    let cacheOp2: CacheOperation | undefined;
 
-    registry.http.get('cachable-1', '/cacheable-1')
+    registry.http.get('/cacheable-1')
       .public()
       .cache(cache.store())
       .handle('text/plain', (ctx) => {
@@ -109,7 +109,7 @@ describe('registry.refreshCache()', () => {
         ctx.body = 'Cacheable';
       });
 
-    registry.http.get('cachable-2', '/cacheable-2')
+    registry.http.get('/cacheable-2')
       .public()
       .cache(cache.store())
       .handle('text/plain', (ctx) => {

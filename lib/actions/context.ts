@@ -19,6 +19,7 @@ export type CacheContextArgs<
 > = {
   req: Request;
   contentType: string;
+  languageTag: string | undefined;
   public: boolean;
   authKey?: string;
   auth: Auth;
@@ -39,7 +40,8 @@ export class CacheContext<
   req: Request;
   method: string;
   url: string;
-  contentType: string;
+  contentType?: string;
+  languageTag?: string;
   public: boolean;
   authKey: string | null;
   auth: Auth;
@@ -55,6 +57,7 @@ export class CacheContext<
     this.req = args.req;
     this.url = args.req.url;
     this.contentType = args.contentType;
+    this.languageTag = args.languageTag;
     this.public = args.public;
     this.authKey = args.authKey;
     this.auth = args.auth;
@@ -115,6 +118,7 @@ export type ContextArgs<
 > = {
   req: Request;
   contentType: string;
+  languageTag: string | undefined;
   public: boolean;
   authKey?: string;
   auth: Auth;
@@ -139,6 +143,7 @@ export class Context<
   method: string;
   url: string;
   contentType: string;
+  languageTag?: string;
   public: boolean = false
   authKey?: string;
   auth: Auth;
@@ -156,6 +161,7 @@ export class Context<
     this.req = args.req;
     this.url = args.req.url;
     this.contentType = args.contentType;
+    this.languageTag = args.languageTag;
     this.public = args.public;
     this.authKey = args.authKey;
     this.auth = args.auth;

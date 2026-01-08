@@ -7,6 +7,7 @@ import {getPropertyValueSpecifications} from "../utils/getPropertyValueSpecifica
 import {isPopulatedObject} from '../utils/isPopulatedObject.ts';
 import {joinPaths} from "../utils/joinPaths.ts";
 import {AfterDefinition, BeforeDefinition, MiddlewareRefs, type ActionCore} from "./core.ts";
+import {Route} from './route.ts';
 import type {ActionSpec, ContextState} from "./spec.ts";
 import type {AuthMiddleware, AuthState, HandlerFn, HandlerMeta, HandlerObj, HandlerValue, HintArgs, ImplementedAction} from './types.ts';
 import {type ResponseTypes} from './writer.ts';
@@ -38,7 +39,7 @@ export class HandlerDefinition<
   Auth extends AuthState = AuthState,
   Spec extends ActionSpec = ActionSpec,
 > {
-  name: string;
+  name?: string;
   contentType: string;
   handler: HandlerFn | HandlerValue;
   meta: HandlerMeta;
@@ -46,7 +47,7 @@ export class HandlerDefinition<
   cache: ReadonlyArray<CacheInstanceArgs>;
   
   constructor(
-    name: string,
+    name: string | undefined,
     contentType: string,
     handler: HandlerFn | HandlerValue,
     meta: HandlerMeta,
@@ -71,7 +72,7 @@ export class HandlerDefinition<
   }
 
   get [Symbol.toStringTag]() {
-    return `name=${this.name} contentType=${this.contentType}`;
+    return `name=${this.name ?? 'anon'} contentType=${this.contentType}`;
   }
 }
 
@@ -196,7 +197,7 @@ export class FinalizedAction<
     action: ImplementedAction,
     scope: Scope,
   ): Promise<JSONObject | null> {
-    if (scope == null || action.typeDef == null) {
+    if (scope == null || action.typeDef == null || action.name == null) {
       return null;
     }
 
@@ -236,7 +237,7 @@ export class FinalizedAction<
     return this.#typeDef;
   }
 
-  get name(): string {
+  get name(): string | undefined {
     return this.#core.name;
   }
 
@@ -244,8 +245,8 @@ export class FinalizedAction<
     return this.#core.uriTemplate;
   }
 
-  get pattern(): URLPattern {
-    return this.#core.path.pattern;
+  get route(): Route {
+    return this.#core.route;
   }
 
   get spec(): Spec {
@@ -277,7 +278,7 @@ export class FinalizedAction<
   }
  
   url(): string {
-    return joinPaths(this.#core.registry.rootIRI, this.#core.path.normalized);
+    return joinPaths(this.#core.registry.rootIRI, this.#core.route.normalized);
   }
 
   /**
@@ -466,7 +467,7 @@ export class DefinedAction<
     return this.#typeDef;
   }
 
-  get name(): string {
+  get name(): string | undefined {
     return this.#core.name;
   }
 
@@ -474,12 +475,12 @@ export class DefinedAction<
     return this.#core.uriTemplate;
   }
 
-  get pattern(): URLPattern {
-    return this.#core.path.pattern;
+  get route(): Route {
+    return this.#core.route;
   }
 
   get path(): string {
-    return this.#core.path.normalized;
+    return this.#core.route.normalized;
   }
 
   get spec(): Spec {
@@ -657,7 +658,7 @@ export class Action<
     return undefined;
   }
 
-  get name(): string {
+  get name(): string | undefined {
     return this.#core.name;
   }
 
@@ -665,13 +666,12 @@ export class Action<
     return this.#core.uriTemplate;
   }
 
-  get pattern(): URLPattern {
-    return this.#core.path.pattern;
+  get route(): Route {
+    return this.#core.route;
   }
 
-
   get path(): string {
-    return this.#core.path.normalized;
+    return this.#core.route.normalized;
   }
 
   get spec(): ActionSpec {

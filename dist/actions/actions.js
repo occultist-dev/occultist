@@ -31,7 +31,7 @@ export class HandlerDefinition {
         Object.freeze(this);
     }
     get [Symbol.toStringTag]() {
-        return `name=${this.name} contentType=${this.contentType}`;
+        return `name=${this.name ?? 'anon'} contentType=${this.contentType}`;
     }
 }
 export class FinalizedAction {
@@ -65,7 +65,7 @@ export class FinalizedAction {
         return new FinalizedAction(typeDef, spec, core, arg3);
     }
     static async toJSONLD(action, scope) {
-        if (scope == null || action.typeDef == null) {
+        if (scope == null || action.typeDef == null || action.name == null) {
             return null;
         }
         const apiSpec = await getPropertyValueSpecifications(action.spec);
@@ -103,8 +103,8 @@ export class FinalizedAction {
     get template() {
         return this.#core.uriTemplate;
     }
-    get pattern() {
-        return this.#core.path.pattern;
+    get route() {
+        return this.#core.route;
     }
     get spec() {
         return this.#spec;
@@ -129,7 +129,7 @@ export class FinalizedAction {
         });
     }
     url() {
-        return joinPaths(this.#core.registry.rootIRI, this.#core.path.normalized);
+        return joinPaths(this.#core.registry.rootIRI, this.#core.route.normalized);
     }
     /**
      * Retrives the handler configured for the given content type.
@@ -239,11 +239,11 @@ export class DefinedAction {
     get template() {
         return this.#core.uriTemplate;
     }
-    get pattern() {
-        return this.#core.path.pattern;
+    get route() {
+        return this.#core.route;
     }
     get path() {
-        return this.#core.path.normalized;
+        return this.#core.route.normalized;
     }
     get spec() {
         return this.#spec;
@@ -364,11 +364,11 @@ export class Action {
     get template() {
         return this.#core.uriTemplate;
     }
-    get pattern() {
-        return this.#core.path.pattern;
+    get route() {
+        return this.#core.route;
     }
     get path() {
-        return this.#core.path.normalized;
+        return this.#core.route.normalized;
     }
     get spec() {
         return this.#spec;

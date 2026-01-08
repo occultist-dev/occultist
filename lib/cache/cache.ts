@@ -36,7 +36,7 @@ const safeSemantics = new Set<CacheSemantics>([
  * @param httpMethod The method the action accepts.
  * @param requestURL The url of the request.
  * @param contentType The negotiated content type of the response.
- * @param languageCode The negotiated language of the response.
+ * @param languageTag The negotiated language of the response.
  * @param encoding The negotiated encoding of the response.
  * @param requestHeaders The request headers.
  * @param authKey The auth key produced by the action's auth middleware.
@@ -49,7 +49,7 @@ export function makeCacheKey(
   httpMethod: string,
   requestURL: string,
   contentType: string,
-  languageCode: string | null,
+  languageTag: string | null,
   encoding: string | null,
   requestHeaders: Headers,
   authKey: string | null,
@@ -98,10 +98,10 @@ export function makeCacheKey(
   key += '|' + encodeURIComponent(contentType.toLowerCase());
   key += '|' + encodeURI(requestURL);
 
-  if (languageCode == null || languageCode.trim() === '') {
+  if (languageTag == null || languageTag.trim() === '') {
     key += '|';
   } else {
-    key += '|' + encodeURIComponent(languageCode.toLowerCase());
+    key += '|' + encodeURIComponent(languageTag.toLowerCase());
   }
 
   if (encoding == null || encoding.trim() === '') {
@@ -215,6 +215,7 @@ export class Cache implements CacheBuilder {
  */
 export class CacheDescriptor {
   contentType: string;
+  languageTag: string;
   semantics: CacheSemantics;
   action: ImplementedAction;
   req: Request;
@@ -224,11 +225,13 @@ export class CacheDescriptor {
 
   constructor(
     contentType: string,
+    languageTag: string | undefined,
     action: ImplementedAction,
     req: Request,
     args: CacheInstanceArgs,
   ) {
     this.contentType = contentType;
+    this.languageTag = languageTag;
     this.semantics = args.semantics ?? req.method.toLowerCase() as CacheSemantics;
     this.action = action;
     this.req = req;
@@ -367,7 +370,7 @@ export class CacheMiddleware {
       ctx.method,
       ctx.req.url,
       ctx.contentType,
-      null,
+      ctx.languageTag,
       null,
       ctx.req.headers,
       ctx.authKey ?? null,
@@ -391,7 +394,7 @@ export class CacheMiddleware {
       ctx.method,
       ctx.req.url,
       ctx.contentType,
-      null,
+      ctx.languageTag,
       null,
       ctx.req.headers,
       ctx.authKey ?? null,
@@ -425,7 +428,7 @@ export class CacheMiddleware {
       ctx.method,
       ctx.req.url,
       ctx.contentType,
-      null,
+      ctx.languageTag,
       null,
       ctx.req.headers,
       ctx.authKey ?? null,

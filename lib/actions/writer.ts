@@ -45,7 +45,7 @@ export class ResponseWriter implements HTTPWriter {
    * Runtimes which do not support writing early hints will have the
    * headers added to the headers of the main response instead.
    */
-  writeEarlyHints(args: HintArgs): Promise<void> {
+  writeEarlyHints(args: HintArgs): void {
     const links: string[] = []
     
     if (Array.isArray(args)) {
@@ -81,9 +81,7 @@ export class ResponseWriter implements HTTPWriter {
     if (this.#res == null) {
       this.#headers.append('Link', links.join(', '));
     } else {
-      return new Promise((resolve) => {
-        this.#res.writeEarlyHints({ 'Link': links.join(', ') }, resolve);
-      });
+      this.#res.writeEarlyHints({ 'Link': links.join(', ') });
     }
   }
 

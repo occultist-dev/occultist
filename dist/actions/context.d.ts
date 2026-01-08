@@ -6,6 +6,7 @@ import type { ResponseBody } from "./writer.ts";
 export type CacheContextArgs<Auth extends AuthState = AuthState> = {
     req: Request;
     contentType: string;
+    languageTag: string | undefined;
     public: boolean;
     authKey?: string;
     auth: Auth;
@@ -23,7 +24,8 @@ export declare class CacheContext<Auth extends AuthState = AuthState> {
     req: Request;
     method: string;
     url: string;
-    contentType: string;
+    contentType?: string;
+    languageTag?: string;
     public: boolean;
     authKey: string | null;
     auth: Auth;
@@ -48,6 +50,7 @@ export declare class CacheContext<Auth extends AuthState = AuthState> {
 export type ContextArgs<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Spec extends ActionSpec = ActionSpec> = {
     req: Request;
     contentType: string;
+    languageTag: string | undefined;
     public: boolean;
     authKey?: string;
     auth: Auth;
@@ -67,6 +70,7 @@ export declare class Context<State extends ContextState = ContextState, Auth ext
     method: string;
     url: string;
     contentType: string;
+    languageTag?: string;
     public: boolean;
     authKey?: string;
     auth: Auth;

@@ -1,5 +1,4 @@
 import { Readable } from "node:stream";
-import { normalizeURL } from "./utils/normalizeURL.js";
 export class WrappedRequest {
     #url;
     #req;
@@ -8,7 +7,7 @@ export class WrappedRequest {
     #headers = new Headers();
     constructor(rootIRI, req) {
         this.#req = req;
-        this.#url = normalizeURL(rootIRI, req.url);
+        this.#url = new URL(req.url, rootIRI).toString();
         if (req instanceof Request) {
             this.#stream = req.body;
             this.#headers = req.headers;

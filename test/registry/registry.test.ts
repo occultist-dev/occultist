@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Registry } from './registry.ts';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import {Registry} from '../../lib/registry.ts';
 
 const registry = new Registry({
   rootIRI: 'https://example.com',
 });
 
- registry.http.get('get-index', '/')
+ registry.http.get('/')
    .public()
    .hint({
      link: {
@@ -26,7 +26,7 @@ const registry = new Registry({
      });
    });
  
-registry.http.post('post-things', '/posty/post')
+registry.http.post('/posty/post')
   .public()
   .handle('text/html', async (ctx) => {
     ctx.body = await Promise.resolve(`
@@ -46,7 +46,7 @@ function checkPayloadTypesMap(args: {
   return args;
 }
 
-registry.http.post('post-me', '/foo/{fee}/bar{?baz}')
+registry.http.post('/foo/{fee}/bar{?baz}')
   .public()
   .define({
     spec: {
@@ -134,7 +134,7 @@ test('It responds to other HTTP methods', async () => {
   assert((await res.text()).includes('<body>Got it</body>'))
 });
 
-test('It handles request payloads for application/json requests', async () => {
+test('It handles request payloads for application/json requests', {only:true}, async () => {
   const res = await registry.handleRequest(
     new Request('https://example.com/foo/1234/bar?baz=foo&baz=bar&baz=baz', {
       method: 'POST',
@@ -153,14 +153,15 @@ test('It handles request payloads for application/json requests', async () => {
 
   const body = await res.json();
 
-  assert(body.fee === 1234);
-  assert(body.foo === 'bar');
-  assert(body.foe[0].bar);
-  assert(!body.foe[1].bar);
-  assert(body.baz[0] === 'foo');
+  assert.deepEqual(body, {
+    fee: 1234,
+    foo: 'bar',
+    foe: [{ bar: true }, { bar: false }],
+    baz: ['foo', 'bar', 'baz'],
+  });
 });
 
-test('It fires beforefinalize and after finalize events', { only: true }, () => {
+test('It fires beforefinalize and after finalize events', () => {
   const called: string[] = [];
   const registry = new Registry({ rootIRI: 'https://example.com' });
 

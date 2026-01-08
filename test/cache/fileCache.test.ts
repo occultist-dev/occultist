@@ -25,7 +25,7 @@ async function makeRegistry() {
     cacheDir,
   );
 
-  registry.http.get('root', '/')
+  registry.http.get('/')
     .public()
     .cache(cache.store())
     .handle('text/plain', 'Hello, World!')
@@ -39,21 +39,21 @@ async function makeRegistry() {
       </html>
     `);
 
-  registry.http.get('public', '/public')
+  registry.http.get('/public')
     .public()
     .cache(cache.store())
     .handle('text/plain', (ctx) => {
       ctx.body = `PUBLIC`;
     });
 
-  registry.http.get('open', '/open')
+  registry.http.get('/open')
     .public(testAuthMiddleware)
     .cache(cache.store())
     .handle('text/plain', (ctx) => {
       ctx.body = `OPEN(${ctx.authKey ?? 'unauthenticated'})`;
     });
 
-  registry.http.get('private', '/private')
+  registry.http.get('/private')
     .private(testAuthMiddleware)
     .cache(cache.store())
     .handle('text/plain', (ctx) => {

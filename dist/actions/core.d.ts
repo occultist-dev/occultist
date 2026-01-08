@@ -5,7 +5,7 @@ import type { Registry } from '../registry.ts';
 import type { Scope } from "../scopes.ts";
 import { HandlerDefinition } from './actions.ts';
 import { CacheContext, Context } from './context.ts';
-import { Path } from "./path.ts";
+import { Route } from "./route.ts";
 import type { ActionSpec, ContextState, FileValue, NextFn, TransformerFn } from './spec.ts';
 import type { AuthMiddleware, AuthState, CacheHitHeader, HintArgs, ImplementedAction } from './types.ts';
 import { type HTTPWriter, type ResponseTypes } from "./writer.ts";
@@ -27,13 +27,14 @@ export declare class MiddlewareRefs<State extends ContextState, Auth extends Aut
     headers: Headers;
     handler?: HandlerDefinition<State, Auth, Spec>;
     contentType: string | null;
+    languageTag: string | null;
     writer: HTTPWriter;
     req: Request;
     recordServerTiming: boolean;
     prevTime: number | null;
     serverTimes: string[];
     cacheHitHeader: CacheHitHeader;
-    constructor(req: Request, writer: HTTPWriter, contentType: string | null, prevTime: number | null);
+    constructor(req: Request, writer: HTTPWriter, contentType: string | null, languageTag: string | null, prevTime: number | null);
     recordServerTime(name: string): void;
 }
 /**
@@ -45,11 +46,11 @@ export declare class ActionCore<State extends ContextState = ContextState, Auth 
     rootIRI: string;
     method: string;
     isSafe: boolean;
-    name: string;
+    name?: string;
     uriTemplate: string;
     public: boolean;
     authKey?: string;
-    path: Path;
+    route: Route;
     hints: HintArgs[];
     transformers: Map<string, TransformerFn<JSONValue | FileValue, State, Spec>>;
     scope?: Scope;
@@ -61,8 +62,10 @@ export declare class ActionCore<State extends ContextState = ContextState, Auth 
     cacheOccurance: 0 | 1;
     auth?: AuthMiddleware<Auth>;
     cache: CacheInstanceArgs[];
+    autoLanguageTags: boolean;
+    autoFileExtensions: boolean;
     recordServerTiming: boolean;
-    constructor(rootIRI: string, method: string, name: string, uriTemplate: string, registry: Registry, writer: HTTPWriter, scope?: Scope);
+    constructor(rootIRI: string, method: string, name: string | undefined, uriTemplate: string, registry: Registry, writer: HTTPWriter, scope: Scope | undefined, autoLanguageTags: boolean, autoFileExtensions: boolean, recordServerTiming: boolean | undefined);
     /**
      * Called when the API is defined to compute all uncomputed values.
      */

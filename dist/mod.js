@@ -7,7 +7,7 @@ export * from "./actions/types.js";
 export * from "./actions/core.js";
 export * from "./actions/spec.js";
 export * from "./actions/context.js";
-export * from "./actions/path.js";
+export * from "./actions/route.js";
 export * from "./actions/actions.js";
 export * from "./actions/actionSets.js";
 export * from "./request.js";

@@ -1,6 +1,6 @@
 import type {ServerResponse} from "node:http";
 import type {JSONObject, TypeDef} from "../jsonld.ts";
-import type {CacheOperationResult, HandlerDefinition, MiddlewareRefs} from "../mod.ts";
+import type {CacheOperationResult, HandlerDefinition, MiddlewareRefs, Route} from "../mod.ts";
 import type {Registry} from '../registry.ts';
 import type {Scope} from "../scopes.ts";
 import type {Context} from "./context.ts";
@@ -141,8 +141,9 @@ export interface ImplementedAction<
   readonly term?: string;
   readonly type?: string;
   readonly typeDef?: TypeDef;
-  readonly name: string;
-  readonly pattern: URLPattern;
+  readonly name?: string;
+  readonly route: Route;
+
   readonly template: string;
   readonly spec: Spec;
   readonly registry: Registry;

@@ -3,6 +3,7 @@ import type { JSONLDContext, JSONObject, TypeDef } from "../jsonld.ts";
 import type { Registry } from '../registry.ts';
 import type { Scope } from "../scopes.ts";
 import { MiddlewareRefs, type ActionCore } from "./core.ts";
+import { Route } from './route.ts';
 import type { ActionSpec, ContextState } from "./spec.ts";
 import type { AuthMiddleware, AuthState, HandlerFn, HandlerMeta, HandlerObj, HandlerValue, HintArgs, ImplementedAction } from './types.ts';
 import { type ResponseTypes } from './writer.ts';
@@ -15,13 +16,13 @@ export type DefineArgs<Term extends string = string, Spec extends ActionSpec = A
  * after an action is defined.
  */
 export declare class HandlerDefinition<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Spec extends ActionSpec = ActionSpec> {
-    name: string;
+    name?: string;
     contentType: string;
     handler: HandlerFn | HandlerValue;
     meta: HandlerMeta;
     action: ImplementedAction<State, Auth, Spec>;
     cache: ReadonlyArray<CacheInstanceArgs>;
-    constructor(name: string, contentType: string, handler: HandlerFn | HandlerValue, meta: HandlerMeta, action: ImplementedAction<State, Auth, Spec>, actionMeta: ActionCore);
+    constructor(name: string | undefined, contentType: string, handler: HandlerFn | HandlerValue, meta: HandlerMeta, action: ImplementedAction<State, Auth, Spec>, actionMeta: ActionCore);
     get [Symbol.toStringTag](): string;
 }
 export interface Handleable<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Spec extends ActionSpec = ActionSpec> {
@@ -45,9 +46,9 @@ export declare class FinalizedAction<State extends ContextState = ContextState, 
     get term(): string | undefined;
     get type(): string | undefined;
     get typeDef(): TypeDef | undefined;
-    get name(): string;
+    get name(): string | undefined;
     get template(): string;
-    get pattern(): URLPattern;
+    get route(): Route;
     get spec(): Spec;
     get scope(): Scope | undefined;
     get registry(): Registry;
@@ -84,9 +85,9 @@ export declare class DefinedAction<State extends ContextState = ContextState, Au
     get term(): string | undefined;
     get type(): string | undefined;
     get typeDef(): TypeDef | undefined;
-    get name(): string;
+    get name(): string | undefined;
     get template(): string;
-    get pattern(): URLPattern;
+    get route(): Route;
     get path(): string;
     get spec(): Spec;
     get scope(): Scope | undefined;
@@ -131,9 +132,9 @@ export declare class Action<State extends ContextState = ContextState, Auth exte
     get term(): string | undefined;
     get type(): string | undefined;
     get typeDef(): TypeDef | undefined;
-    get name(): string;
+    get name(): string | undefined;
     get template(): string;
-    get pattern(): URLPattern;
+    get route(): Route;
     get path(): string;
     get spec(): ActionSpec;
     get scope(): Scope | undefined;

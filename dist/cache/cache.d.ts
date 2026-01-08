@@ -16,7 +16,7 @@ import type { CacheBuilder, CacheETagArgs, CacheETagInstanceArgs, CacheHTTPArgs,
  * @param httpMethod The method the action accepts.
  * @param requestURL The url of the request.
  * @param contentType The negotiated content type of the response.
- * @param languageCode The negotiated language of the response.
+ * @param languageTag The negotiated language of the response.
  * @param encoding The negotiated encoding of the response.
  * @param requestHeaders The request headers.
  * @param authKey The auth key produced by the action's auth middleware.
@@ -25,7 +25,7 @@ import type { CacheBuilder, CacheETagArgs, CacheETagInstanceArgs, CacheHTTPArgs,
  * @param cacheVary String separated header names to vary on.
  * @returns A unique cache key for the response.
  */
-export declare function makeCacheKey(httpMethod: string, requestURL: string, contentType: string, languageCode: string | null, encoding: string | null, requestHeaders: Headers, authKey: string | null, publicWhenAuthenticated: boolean, cacheVersion: number | null, cacheVary: string | null): string;
+export declare function makeCacheKey(httpMethod: string, requestURL: string, contentType: string, languageTag: string | null, encoding: string | null, requestHeaders: Headers, authKey: string | null, publicWhenAuthenticated: boolean, cacheVersion: number | null, cacheVary: string | null): string;
 export declare class Cache implements CacheBuilder {
     #private;
     constructor(registry: Registry, cacheMeta: CacheMeta, storage: CacheStorage, upstream?: UpstreamCache);
@@ -44,13 +44,14 @@ export declare class Cache implements CacheBuilder {
  */
 export declare class CacheDescriptor {
     contentType: string;
+    languageTag: string;
     semantics: CacheSemantics;
     action: ImplementedAction;
     req: Request;
     args: CacheInstanceArgs;
     safe: boolean;
     lock: boolean;
-    constructor(contentType: string, action: ImplementedAction, req: Request, args: CacheInstanceArgs);
+    constructor(contentType: string, languageTag: string | undefined, action: ImplementedAction, req: Request, args: CacheInstanceArgs);
 }
 /**
  * Used internally by Occultist to apply caching rules to

@@ -13,7 +13,7 @@ export type ActionAcceptMatch = {
   type: 'match';
   action: ImplementedAction;
   contentType?: string;
-  language?: string;
+  languageTag?: string;
   encoding?: string;
 };
 
@@ -30,59 +30,143 @@ export class ActionSet {
   #method: string;
   #urlPattern: URLPattern;
   #contentTypeActionMap: Map<string, ImplementedAction>;
+  #extensionMap: Map<string, string> = new Map();
   #ctc: ContentTypeCache;
+  #autoLanguageTags: boolean;
 
   constructor(
     rootIRI: string,
     method: string,
     path: string,
     meta: ActionCore[],
+    reverseExtensions: Map<string, string>,
   ) {
     this.#rootIRI = rootIRI;
     this.#method = method;
 
-    this.#urlPattern = makeURLPattern(path, rootIRI);
+    [
+      this.#contentTypeActionMap,
+      this.#extensionMap,
+      this.#ctc,
+      this.#autoLanguageTags,
+    ] = this.#process(
+      meta,
+      reverseExtensions,
+    );
 
-    [this.#contentTypeActionMap, this.#ctc] = this.#process(meta);
+    if (this.#extensionMap.size > 0) {
+      path += ':auto1(\\.[\\w\\-]+)?';
+
+      // language tags are only enabled if file extensions are
+      if (this.#autoLanguageTags) {
+        path += ':auto2(\\.[a-zA-Z0-9\\-]+)?';
+      }
+    }
+
+    this.#urlPattern = makeURLPattern(
+      path,
+      rootIRI,
+    );
   }
 
+  /**
+   * @param method HTTP method to match against.
+   * @param path The pathname of the request.
+   * @param accept The accept cache of th erequest.
+   */
   matches(method: string, path: string, accept: Accept): null | ActionMatchResult {
     if (method !== this.#method) {
       return null;
-    } else if (!this.#urlPattern.test(path, this.#rootIRI)) {
+    }
+
+    const res = this.#urlPattern.exec(path, this.#rootIRI);
+
+    if (res == null) {
       return null;
     }
 
-    const contentType = accept.negotiate(this.#ctc);
-    const action = this.#contentTypeActionMap.get(contentType as string);
+    let contentType: string;
+    let languageTag: string;
 
-    if (contentType != null && action != null) {
+    if (res.pathname.groups.auto1 != null && res.pathname.groups.auto2 != null) {
+      languageTag = res.pathname.groups.auto1.replace('.', '');
+      const fileExtension = res.pathname.groups.auto2.replace('.', '');
+
+      contentType = this.#extensionMap.get(fileExtension);
+
+      if (contentType == null) return null;
+    } else if (res.pathname.groups.auto1 != null || res.pathname.groups.auto2 != null) {
+      const autoParam = res.pathname.groups.auto1 ?? res.pathname.groups.auto2;
+      const fileExtension = autoParam.replace('.', '');
+
+      contentType = this.#extensionMap.get(fileExtension);
+
+      if (contentType == null) return null;
+    }
+
+    if (contentType == null) {
+      contentType = accept.negotiate(this.#ctc);
+    }
+
+    if (contentType == null) return null;
+
+    const action = this.#contentTypeActionMap.get(contentType);
+
+    if (action != null) {
       return {
         type: 'match',
         action,
         contentType,
+        languageTag,
       };
     }
 
     return null;
   }
 
-  #process(meta: ActionCore[]): [Map<string, ImplementedAction>, ContentTypeCache] {
+  #process(
+    meta: ActionCore[],
+    reverseExtensions: Map<string, string>,
+  ): [
+    contentTypeActionMap: Map<string, ImplementedAction>,
+    extensionMap: Map<string, string>,
+    ctc: ContentTypeCache,
+    autoLanguageTags: boolean,
+  ] {
+    let autoLanguageTags: boolean = false;
     const contentTypes: string[] = [];
     const contentTypeActionMap: Map<string, ImplementedAction> = new Map();
+    const extensionMap: Map<string, string> = new Map();
 
-    for (let i = 0; i < meta.length; i++) {
+    let l1 = meta.length;
+    for (let i = 0; i < l1; i++) {
       const action = meta[i].action as ImplementedAction;
 
-      for (let j = 0; j < action.contentTypes.length; j++) {
+      let l2 = action.contentTypes.length;
+      for (let j = 0; j < l2; j++) {
         const contentType = action.contentTypes[j];
 
         contentTypes.push(contentType);
         contentTypeActionMap.set(contentType, action);
+
+        if (!autoLanguageTags && meta[i].autoLanguageTags) {
+          autoLanguageTags = true;
+        }
+
+        if (meta[i].autoFileExtensions &&
+            reverseExtensions.has(contentType) &&
+            !extensionMap.has(contentType)) {
+          extensionMap.set(reverseExtensions.get(contentType), contentType);
+        }
       }
     }
 
-    return [contentTypeActionMap, new ContentTypeCache(contentTypes)];
+    return [
+      contentTypeActionMap,
+      extensionMap,
+      new ContentTypeCache(contentTypes),
+      autoLanguageTags,
+    ];
   }
 }
 

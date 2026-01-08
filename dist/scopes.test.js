@@ -12,7 +12,7 @@ const registry = new Registry({
 });
 const scope = registry.scope('/actions')
     .public();
-scope.http.get('get-thing', '/thing')
+scope.http.get('/thing')
     .public()
     .define({
     typeDef: typeDefs.GetThing,

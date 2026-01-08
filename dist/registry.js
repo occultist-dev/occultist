@@ -3,37 +3,45 @@ import { ActionAuth } from "./actions/actions.js";
 import { ActionSet } from "./actions/actionSets.js";
 import { ActionCore, MiddlewareRefs } from "./actions/core.js";
 import { ResponseWriter } from "./actions/writer.js";
-import { Scope } from "./scopes.js";
 import { ProblemDetailsError } from "./errors.js";
 import { WrappedRequest } from "./request.js";
+import { Scope } from "./scopes.js";
+export const defaultFileExtensions = {
+    'txt': 'text/plain',
+    'html': 'text/html',
+    'js': 'application/javascript',
+    'json': 'application/json',
+    'svg': 'application/svg+xml',
+    'xml': 'application/xml',
+};
 export class HTTP {
     #callable;
     constructor(callable) {
         this.#callable = callable;
     }
-    options(name, path) {
-        return this.#callable.method('options', name, path);
+    options(path, args) {
+        return this.#callable.endpoint('options', path, args);
     }
-    head(name, path) {
-        return this.#callable.method('head', name, path);
+    head(path, args) {
+        return this.#callable.endpoint('head', path, args);
     }
-    get(name, path) {
-        return this.#callable.method('get', name, path);
+    get(path, args) {
+        return this.#callable.endpoint('get', path, args);
     }
-    put(name, path) {
-        return this.#callable.method('put', name, path);
+    put(path, args) {
+        return this.#callable.endpoint('put', path, args);
     }
-    patch(name, path) {
-        return this.#callable.method('patch', name, path);
+    patch(path, args) {
+        return this.#callable.endpoint('patch', path, args);
     }
-    post(name, path) {
-        return this.#callable.method('post', name, path);
+    post(path, args) {
+        return this.#callable.endpoint('post', path, args);
     }
-    delete(name, path) {
-        return this.#callable.method('delete', name, path);
+    delete(path, args) {
+        return this.#callable.endpoint('delete', path, args);
     }
-    query(name, path) {
-        return this.#callable.method('query', name, path);
+    query(path, args) {
+        return this.#callable.endpoint('query', path, args);
     }
 }
 export class IndexEntry {
@@ -106,13 +114,30 @@ export class IndexEntry {
  *   add these values to their network performance charts.
  *   Enabling server timing can leak information and is not recommended for
  *   production environments.
+ *
+ * @param args.autoRouteParams Enables language tag and file extension route
+ *   params for all actions in this registry. When enabled all actions will
+ *   have `{.languageTag,fileExtension}` added to the pathname part of their
+ *   route's URI template as optional parameters. If an action is called using
+ *   these parameters the URI value takes precedence over the related accept
+ *   header.
+ *
+ * @param args.autoLanguageTags Enables the language tag route param for all
+ *   actions.
+ *
+ * @param args.autoFileExtensions Enables the file extension route param for
+ *   all actions.
  */
 export class Registry {
     #finalized = false;
     #path;
     #rootIRI;
-    #serverTiming;
+    #recordServerTiming;
     #cacheHitHeader;
+    #autoLanguageTags;
+    #autoFileExtensions;
+    #fileExtensions = new Map();
+    #reverseExtensions = new Map();
     #http;
     #scopes = [];
     #children = [];
@@ -128,18 +153,18 @@ export class Registry {
         const url = new URL(args.rootIRI);
         this.#rootIRI = args.rootIRI;
         this.#path = url.pathname;
-        this.#serverTiming = args.serverTiming ?? false;
+        this.#recordServerTiming = args.serverTiming ?? false;
+        this.#autoLanguageTags = args.autoLanguageTags ?? args.autoRouteParams ?? false;
+        this.#autoFileExtensions = args.autoFileExtensions ?? args.autoRouteParams ?? false;
         this.#cacheHitHeader = args.cacheHitHeader ?? false;
         this.#http = new HTTP(this);
+        for (const [extension, contentType] of Object.entries(args.extensions ?? defaultFileExtensions)) {
+            this.#fileExtensions.set(extension, contentType);
+            this.#reverseExtensions.set(contentType, extension);
+        }
     }
     scope(path) {
-        const scope = new Scope({
-            path,
-            serverTiming: this.#serverTiming,
-            registry: this,
-            writer: this.#writer,
-            propergateMeta: (meta) => this.#children.push(meta),
-        });
+        const scope = new Scope(path, this, this.#writer, (meta) => this.#children.push(meta), this.#recordServerTiming, this.#autoLanguageTags, this.#autoFileExtensions);
         this.#scopes.push(scope);
         return scope;
     }
@@ -263,9 +288,9 @@ export class Registry {
      * @param name   Name for the action being produced.
      * @param path   Path the action responds to.
      */
-    method(method, name, path) {
-        const meta = new ActionCore(this.#rootIRI, method.toUpperCase(), name, path, this, this.#writer);
-        meta.recordServerTiming = this.#serverTiming;
+    endpoint(method, path, args) {
+        const meta = new ActionCore(this.#rootIRI, method, args?.name, path, this, this.#writer, undefined, args?.autoLanguageTags ?? args?.autoRouteParams ?? this.#autoLanguageTags, args?.autoFileExtensions ?? args?.autoRouteParams ?? this.#autoFileExtensions, this.#recordServerTiming);
+        meta.recordServerTiming = this.#recordServerTiming;
         this.#children.push(meta);
         return new ActionAuth(meta);
     }
@@ -273,9 +298,6 @@ export class Registry {
         this.#middleware.push(middleware);
         return this;
     }
-    /**
-     *
-     */
     finalize() {
         if (this.#finalized)
             return;
@@ -289,7 +311,7 @@ export class Registry {
         for (let index = 0; index < this.#children.length; index++) {
             const meta = this.#children[index];
             const method = meta.method;
-            const normalized = meta.path.normalized;
+            const normalized = meta.route.normalized;
             meta.finalize();
             const group = groupedMeta.get(normalized);
             const methodSet = group?.get(method);
@@ -305,7 +327,7 @@ export class Registry {
         }
         for (const [normalized, methodSet] of groupedMeta.entries()) {
             for (const [method, meta] of methodSet.entries()) {
-                const actionSet = new ActionSet(this.#rootIRI, method, normalized, meta);
+                const actionSet = new ActionSet(this.#rootIRI, method, normalized, meta, this.#reverseExtensions);
                 actionSets.push(actionSet);
             }
         }
@@ -369,7 +391,7 @@ export class Registry {
         else if (match.type === 'unsupported-content-type') {
             return Promise.resolve('skipped');
         }
-        const refs = new MiddlewareRefs(wrapped, writer, match.contentType ?? null, startTime);
+        const refs = new MiddlewareRefs(wrapped, writer, match.contentType, match.languageTag, startTime);
         refs.cacheHitHeader = this.#cacheHitHeader;
         return match.action.primeCache(refs);
     }
@@ -405,7 +427,7 @@ export class Registry {
         else if (match.type === 'unsupported-content-type') {
             return Promise.resolve('skipped');
         }
-        const refs = new MiddlewareRefs(wrapped, writer, match.contentType ?? null, startTime);
+        const refs = new MiddlewareRefs(wrapped, writer, match.contentType, match.languageTag, startTime);
         refs.cacheHitHeader = this.#cacheHitHeader;
         return match.action.refreshCache(refs);
     }
@@ -434,7 +456,7 @@ export class Registry {
         else if (match.type === 'unsupported-content-type') {
             return Promise.resolve('skipped');
         }
-        const refs = new MiddlewareRefs(wrapped, writer, match.contentType ?? null, null);
+        const refs = new MiddlewareRefs(wrapped, writer, match.contentType, match.languageTag, null);
         return match.action.invalidateCache(refs);
     }
     /**
@@ -468,7 +490,7 @@ export class Registry {
         let err;
         try {
             if (match?.type === 'match') {
-                const refs = new MiddlewareRefs(wrapped, writer, match.contentType ?? null, startTime);
+                const refs = new MiddlewareRefs(wrapped, writer, match.contentType, match.languageTag, startTime);
                 refs.cacheHitHeader = this.#cacheHitHeader;
                 return await match.action.handleRequest(refs);
             }

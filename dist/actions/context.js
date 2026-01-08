@@ -16,6 +16,7 @@ export class CacheContext {
     method;
     url;
     contentType;
+    languageTag;
     public;
     authKey;
     auth;
@@ -30,6 +31,7 @@ export class CacheContext {
         this.req = args.req;
         this.url = args.req.url;
         this.contentType = args.contentType;
+        this.languageTag = args.languageTag;
         this.public = args.public;
         this.authKey = args.authKey;
         this.auth = args.auth;
@@ -80,6 +82,7 @@ export class Context {
     method;
     url;
     contentType;
+    languageTag;
     public = false;
     authKey;
     auth;
@@ -96,6 +99,7 @@ export class Context {
         this.req = args.req;
         this.url = args.req.url;
         this.contentType = args.contentType;
+        this.languageTag = args.languageTag;
         this.public = args.public;
         this.authKey = args.authKey;
         this.auth = args.auth;
