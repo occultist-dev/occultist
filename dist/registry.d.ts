@@ -5,7 +5,7 @@ import { type ActionMatchResult, ActionSet } from "./actions/actionSets.ts";
 import type { ContextState, Merge, Middleware } from "./actions/spec.ts";
 import type { CacheHitHeader, ImplementedAction } from "./actions/types.ts";
 import { Scope } from './scopes.ts';
-import type { EndpointArgs, Extension, StaticAssetExtension } from "./types.ts";
+import type { EndpointArgs, Extension, StaticAsset, StaticAssetExtension } from "./types.ts";
 import { type CacheOperationResult } from "./mod.ts";
 export declare const defaultFileExtensions: {
     readonly txt: "text/plain";
@@ -291,6 +291,12 @@ export declare class Registry<State extends ContextState = ContextState> impleme
      *   by the static extension.
      */
     getStaticExtension(staticAlias: string): StaticAssetExtension | undefined;
+    /**
+     * Retrieves a static asset by its alias.
+     *
+     */
+    getStaticAsset(staticAlias: string): StaticAsset | undefined;
+    queryStaticAssets(staticAliases: string[]): StaticAsset[];
     /**
      * Registers an Occultist extension. This is usually done
      * by extensions when they are created.

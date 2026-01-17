@@ -19,7 +19,7 @@ export class ActionSet {
             this.#extensionMap,
             this.#ctc,
             this.#autoLanguageTags,
-        ] = this.#process(meta, reverseExtensions);
+        ] = this.#process(path, meta, reverseExtensions);
         if (this.#extensionMap.size > 0) {
             path += ':auto1(\\.[\\w\\-]+)?';
             // language tags are only enabled if file extensions are
@@ -74,7 +74,7 @@ export class ActionSet {
         }
         return null;
     }
-    #process(meta, reverseExtensions) {
+    #process(path, meta, reverseExtensions) {
         let autoLanguageTags = false;
         const contentTypes = [];
         const contentTypeActionMap = new Map();
@@ -92,7 +92,8 @@ export class ActionSet {
                 }
                 if (meta[i].autoFileExtensions &&
                     reverseExtensions.has(contentType) &&
-                    !extensionMap.has(contentType)) {
+                    !extensionMap.has(contentType) &&
+                    path !== '/') {
                     extensionMap.set(reverseExtensions.get(contentType), contentType);
                 }
             }

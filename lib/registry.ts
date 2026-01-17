@@ -9,7 +9,7 @@ import {ResponseWriter} from "./actions/writer.ts";
 import {ProblemDetailsError} from "./errors.ts";
 import {WrappedRequest} from "./request.ts";
 import {Scope} from './scopes.ts';
-import type {EndpointArgs, Extension, StaticAssetExtension} from "./types.ts";
+import type {EndpointArgs, Extension, StaticAsset, StaticAssetExtension} from "./types.ts";
 import {type CacheOperationResult} from "./mod.ts";
 
 
@@ -807,6 +807,35 @@ export class Registry<
    */
   getStaticExtension(staticAlias: string): StaticAssetExtension | undefined {
     return this.#staticExtensions.get(staticAlias);
+  }
+
+  /**
+   * Retrieves a static asset by its alias.
+   *
+   */
+  getStaticAsset(staticAlias: string): StaticAsset | undefined {
+    const parts = staticAlias.trim().split('/');
+
+    return this.#staticExtensions.get(parts[0])?.getAsset(staticAlias);
+  }
+  
+  queryStaticAssets(staticAliases: string[]): StaticAsset[] {
+    let parts: string[];
+    let staticExtension: StaticAssetExtension;
+    const staticAssets: StaticAsset[] = [];
+
+    for (let i = 0; i < staticAliases.length; i++) {
+      parts = staticAliases[i].trim().split('/');
+      staticExtension = this.#staticExtensions.get(parts[0]);
+
+      console.log(staticExtension);
+
+      if (staticExtension == null) continue;
+
+      staticAssets.push(staticExtension.getAsset(staticAliases[i]));
+    }
+
+    return staticAssets;
   }
 
   /**

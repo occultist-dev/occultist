@@ -1,8 +1,8 @@
 import { ProblemDetailsError } from "../errors.ts";
 import type { JSONValue, JSONObject } from "../jsonld.ts";
 import type { ContextState, ActionSpec, PropertySpec } from "../actions/spec.ts";
-import jsonld, {type ContextDefinition} from 'jsonld';
 import type { ImplementedAction } from "../actions/types.ts";
+import { expand } from '@occultist/mini-jsonld';
 
 
 // export type BodyValue = Record<string, FileInput | FileInput[] | JSONValue>;
@@ -121,8 +121,6 @@ export async function getRequestBodyValues<
     }
   } else if (contentType?.startsWith('application/ld+json')) {
     let source: JSONValue;
-    let expanded: jsonld.JsonLdDocument;
-    let compacted: jsonld.NodeObject | undefined;
 
     try {
       source = await req.json();
@@ -133,24 +131,12 @@ export async function getRequestBodyValues<
     }
 
     try {
-      expanded = await jsonld.expand(source as jsonld.JsonLdDocument);
+      bodyValues = await expand(source as JSONObject) as BodyValue;
     } catch {
       throw new ProblemDetailsError(400, {
         title: 'Failed to expand JSON-LD body',
       });
     }
-
-    try {
-      compacted = await jsonld.compact(expanded, action.context as ContextDefinition)
-    } catch {
-      throw new ProblemDetailsError(400, {
-        title: 'Failed to compact JSON-LD body',
-      });
-    }
-
-    delete compacted['@context'];
-
-    bodyValues = compacted as JSONObject;
   }
 
   Object.freeze(bodyValues);

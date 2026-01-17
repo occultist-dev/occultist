@@ -50,6 +50,7 @@ export class ActionSet {
       this.#ctc,
       this.#autoLanguageTags,
     ] = this.#process(
+      path,
       meta,
       reverseExtensions,
     );
@@ -125,6 +126,7 @@ export class ActionSet {
   }
 
   #process(
+    path: string,
     meta: ActionCore[],
     reverseExtensions: Map<string, string>,
   ): [
@@ -155,7 +157,8 @@ export class ActionSet {
 
         if (meta[i].autoFileExtensions &&
             reverseExtensions.has(contentType) &&
-            !extensionMap.has(contentType)) {
+            !extensionMap.has(contentType) &&
+            path !== '/') {
           extensionMap.set(reverseExtensions.get(contentType), contentType);
         }
       }

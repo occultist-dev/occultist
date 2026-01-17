@@ -533,6 +533,28 @@ export class Registry {
         return this.#staticExtensions.get(staticAlias);
     }
     /**
+     * Retrieves a static asset by its alias.
+     *
+     */
+    getStaticAsset(staticAlias) {
+        const parts = staticAlias.trim().split('/');
+        return this.#staticExtensions.get(parts[0])?.getAsset(staticAlias);
+    }
+    queryStaticAssets(staticAliases) {
+        let parts;
+        let staticExtension;
+        const staticAssets = [];
+        for (let i = 0; i < staticAliases.length; i++) {
+            parts = staticAliases[i].trim().split('/');
+            staticExtension = this.#staticExtensions.get(parts[0]);
+            console.log(staticExtension);
+            if (staticExtension == null)
+                continue;
+            staticAssets.push(staticExtension.getAsset(staticAliases[i]));
+        }
+        return staticAssets;
+    }
+    /**
      * Registers an Occultist extension. This is usually done
      * by extensions when they are created.
      *

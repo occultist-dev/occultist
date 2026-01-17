@@ -8,14 +8,29 @@ export interface StaticContext {
     link(alias: string, as: string): string;
 }
 export interface Extension {
+    /**
+     * The name of the extension.
+     */
     name: string;
+    /**
+     * Setup method usually called by the registry.
+     */
     setup?(): ReadableStream;
-    getAsset?(): StaticAsset | undefined;
+    /**
+     * Root level aliases the extension uses to identify
+     * assets it manages.
+     */
     staticAliases?: string[];
+    /**
+     * Retrieves a static assets from the extension.
+     *
+     * @param assetAlias The alias for the asset.
+     */
+    getAsset?(assetAlias: string): StaticAsset | undefined;
 }
 export interface StaticAssetExtension {
     /**
-     * The name of the static extension.
+     * The name of the extension.
      */
     name: string;
     /**

@@ -28,15 +28,15 @@
     "./lib"
   ],
   "peerDependencies": {
-    "json-ptr": "^3.1.1",
-    "jsonld": "^9.0.0"
+    "@occultist/mini-jsonld": "^0.0.1",
+    "json-ptr": "^3.1.1"
   },
   "devDependencies": {
+    "@occultist/mini-jsonld": "^0.0.1",
     "@types/jsonld": "^1.5.15",
     "@types/node": "^24.10.1",
     "esbuild": "^0.27.0",
     "json-ptr": "^3.1.1",
-    "jsonld": "^9.0.0",
     "typescript": "^5.9.3"
   },
   "version": "0.0.12"

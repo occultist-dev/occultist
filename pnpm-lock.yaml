@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@occultist/mini-jsonld':
+        specifier: ^0.0.1
+        version: 0.0.1(json-ptr@3.1.1)(jsonld@9.0.0)
       '@types/jsonld':
         specifier: ^1.5.15
         version: 1.5.15
@@ -20,14 +23,41 @@ importers:
       json-ptr:
         specifier: ^3.1.1
         version: 3.1.1
-      jsonld:
-        specifier: ^9.0.0
-        version: 9.0.0
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
 
 packages:
+
+  '@deno/darwin-arm64@2.6.5':
+    resolution: {integrity: sha512-jHO9d9XsB2YzVUsJr7U9DEj7QEw69yMYbyaLbK1bpHJ6IjYRJFU/Wi7I1b9jSXurezQQulKf75+9QbU27XkL2g==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@deno/darwin-x64@2.6.5':
+    resolution: {integrity: sha512-piyZbW02p4zlviz14UVvoUGhh2mu0OYQBBahdLIbnHaPC14Rj+fHu0vgG8+PTJNCIRkxA1zrm5/GBbjqU3GeZQ==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@deno/linux-arm64-glibc@2.6.5':
+    resolution: {integrity: sha512-9VjtjIepMgSc6aHNOvjHAlHkG/Lmatoeb6k5vpCtVLpwJWJcteIrNX+Rc2u7HcfJctfPs6HwDYsCGI/jnwwzGw==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@deno/linux-x64-glibc@2.6.5':
+    resolution: {integrity: sha512-TZV2Ez3T1qaA7snLKvevwq2LyTGI+1lCQrULZgrytmcaa0Q/9aErA3c135CSscv5LDKSWUXtBCWOHHI6rGm9MA==}
+    cpu: [x64]
+    os: [linux]
+
+  '@deno/win32-arm64@2.6.5':
+    resolution: {integrity: sha512-5zPTnSv0R72GwVxxP20cLN/K5VJd6mF5yaLd/4tnwpv4jExiiQWaoXrae/M8O16Ruz8R+AIpIJfs3oZ+2gwuzA==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@deno/win32-x64@2.6.5':
+    resolution: {integrity: sha512-vSr5ZjBvv5n80Bwa9P0WVLpUNLqnDtXMFIuR7H4mdo5zXU9Ay8ggPQ83yPMjmgqRZOBJNXQDFUA3ZWW+UmMjYQ==}
+    cpu: [x64]
+    os: [win32]
 
   '@digitalbazaar/http-client@4.2.0':
     resolution: {integrity: sha512-OGju/GYp0V72qlZ/Pd4jGEwqBwT/Za/tw+Z3AC7lgMheGqsbhTZrtc5iLz9z59G/Q53QyE2fnjHV8N9wjBpiWA==}
@@ -189,6 +219,15 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@occultist/mini-jsonld@0.0.1':
+    resolution: {integrity: sha512-Ki8mlQW77609IbQPt2/yloKHJ2mC1j5NbuCODXDTP8TBZ59vUjMi67XRvhQI9Y8cuwFLlL1MATANJM38gNQCWg==}
+
+  '@occultist/occultist@0.0.12':
+    resolution: {integrity: sha512-8ur1ue5WdXrmLKEeQLW2JW0dewotU4M8RpV1hRspBNPgbRcffi6FRHkjrY5jk/w7TLUwaayy9d6Mz+AqZ2lC6A==}
+    peerDependencies:
+      json-ptr: ^3.1.1
+      jsonld: ^9.0.0
+
   '@types/jsonld@1.5.15':
     resolution: {integrity: sha512-PlAFPZjL+AuGYmwlqwKEL0IMP8M8RexH0NIPGfCVWSQ041H2rR/8OlyZSD7KsCVoN8vCfWdtWDBxX8yBVP+xow==}
 
@@ -197,6 +236,10 @@ packages:
 
   canonicalize@2.1.0:
     resolution: {integrity: sha512-F705O3xrsUtgt98j7leetNhTWPe+5S72rlL5O4jA1pKqBVQ/dT1O1D6PFxmSXvc0SUOinWS57DKx0I3CHrXJHQ==}
+    hasBin: true
+
+  deno@2.6.5:
+    resolution: {integrity: sha512-zAEGhAKPyKTA7HwtSVPAmdpj+WQfvw0tPemgkaRsqGLe7oi85iqUPCoCEkItiYp3ZellfQIbDHqQmKUY6fgxig==}
     hasBin: true
 
   esbuild@0.27.0:
@@ -242,6 +285,24 @@ packages:
     resolution: {integrity: sha512-3wdGidZyq5PB084XLES5TpOSRA3wjXAlIWMhum2kRcv/41Sn2emQ0dycQW4uZXLejwKvg6EsvbdlVL+FYEct7A==}
 
 snapshots:
+
+  '@deno/darwin-arm64@2.6.5':
+    optional: true
+
+  '@deno/darwin-x64@2.6.5':
+    optional: true
+
+  '@deno/linux-arm64-glibc@2.6.5':
+    optional: true
+
+  '@deno/linux-x64-glibc@2.6.5':
+    optional: true
+
+  '@deno/win32-arm64@2.6.5':
+    optional: true
+
+  '@deno/win32-x64@2.6.5':
+    optional: true
 
   '@digitalbazaar/http-client@4.2.0':
     dependencies:
@@ -326,6 +387,19 @@ snapshots:
   '@esbuild/win32-x64@0.27.0':
     optional: true
 
+  '@occultist/mini-jsonld@0.0.1(json-ptr@3.1.1)(jsonld@9.0.0)':
+    dependencies:
+      '@occultist/occultist': 0.0.12(json-ptr@3.1.1)(jsonld@9.0.0)
+      deno: 2.6.5
+    transitivePeerDependencies:
+      - json-ptr
+      - jsonld
+
+  '@occultist/occultist@0.0.12(json-ptr@3.1.1)(jsonld@9.0.0)':
+    dependencies:
+      json-ptr: 3.1.1
+      jsonld: 9.0.0
+
   '@types/jsonld@1.5.15': {}
 
   '@types/node@24.10.1':
@@ -333,6 +407,15 @@ snapshots:
       undici-types: 7.16.0
 
   canonicalize@2.1.0: {}
+
+  deno@2.6.5:
+    optionalDependencies:
+      '@deno/darwin-arm64': 2.6.5
+      '@deno/darwin-x64': 2.6.5
+      '@deno/linux-arm64-glibc': 2.6.5
+      '@deno/linux-x64-glibc': 2.6.5
+      '@deno/win32-arm64': 2.6.5
+      '@deno/win32-x64': 2.6.5
 
   esbuild@0.27.0:
     optionalDependencies:
