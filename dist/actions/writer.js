@@ -56,11 +56,11 @@ export class ResponseWriter {
         else {
             links.push(this.#formatEarlyHint(args.link));
         }
-        if (this.#res == null) {
-            this.#headers.append('Link', links.join(', '));
+        if (typeof this.#res?.writeEarlyHints === 'function') {
+            this.#res.writeEarlyHints({ 'Link': links.join(', ') });
         }
         else {
-            this.#res.writeEarlyHints({ 'Link': links.join(', ') });
+            this.#headers.append('Link', links.join(', '));
         }
     }
     mergeHeaders(headersInit) {

@@ -1,5 +1,7 @@
 .vim
 .vscode
+.yalc
 node_modules
 tmp
 package.tgz
+yalc.lock

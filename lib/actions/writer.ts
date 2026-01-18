@@ -78,10 +78,10 @@ export class ResponseWriter implements HTTPWriter {
       links.push(this.#formatEarlyHint(args.link));
     }
 
-    if (this.#res == null) {
-      this.#headers.append('Link', links.join(', '));
-    } else {
+    if (typeof this.#res?.writeEarlyHints === 'function') {
       this.#res.writeEarlyHints({ 'Link': links.join(', ') });
+    } else {
+      this.#headers.append('Link', links.join(', '));
     }
   }
 
