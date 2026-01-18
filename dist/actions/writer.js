@@ -79,8 +79,12 @@ export class ResponseWriter {
             res.writeHead(status);
         }
     }
-    writeBody(body) {
-        if (this.#res instanceof ServerResponse) {
+    async writeBody(body) {
+        if (this.#res instanceof ServerResponse && (body instanceof Blob ||
+            body instanceof ReadableStream)) {
+            this.#res.write(await new Response(body).bytes());
+        }
+        else if (this.#res instanceof ServerResponse) {
             this.#res.write(body);
         }
         else {
@@ -91,8 +95,6 @@ export class ResponseWriter {
         if (this.#res instanceof ServerResponse) {
             this.#res.end();
             return this.#res;
-        }
-        if (this.#body instanceof Uint8Array) {
         }
         return new Response(this.#body, {
             status: this.#status,

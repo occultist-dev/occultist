@@ -19,7 +19,7 @@ export interface HTTPWriter {
   writeEarlyHints(args: HintArgs): void;
   mergeHeaders(headers: HeadersInit): void;
   writeHead(status: number, headers?: Headers): void;
-  writeBody(body: ResponseBody): void;
+  writeBody(body: ResponseBody): Promise<void>;
   response(): ResponseTypes;
 };
 
@@ -105,8 +105,13 @@ export class ResponseWriter implements HTTPWriter {
     }
   }
 
-  writeBody(body: ResponseBody): void {
-    if (this.#res instanceof ServerResponse) {
+  async writeBody(body: ResponseBody): Promise<void> {
+    if (this.#res instanceof ServerResponse && (
+      body instanceof Blob ||
+      body instanceof ReadableStream
+    )) {
+      this.#res.write(await new Response(body).bytes());
+    } else if (this.#res instanceof ServerResponse) {
       this.#res.write(body);
     } else {
       this.#body = body;
@@ -120,9 +125,6 @@ export class ResponseWriter implements HTTPWriter {
       return this.#res;
     }
     
-    if (this.#body instanceof Uint8Array) {
-    }
-
     return new Response(this.#body as BodyInit, {
       status: this.#status,
       statusText: this.#statusText,

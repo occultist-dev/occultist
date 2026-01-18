@@ -164,7 +164,7 @@ export class ActionCore {
         await refs.next();
         if (refs.cacheCtx?.hit)
             return 'skipped';
-        this.#writeResponse(refs);
+        await this.#writeResponse(refs);
         return 'cached';
     }
     /**
@@ -183,7 +183,7 @@ export class ActionCore {
         this.#applyEarlyHints(refs);
         this.#applyAuthMiddleware(refs);
         await refs.next();
-        this.#writeResponse(refs);
+        await this.#writeResponse(refs);
         return 'cached';
     }
     /**
@@ -215,14 +215,14 @@ export class ActionCore {
         this.#applyEarlyHints(refs);
         this.#applyAuthMiddleware(refs);
         await refs.next();
-        this.#writeResponse(refs);
+        await this.#writeResponse(refs);
         return refs.writer.response();
     }
     /**
      * Writes status, headers and body to the response once
      * all middleware has been handled.
      */
-    #writeResponse(refs) {
+    async #writeResponse(refs) {
         if (refs.cacheCtx == null && refs.handlerCtx == null) {
             throw new Error('Unhandled');
         }
@@ -241,13 +241,13 @@ export class ActionCore {
             refs.handlerCtx = refs.cacheCtx;
             refs.writer.writeHead(refs.cacheCtx.status ?? 200, refs.headers);
             if (refs.cacheCtx.body != null) {
-                refs.writer.writeBody(refs.cacheCtx.body);
+                await refs.writer.writeBody(refs.cacheCtx.body);
             }
         }
         else {
             refs.writer.writeHead(refs.handlerCtx.status ?? 200, refs.handlerCtx.headers);
             if (refs.handlerCtx.body != null) {
-                refs.writer.writeBody(refs.handlerCtx.body);
+                await refs.writer.writeBody(refs.handlerCtx.body);
             }
         }
     }

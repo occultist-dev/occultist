@@ -228,7 +228,7 @@ export class ActionCore<
 
     if (refs.cacheCtx?.hit) return 'skipped';
 
-    this.#writeResponse(refs);
+    await this.#writeResponse(refs);
 
     return 'cached';
   }
@@ -255,7 +255,7 @@ export class ActionCore<
 
     await refs.next();
 
-    this.#writeResponse(refs);
+    await this.#writeResponse(refs);
 
     return 'cached';
   }
@@ -301,7 +301,7 @@ export class ActionCore<
 
     await refs.next();
 
-    this.#writeResponse(refs);
+    await this.#writeResponse(refs);
 
     return refs.writer.response();
   }
@@ -310,7 +310,7 @@ export class ActionCore<
    * Writes status, headers and body to the response once
    * all middleware has been handled.
    */
-  #writeResponse(refs: MiddlewareRefs<State, Auth, Spec>): void {
+  async #writeResponse(refs: MiddlewareRefs<State, Auth, Spec>): Promise<void> {
     if (refs.cacheCtx == null && refs.handlerCtx == null) {
       throw new Error('Unhandled');
     }
@@ -334,7 +334,7 @@ export class ActionCore<
       );
 
       if (refs.cacheCtx.body != null) {
-        refs.writer.writeBody(refs.cacheCtx.body);
+        await refs.writer.writeBody(refs.cacheCtx.body);
       }
     } else {
       refs.writer.writeHead(
@@ -343,7 +343,7 @@ export class ActionCore<
       );
 
       if (refs.handlerCtx.body != null) {
-        refs.writer.writeBody(refs.handlerCtx.body);
+        await refs.writer.writeBody(refs.handlerCtx.body);
       }
     }
   }

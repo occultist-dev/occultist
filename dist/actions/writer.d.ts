@@ -7,7 +7,7 @@ export interface HTTPWriter {
     writeEarlyHints(args: HintArgs): void;
     mergeHeaders(headers: HeadersInit): void;
     writeHead(status: number, headers?: Headers): void;
-    writeBody(body: ResponseBody): void;
+    writeBody(body: ResponseBody): Promise<void>;
     response(): ResponseTypes;
 }
 export declare class ResponseWriter implements HTTPWriter {
@@ -22,6 +22,6 @@ export declare class ResponseWriter implements HTTPWriter {
     writeEarlyHints(args: HintArgs): void;
     mergeHeaders(headersInit: HeadersInit): void;
     writeHead(status: number, headers?: Headers): void;
-    writeBody(body: ResponseBody): void;
+    writeBody(body: ResponseBody): Promise<void>;
     response(): Response | ServerResponse;
 }
