@@ -57,6 +57,8 @@ export interface StaticAssetExtension {
    */
   getAsset(assetAlias: string): StaticAsset | undefined;
 
+  listAssets(): StaticAsset[];
+
 }
 
 export type ProblemDetailsParam = {

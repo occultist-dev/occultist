@@ -44,6 +44,7 @@ export interface StaticAssetExtension {
      * @param assetAlias The alias for the asset.
      */
     getAsset(assetAlias: string): StaticAsset | undefined;
+    listAssets(): StaticAsset[];
 }
 export type ProblemDetailsParam = {
     name: string;

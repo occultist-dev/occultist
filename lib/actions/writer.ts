@@ -25,9 +25,6 @@ export interface HTTPWriter {
 
 export class ResponseWriter implements HTTPWriter {
   #res?: ServerResponse;
-  #hints?: {
-    link: string | string[];
-  };
   #status?: number;
   #statusText?: string;
   #headers: Headers = new Headers();
@@ -98,11 +95,9 @@ export class ResponseWriter implements HTTPWriter {
       this.#setHeaders(headers);
     }
 
-    if (res instanceof ServerResponse && this.#hints != null) {
-      res.writeHead(status, this.#hints);
-    } else if (res instanceof ServerResponse) {
-      res.writeHead(status);
-    }
+    if (!(res instanceof ServerResponse)) return;
+
+    res.writeHead(status, Object.fromEntries(this.#headers.entries()));
   }
 
   async writeBody(body: ResponseBody): Promise<void> {
@@ -124,7 +119,7 @@ export class ResponseWriter implements HTTPWriter {
       
       return this.#res;
     }
-    
+
     return new Response(this.#body as BodyInit, {
       status: this.#status,
       statusText: this.#statusText,

@@ -43,6 +43,9 @@ export class MiddlewareRefs {
         this.languageTag = languageTag;
         this.prevTime = prevTime;
         this.headers = new Headers();
+        if (this.contentType != null) {
+            this.headers.set('Content-Type', contentType);
+        }
     }
     recordServerTime(name) {
         if (!this.recordServerTiming)
@@ -245,7 +248,7 @@ export class ActionCore {
             }
         }
         else {
-            refs.writer.writeHead(refs.handlerCtx.status ?? 200, refs.handlerCtx.headers);
+            refs.writer.writeHead(refs.handlerCtx.status ?? 200, refs.headers);
             if (refs.handlerCtx.body != null) {
                 await refs.writer.writeBody(refs.handlerCtx.body);
             }

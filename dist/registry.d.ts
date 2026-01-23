@@ -294,8 +294,13 @@ export declare class Registry<State extends ContextState = ContextState> impleme
     /**
      * Retrieves a static asset by its alias.
      *
+     * @param staticAlias The alias of the static asset to retrieve.
      */
     getStaticAsset(staticAlias: string): StaticAsset | undefined;
+    /**
+     * Lists all static assets.
+     */
+    listStaticAssets(): StaticAsset[];
     queryStaticAssets(staticAliases: string[]): StaticAsset[];
     /**
      * Registers an Occultist extension. This is usually done

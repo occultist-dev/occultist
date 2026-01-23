@@ -812,11 +812,25 @@ export class Registry<
   /**
    * Retrieves a static asset by its alias.
    *
+   * @param staticAlias The alias of the static asset to retrieve.
    */
   getStaticAsset(staticAlias: string): StaticAsset | undefined {
     const parts = staticAlias.trim().split('/');
 
     return this.#staticExtensions.get(parts[0])?.getAsset(staticAlias);
+  }
+
+  /**
+   * Lists all static assets.
+   */
+  listStaticAssets(): StaticAsset[] {
+    let staticAssets: StaticAsset[] = [];
+
+    for (const staticExtension of this.#staticExtensions.values()) {
+      staticAssets = staticAssets.concat(staticExtension.listAssets());
+    }
+
+    return staticAssets;
   }
   
   queryStaticAssets(staticAliases: string[]): StaticAsset[] {
@@ -827,8 +841,6 @@ export class Registry<
     for (let i = 0; i < staticAliases.length; i++) {
       parts = staticAliases[i].trim().split('/');
       staticExtension = this.#staticExtensions.get(parts[0]);
-
-      console.log(staticExtension);
 
       if (staticExtension == null) continue;
 

@@ -5,7 +5,6 @@ function isHintLink(hint) {
 ;
 export class ResponseWriter {
     #res;
-    #hints;
     #status;
     #statusText;
     #headers = new Headers();
@@ -72,12 +71,9 @@ export class ResponseWriter {
         if (headers != null) {
             this.#setHeaders(headers);
         }
-        if (res instanceof ServerResponse && this.#hints != null) {
-            res.writeHead(status, this.#hints);
-        }
-        else if (res instanceof ServerResponse) {
-            res.writeHead(status);
-        }
+        if (!(res instanceof ServerResponse))
+            return;
+        res.writeHead(status, Object.fromEntries(this.#headers.entries()));
     }
     async writeBody(body) {
         if (this.#res instanceof ServerResponse && (body instanceof Blob ||

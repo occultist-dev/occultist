@@ -68,6 +68,10 @@ export class MiddlewareRefs<
     this.languageTag = languageTag;
     this.prevTime = prevTime;
     this.headers = new Headers();
+
+    if (this.contentType != null) {
+      this.headers.set('Content-Type', contentType);
+    }
   }
 
   recordServerTime(name: string): void {
@@ -339,7 +343,7 @@ export class ActionCore<
     } else {
       refs.writer.writeHead(
         refs.handlerCtx.status ?? 200,
-        refs.handlerCtx.headers,
+        refs.headers,
       );
 
       if (refs.handlerCtx.body != null) {
