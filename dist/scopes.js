@@ -75,7 +75,6 @@ export class Scope {
     finalize() {
         const partials = {
             '@id': this.url(),
-            '@container': '@type',
         };
         for (let index = 0; index < this.#children.length; index++) {
             const meta = this.#children[index];

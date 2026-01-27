@@ -148,7 +148,8 @@ export class Registry {
     #actions = null;
     #handlers = null;
     #extensions = [];
-    #staticExtensions = new Map();
+    #staticExtensions = [];
+    #staticExtensionsByAlias = new Map();
     constructor(args) {
         const url = new URL(args.rootIRI);
         this.#rootIRI = args.rootIRI;
@@ -530,7 +531,7 @@ export class Registry {
      *   by the static extension.
      */
     getStaticExtension(staticAlias) {
-        return this.#staticExtensions.get(staticAlias);
+        return this.#staticExtensionsByAlias.get(staticAlias);
     }
     /**
      * Retrieves a static asset by its alias.
@@ -538,15 +539,16 @@ export class Registry {
      * @param staticAlias The alias of the static asset to retrieve.
      */
     getStaticAsset(staticAlias) {
-        const parts = staticAlias.trim().split('/');
-        return this.#staticExtensions.get(parts[0])?.getAsset(staticAlias);
+        const parts = staticAlias.startsWith('@') ? [staticAlias] : staticAlias.trim().split('/');
+        console.log(this.#staticExtensionsByAlias);
+        return this.#staticExtensionsByAlias.get(parts[0])?.getAsset(staticAlias);
     }
     /**
      * Lists all static assets.
      */
     listStaticAssets() {
         let staticAssets = [];
-        for (const staticExtension of this.#staticExtensions.values()) {
+        for (const staticExtension of this.#staticExtensions) {
             staticAssets = staticAssets.concat(staticExtension.listAssets());
         }
         return staticAssets;
@@ -556,8 +558,9 @@ export class Registry {
         let staticExtension;
         const staticAssets = [];
         for (let i = 0; i < staticAliases.length; i++) {
-            parts = staticAliases[i].trim().split('/');
-            staticExtension = this.#staticExtensions.get(parts[0]);
+            const alias = staticAliases[i];
+            parts = alias.startsWith('@') ? [alias] : alias.trim().split('/');
+            staticExtension = this.#staticExtensionsByAlias.get(parts[0]);
             if (staticExtension == null)
                 continue;
             staticAssets.push(staticExtension.getAsset(staticAliases[i]));
@@ -574,12 +577,13 @@ export class Registry {
         let staticAlias;
         if (typeof extension.getAsset === 'function' &&
             Array.isArray(extension.staticAliases)) {
+            this.#staticExtensions.push(extension);
             for (let i = 0; i < extension.staticAliases.length; i++) {
                 staticAlias = extension.staticAliases[i];
-                if (this.#staticExtensions.has(staticAlias)) {
+                if (this.#staticExtensionsByAlias.has(staticAlias)) {
                     throw new Error(`Static alias '${staticAlias}' already used by other extension`);
                 }
-                this.#staticExtensions.set(staticAlias, extension);
+                this.#staticExtensionsByAlias.set(staticAlias, extension);
             }
         }
         this.#extensions.push(extension);

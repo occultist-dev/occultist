@@ -16,6 +16,7 @@ export declare class Route {
     constructor(template: string, rootURL: string, autoLanguageTag: boolean, autoFileExtension: boolean);
     get template(): string;
     get regexp(): RegExp;
+    get regexpRaw(): RegExp;
     get pattern(): URLPattern;
     /**
      * A normalized form of the url template where arguments are named

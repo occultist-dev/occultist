@@ -130,7 +130,6 @@ export class Scope<
   finalize(): void {
     const partials = {
       '@id': this.url(),
-      '@container': '@type',
     };
 
     for (let index = 0; index < this.#children.length; index++) {

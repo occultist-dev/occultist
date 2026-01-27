@@ -2,7 +2,7 @@ import { ProblemDetailsError } from "../errors.js";
 import { expand } from '@occultist/mini-jsonld';
 export async function getRequestBodyValues({ req, action, }) {
     let bodyValues = Object.create(null);
-    const contentType = req.headers.get('content-type');
+    const contentType = req.headers.get('Content-Type');
     const mappedTypes = Object.entries(action.spec)
         .reduce((acc, [term, propertySpec]) => {
         if (propertySpec.typeDef == null)

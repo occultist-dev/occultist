@@ -24,7 +24,7 @@ export async function getRequestBodyValues<
   action: ImplementedAction<State, Spec>,
 }): Promise<RequestBodyResult> {
   let bodyValues: BodyValue = Object.create(null);
-  const contentType = req.headers.get('content-type');
+  const contentType = req.headers.get('Content-Type');
   const mappedTypes: Record<string, {
     term: string;
     propertySpec: PropertySpec;

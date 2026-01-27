@@ -23,6 +23,7 @@ export class Route {
   #rootURL: string;
   #template: string;
   #regexp: RegExp;
+  #regexpRaw: RegExp;
   #pattern: URLPattern;
   #normalized: string;
   #pathKeys: Set<string> = new Set();
@@ -51,6 +52,10 @@ export class Route {
 
   get regexp(): RegExp {
     return this.#regexp;
+  }
+
+  get regexpRaw(): RegExp {
+    return this.#regexpRaw;
   }
 
   get pattern(): URLPattern {
@@ -131,6 +136,7 @@ export class Route {
     let index = 0;
     let template: string = '';
     let regexpStr: string = '^';
+    let regexpRawStr: string = '^';
 
     while ((match = paramsRe.exec(this.#template))) {
       const segment = match.groups?.s;
@@ -141,7 +147,7 @@ export class Route {
         foundQueryOrFragment = true;
 
         if (this.#autoLanguageTag && this.#autoFileExtension) {
-          regexpStr += `(${languageTagReStr}?${fileExtensionReStr})?`
+          regexpStr += `(${languageTagReStr}?${fileExtensionReStr}?)`
           template += '{.languageTag,fileExtension}';
         } else if (this.#autoFileExtension) {
           regexpStr += fileExtensionReStr + '?';
@@ -153,6 +159,7 @@ export class Route {
 
       if (!foundQueryOrFragment && segment != null && type == null) {
         regexpStr += segment;
+        regexpRawStr += segment;
         normalized += segment;
         pattern += segment;
       }
@@ -163,13 +170,15 @@ export class Route {
 
       if (type === '.' && !foundQueryOrFragment && value != null) {
         index++;
-        regexpStr += `(\\.(?<${value}>[^\\/\\.]+))`
+        regexpStr += `(\\.(?<${value}>[^\\/\\.]+))`;
+        regexpRawStr += `(\\.(?<${value}>[^\\/\\.]+))`;
         pattern += `.:${value}`;
         normalized += `.:value${index}`;
         this.#pathKeys.add(value);
       } else if (!foundQueryOrFragment && value != null) {
         index++;
         regexpStr += `(?<${value}>[^\\/\\.]+)`
+        regexpRawStr += `(?<${value}>[^\\/\\.]+)`
         pattern += `:${value}`;
         normalized += `:value${index}`;
         this.#pathKeys.add(value);
@@ -178,21 +187,23 @@ export class Route {
 
     if (!foundQueryOrFragment) {
       if (this.#autoLanguageTag && this.#autoFileExtension) {
-        regexpStr += `(${languageTagReStr}?${fileExtensionReStr})`
+        regexpStr += `(${languageTagReStr}?${fileExtensionReStr}?)`
         template += '{.languageTag,fileExtension}';
         this.#pathKeys.add('languageTag');
         this.#pathKeys.add('fileExtension');
       } else if (this.#autoFileExtension) {
-        regexpStr += fileExtensionReStr;
+        regexpStr += fileExtensionReStr + '?';
         template += '{.fileExtension}';
         this.#pathKeys.add('fileExtension');
       }
     }
 
     regexpStr += '$';
+    regexpRawStr += '$';
 
     this.#template = template;
-    this.#regexp = new RegExp(regexpStr)
+    this.#regexp = new RegExp(regexpStr);
+    this.#regexpRaw = new RegExp(regexpRawStr);
 
     return [
       makeURLPattern(pattern, this.#rootURL),
