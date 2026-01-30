@@ -301,6 +301,13 @@ export declare class Registry<State extends ContextState = ContextState> impleme
      * Lists all static assets.
      */
     listStaticAssets(): StaticAsset[];
+    /**
+     * Queries all assets within a set of directories.
+     */
+    queryStaticDirectories(staticAliases: string[]): StaticAsset[];
+    /**
+     * Queries static assets by name.
+     */
     queryStaticAssets(staticAliases: string[]): StaticAsset[];
     /**
      * Registers an Occultist extension. This is usually done

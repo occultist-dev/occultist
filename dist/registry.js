@@ -553,6 +553,23 @@ export class Registry {
         }
         return staticAssets;
     }
+    /**
+     * Queries all assets within a set of directories.
+     */
+    queryStaticDirectories(staticAliases) {
+        let staticExtension;
+        let staticAssets = [];
+        for (let i = 0, length = staticAliases.length; i < length; i++) {
+            staticExtension = this.#staticExtensionsByAlias.get(staticAliases[i]);
+            if (staticExtension == null)
+                continue;
+            staticAssets = staticAssets.concat(staticExtension.listAssets());
+        }
+        return staticAssets;
+    }
+    /**
+     * Queries static assets by name.
+     */
     queryStaticAssets(staticAliases) {
         let parts;
         let staticExtension;
