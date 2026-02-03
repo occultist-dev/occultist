@@ -68,8 +68,12 @@ export class WrappedRequest implements Request {
     });
   }
 
-  formData(): Promise<FormData> {
-    return new Response(this.body).formData();
+  async formData(): Promise<FormData> {
+    return new Request(this.url, {
+      method: this.method,
+      body: await this.arrayBuffer(),
+      headers: this.headers,
+    }).formData();
   }
 
   json(): Promise<unknown> {

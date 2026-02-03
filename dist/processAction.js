@@ -7,7 +7,7 @@ import { isObject } from "./utils/isObject.js";
 import { isPopulatedObject } from "./utils/isPopulatedObject.js";
 import { makeAppendProblemDetails } from "./utils/makeAppendProblemDetails.js";
 import { failsRequiredRequirement, failsTypeRequirement, failsContentTypeRequirement, failsMaxValue, failsMinValue, failsValueMinLength, failsValueMaxLength, failsStepValue, failsPatternValue, failsValidator, isObjectArraySpec, isObjectSpec, isArraySpec } from "./validators.js";
-import { InvalidActionParamsError, ProblemDetailsError } from "./errors.js";
+import { BadRequestError, ProblemDetailsError } from "./errors.js";
 import { alwaysArray } from "./utils/alwaysArray.js";
 export async function processAction({ iri, req, spec, state, action, }) {
     let httpStatus = null;
@@ -179,7 +179,7 @@ export async function processAction({ iri, req, spec, state, action, }) {
                     resolve(await transformer(value, state));
                 }
                 catch (err) {
-                    if (err instanceof InvalidActionParamsError) {
+                    if (err instanceof BadRequestError) {
                         if (typeof httpStatus !== 'number') {
                             httpStatus = err.status;
                         }
@@ -304,7 +304,7 @@ export async function processAction({ iri, req, spec, state, action, }) {
                 });
             }
         }
-        const sanitizedValue = {};
+        const sanitizedValue = Object.create(null);
         const specValue = parentSpecValue.properties[paramName];
         if (typeof specValue !== 'undefined') {
             for (const [paramNameX, value] of Object.entries(parentValue)) {
@@ -365,7 +365,7 @@ export async function processAction({ iri, req, spec, state, action, }) {
         for (let index = 0; index < arrayValue.length; index++) {
             const value = arrayValue[index];
             // deno-lint-ignore no-explicit-any
-            const sanitizedValue = {};
+            const sanitizedValue = Object.create(null);
             const pointer = `${parentPointer}/${index}`;
             for (const [paramName, objectSpec] of Object.entries(objectSpecValue.properties)) {
                 const internalName = getInternalName({

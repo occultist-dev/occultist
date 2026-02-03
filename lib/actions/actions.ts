@@ -554,12 +554,12 @@ export class DefinedAction<
    */
   cache(args: CacheInstanceArgs): DefinedAction<State, Auth, Term, Spec> {
     if (this.#core.cache.length !== 0 &&
-        this.#core.cacheOccurance === BeforeDefinition) {
+        this.#core.cacheOccurrence === BeforeDefinition) {
       throw new Error(
         'Action cache may be defined either before or after ' +
         'the definition method is called, but not both.');
-    } else if (this.#core.cacheOccurance === BeforeDefinition) {
-      this.#core.cacheOccurance = AfterDefinition;
+    } else if (this.#core.cacheOccurrence === BeforeDefinition) {
+      this.#core.cacheOccurrence = AfterDefinition;
     }
 
     this.#core.cache.push(args);

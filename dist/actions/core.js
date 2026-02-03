@@ -78,7 +78,7 @@ export class ActionCore {
     action;
     acceptCache = new Set();
     compressBeforeCache = false;
-    cacheOccurance = BeforeDefinition;
+    cacheOccurrence = BeforeDefinition;
     auth;
     cache = [];
     autoLanguageTags;
@@ -275,13 +275,19 @@ export class ActionCore {
         refs.next = async () => {
             let processed;
             if (refs.spec != null) {
-                processed = await processAction({
-                    iri: refs.req.url,
-                    req: refs.req,
-                    spec: refs.spec ?? {},
-                    state: refs.state,
-                    action: this.action,
-                });
+                try {
+                    processed = await processAction({
+                        iri: refs.req.url,
+                        req: refs.req,
+                        spec: refs.spec ?? {},
+                        state: refs.state,
+                        action: this.action,
+                    });
+                }
+                catch (err) {
+                    console.log(err);
+                    throw err;
+                }
             }
             refs.handlerCtx = new Context({
                 req: refs.req,

@@ -53,8 +53,12 @@ export class WrappedRequest {
             body: b,
         });
     }
-    formData() {
-        return new Response(this.body).formData();
+    async formData() {
+        return new Request(this.url, {
+            method: this.method,
+            body: await this.arrayBuffer(),
+            headers: this.headers,
+        }).formData();
     }
     json() {
         return new Response(this.body).json();

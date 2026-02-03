@@ -119,6 +119,7 @@ export class Scope<
     meta.recordServerTiming = this.#recordServerTiming;
 
     this.#children.push(meta);
+    this.#propergateMeta(meta);
     
     return new ActionAuth<State>(meta);
   }

@@ -59,7 +59,7 @@ export declare class ActionCore<State extends ContextState = ContextState, Auth 
     action?: ImplementedAction<State, Auth, Spec>;
     acceptCache: Set<string>;
     compressBeforeCache: boolean;
-    cacheOccurance: 0 | 1;
+    cacheOccurrence: 0 | 1;
     auth?: AuthMiddleware<Auth>;
     cache: CacheInstanceArgs[];
     autoLanguageTags: boolean;

@@ -47,8 +47,13 @@ export class ProblemDetailsError extends Error {
         return JSON.stringify(this.problemDetails);
     }
 }
-export class InvalidActionParamsError extends ProblemDetailsError {
+export class BadRequestError extends ProblemDetailsError {
     constructor(title) {
-        super(400, { title, type: 'invalid-param' });
+        super(400, { title, type: 'bad-request' });
+    }
+}
+export class NotFoundError extends ProblemDetailsError {
+    constructor(title) {
+        super(404, { title, type: 'not-found' });
     }
 }

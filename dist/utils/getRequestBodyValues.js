@@ -1,5 +1,6 @@
 import { ProblemDetailsError } from "../errors.js";
 import { expand } from '@occultist/mini-jsonld';
+import jsonld from 'jsonld';
 export async function getRequestBodyValues({ req, action, }) {
     let bodyValues = Object.create(null);
     const contentType = req.headers.get('Content-Type');
@@ -91,6 +92,7 @@ export async function getRequestBodyValues({ req, action, }) {
     }
     else if (contentType?.startsWith('application/ld+json')) {
         let source;
+        let compacted;
         try {
             source = await req.json();
         }
@@ -107,6 +109,16 @@ export async function getRequestBodyValues({ req, action, }) {
                 title: 'Failed to expand JSON-LD body',
             });
         }
+        try {
+            compacted = await jsonld.compact(bodyValues, action.context);
+        }
+        catch {
+            throw new ProblemDetailsError(400, {
+                title: 'Failed to compact JSON-LD body',
+            });
+        }
+        delete compacted['@context'];
+        bodyValues = compacted;
     }
     Object.freeze(bodyValues);
     return { bodyValues };

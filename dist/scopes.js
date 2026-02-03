@@ -67,6 +67,7 @@ export class Scope {
         const meta = new ActionCore(this.registry.rootIRI, method, args?.name, path, this.#registry, this.#writer, this, args?.autoLanguageTags ?? args?.autoRouteParams ?? this.#autoLanguageTags, args?.autoFileExtensions ?? args?.autoRouteParams ?? this.#autoFileExtensions, this.#recordServerTiming);
         meta.recordServerTiming = this.#recordServerTiming;
         this.#children.push(meta);
+        this.#propergateMeta(meta);
         return new ActionAuth(meta);
     }
     url() {

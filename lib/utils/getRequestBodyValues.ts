@@ -3,7 +3,7 @@ import type { JSONValue, JSONObject } from "../jsonld.ts";
 import type { ContextState, ActionSpec, PropertySpec } from "../actions/spec.ts";
 import type { ImplementedAction } from "../actions/types.ts";
 import { expand } from '@occultist/mini-jsonld';
-
+import jsonld, {ContextDefinition} from 'jsonld';
 
 // export type BodyValue = Record<string, FileInput | FileInput[] | JSONValue>;
 export type BodyValue = Record<string, JSONValue>;
@@ -121,6 +121,7 @@ export async function getRequestBodyValues<
     }
   } else if (contentType?.startsWith('application/ld+json')) {
     let source: JSONValue;
+    let compacted: JSONValue;
 
     try {
       source = await req.json();
@@ -137,6 +138,18 @@ export async function getRequestBodyValues<
         title: 'Failed to expand JSON-LD body',
       });
     }
+
+    try {
+      compacted = await jsonld.compact(bodyValues, action.context as ContextDefinition) as JSONValue;
+    } catch {
+      throw new ProblemDetailsError(400, {
+        title: 'Failed to compact JSON-LD body',
+      });
+    }
+
+    delete compacted['@context'];
+
+    bodyValues = compacted as JSONObject;
   }
 
   Object.freeze(bodyValues);

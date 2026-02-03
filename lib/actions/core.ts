@@ -110,7 +110,7 @@ export class ActionCore<
   action?: ImplementedAction<State, Auth, Spec>;
   acceptCache = new Set<string>();
   compressBeforeCache: boolean = false;
-  cacheOccurance: 0 | 1 = BeforeDefinition;
+  cacheOccurrence: 0 | 1 = BeforeDefinition;
   auth?: AuthMiddleware<Auth>;
   cache: CacheInstanceArgs[] = [];
   autoLanguageTags: boolean;
@@ -377,6 +377,7 @@ export class ActionCore<
       let processed: ProcessActionResult<Spec>;
 
       if (refs.spec != null) {
+        try {
         processed = await processAction<State, Auth, Spec>({
           iri: refs.req.url,
           req: refs.req,
@@ -384,6 +385,10 @@ export class ActionCore<
           state: refs.state,
           action: this.action,
         });
+        } catch (err) {
+          console.log(err);
+          throw err;
+        }
       }
 
       refs.handlerCtx = new Context<State, Auth, Spec>({

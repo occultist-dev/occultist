@@ -7,7 +7,7 @@ import { isObject } from "./utils/isObject.ts";
 import { isPopulatedObject } from "./utils/isPopulatedObject.ts";
 import { type ProblemDetailsParamsRefs, makeAppendProblemDetails } from "./utils/makeAppendProblemDetails.ts";
 import { failsRequiredRequirement, failsTypeRequirement, failsContentTypeRequirement, failsMaxValue, failsMinValue, failsValueMinLength, failsValueMaxLength, failsStepValue, failsPatternValue, failsValidator, isObjectArraySpec, isObjectSpec, isArraySpec } from "./validators.ts";
-import { InvalidActionParamsError, ProblemDetailsError } from "./errors.ts";
+import { BadRequestError, ProblemDetailsError } from "./errors.ts";
 import { alwaysArray } from "./utils/alwaysArray.ts";
 import type { AuthState, ImplementedAction } from "./actions/types.ts";
 import type { ActionPayload, ActionSpec, ArraySpec, ContextState, ObjectArraySpec, ObjectSpec, ParsedIRIValues, PropertySpec, SpecValue, ValueSpec } from "./actions/spec.ts";
@@ -249,7 +249,7 @@ export async function processAction<
         try {
           resolve(await transformer(value, state));
         } catch (err) {
-          if (err instanceof InvalidActionParamsError) {
+          if (err instanceof BadRequestError) {
             if (typeof httpStatus !== 'number') {
               httpStatus = err.status;
             } else if (httpStatus !== err.status) {
@@ -415,7 +415,7 @@ export async function processAction<
       }
     }
 
-    const sanitizedValue: Record<string, unknown> = {};
+    const sanitizedValue: Record<string, unknown> = Object.create(null);
     const specValue = parentSpecValue.properties[paramName];
 
     if (typeof specValue !== 'undefined') {
@@ -496,7 +496,7 @@ export async function processAction<
     for (let index = 0; index < arrayValue.length; index++) {
       const value = arrayValue[index];
       // deno-lint-ignore no-explicit-any
-      const sanitizedValue: Record<string, any> = {};
+      const sanitizedValue: Record<string, any> = Object.create(null);
       const pointer = `${parentPointer}/${index}`;
 
       for (

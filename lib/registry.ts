@@ -471,21 +471,21 @@ export class Registry<
     }
 
     for (let index = 0; index < this.#children.length; index++) {
-      const meta = this.#children[index];
-      const method = meta.method;
-      const normalized = meta.route.normalized;
+      const actionCore = this.#children[index];
+      const method = actionCore.method;
+      const normalized = actionCore.route.normalized;
 
-      meta.finalize();
+      actionCore.finalize();
 
       const group = groupedMeta.get(normalized);
       const methodSet = group?.get(method);
 
       if (methodSet != null) {
-        methodSet.push(meta);
+        methodSet.push(actionCore);
       } else if (group != null) {
-        group.set(method, [meta]);
+        group.set(method, [actionCore]);
       } else {
-        groupedMeta.set(normalized, new Map([[method, [meta]]]));
+        groupedMeta.set(normalized, new Map([[method, [actionCore]]]));
       }
     }
 
@@ -785,17 +785,17 @@ export class Registry<
     }
       
     if (err instanceof ProblemDetailsError && req instanceof Request) {
-      return new Response(err.toContent('application/problem.json'), {
+      return new Response(err.toContent('application/problem+json'), {
         status: err.status,
         headers: {
-          'Content-Type': 'application/problem.json',
+          'Content-Type': 'application/problem+json',
         },
       });
     } else if (err instanceof ProblemDetailsError && res != null) {
       res.writeHead(err.status, {
-        'Content-Type': 'application/problem.json',
+        'Content-Type': 'application/problem+json',
       });
-      res.end(err.toContent('application/problem.json'));
+      res.end(err.toContent('application/problem+json'));
       return res;
     }
   }
@@ -817,8 +817,6 @@ export class Registry<
    */
   getStaticAsset(staticAlias: string): StaticAsset | undefined {
     const parts = staticAlias.startsWith('@') ? [staticAlias] : staticAlias.trim().split('/');
-
-    console.log(this.#staticExtensionsByAlias);
 
     return this.#staticExtensionsByAlias.get(parts[0])?.getAsset(staticAlias);
   }
@@ -842,6 +840,7 @@ export class Registry<
   queryStaticDirectories(staticAliases: string[]): StaticAsset[] {
     let staticExtension: StaticAssetExtension;
     let staticAssets: StaticAsset[] = [];
+    const directoryAliases = new Set(staticAssets);
 
     for (let i = 0, length = staticAliases.length; i < length; i++) {
       staticExtension = this.#staticExtensionsByAlias.get(staticAliases[i]);

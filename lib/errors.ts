@@ -59,8 +59,14 @@ export class ProblemDetailsError extends Error {
   }
 }
 
-export class InvalidActionParamsError extends ProblemDetailsError {
+export class BadRequestError extends ProblemDetailsError {
   constructor(title: string) {
-    super(400, { title, type: 'invalid-param' });
+    super(400, { title, type: 'bad-request' });
+  }
+}
+
+export class NotFoundError extends ProblemDetailsError {
+  constructor(title: string) {
+    super(404, { title, type: 'not-found' });
   }
 }

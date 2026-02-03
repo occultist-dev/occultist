@@ -73,7 +73,7 @@ export class ActionSet {
   /**
    * @param method HTTP method to match against.
    * @param path The pathname of the request.
-   * @param accept The accept cache of th erequest.
+   * @param accept The accept cache of the request.
    */
   matches(method: string, path: string, accept: Accept): null | ActionMatchResult {
     if (method !== this.#method) {
