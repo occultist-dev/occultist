@@ -1,5 +1,5 @@
 import { CacheDescriptor, CacheMiddleware } from "../cache/cache.js";
-import { ProblemDetailsError } from "../errors.js";
+import { InternalServerError, ProblemDetailsError } from "../errors.js";
 import { processAction } from "../processAction.js";
 import { joinPaths } from "../utils/joinPaths.js";
 import { CacheContext, Context } from "./context.js";
@@ -81,6 +81,8 @@ export class ActionCore {
     cacheOccurrence = BeforeDefinition;
     auth;
     cache = [];
+    preMiddleware = [];
+    postMiddleware = [];
     autoLanguageTags;
     autoFileExtensions;
     recordServerTiming;
@@ -227,7 +229,7 @@ export class ActionCore {
      */
     async #writeResponse(refs) {
         if (refs.cacheCtx == null && refs.handlerCtx == null) {
-            throw new Error('Unhandled');
+            throw new InternalServerError('Request was not handled by middleware');
         }
         if (refs.cacheCtx?.hit) {
             refs.recordServerTime('hit');
@@ -248,6 +250,9 @@ export class ActionCore {
             }
         }
         else {
+            if (refs.handlerCtx == null) {
+                throw new InternalServerError('Request was not handled by middleware');
+            }
             refs.writer.writeHead(refs.handlerCtx.status ?? 200, refs.headers);
             if (refs.handlerCtx.body != null) {
                 await refs.writer.writeBody(refs.handlerCtx.body);
@@ -271,23 +276,24 @@ export class ActionCore {
      * provided in the action's define method if called.
      */
     #applyActionProcessing(refs) {
+        for (let i = this.postMiddleware.length - 1; i >= 0; i--) {
+            const middleware = this.postMiddleware[i];
+            const downstream = refs.next;
+            refs.next = async () => {
+                await middleware(refs.handlerCtx, downstream);
+            };
+        }
         const downstream = refs.next;
         refs.next = async () => {
             let processed;
             if (refs.spec != null) {
-                try {
-                    processed = await processAction({
-                        iri: refs.req.url,
-                        req: refs.req,
-                        spec: refs.spec ?? {},
-                        state: refs.state,
-                        action: this.action,
-                    });
-                }
-                catch (err) {
-                    console.log(err);
-                    throw err;
-                }
+                processed = await processAction({
+                    iri: refs.req.url,
+                    req: refs.req,
+                    spec: refs.spec ?? {},
+                    state: refs.state,
+                    action: this.action,
+                });
             }
             refs.handlerCtx = new Context({
                 req: refs.req,
@@ -296,11 +302,12 @@ export class ActionCore {
                 public: this.public && refs.authKey == null,
                 auth: refs.auth,
                 authKey: refs.authKey,
+                state: refs.state,
                 cacheOperation: refs.cacheOperation,
                 handler: refs.handler,
-                params: processed.params ?? {},
-                query: processed.query ?? {},
-                payload: processed.payload ?? {},
+                params: processed?.params ?? {},
+                query: processed?.query ?? {},
+                payload: processed?.payload ?? {},
                 headers: refs.headers,
             });
             if (refs.contentType != null) {
@@ -311,6 +318,13 @@ export class ActionCore {
             refs.recordServerTime('payload');
             await downstream();
         };
+        for (let i = this.preMiddleware.length - 1; i >= 0; i--) {
+            const middleware = this.preMiddleware[i];
+            const downstream = refs.next;
+            refs.next = async () => {
+                await middleware(refs.cacheCtx, downstream);
+            };
+        }
     }
     /**
      * Applies configured caching middleware to the response if
@@ -329,6 +343,7 @@ export class ActionCore {
                 cacheOperation: refs.cacheOperation,
                 auth: refs.auth,
                 authKey: refs.authKey,
+                state: refs.state,
                 handler: refs.handler,
                 params: {},
                 query: {},

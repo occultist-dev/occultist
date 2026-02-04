@@ -7,7 +7,7 @@ import { HandlerDefinition } from './actions.ts';
 import { CacheContext, Context } from './context.ts';
 import { Route } from "./route.ts";
 import type { ActionSpec, ContextState, FileValue, NextFn, TransformerFn } from './spec.ts';
-import type { AuthMiddleware, AuthState, CacheHitHeader, HintArgs, ImplementedAction } from './types.ts';
+import type { AuthMiddleware, AuthState, CacheHitHeader, HintArgs, ImplementedAction, PostMiddlewareFn, PreMiddlewareFn } from './types.ts';
 import { type HTTPWriter, type ResponseTypes } from "./writer.ts";
 export declare const BeforeDefinition = 0;
 export declare const AfterDefinition = 1;
@@ -62,6 +62,8 @@ export declare class ActionCore<State extends ContextState = ContextState, Auth 
     cacheOccurrence: 0 | 1;
     auth?: AuthMiddleware<Auth>;
     cache: CacheInstanceArgs[];
+    preMiddleware: PreMiddlewareFn[];
+    postMiddleware: PostMiddlewareFn[];
     autoLanguageTags: boolean;
     autoFileExtensions: boolean;
     recordServerTiming: boolean;

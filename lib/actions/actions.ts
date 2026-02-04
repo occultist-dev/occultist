@@ -1,5 +1,5 @@
 import type {CacheInstanceArgs, CacheOperationResult} from '../cache/types.ts';
-import type {JSONLDContext, JSONObject, TypeDef} from "../jsonld.ts";
+import type {JSONLDContext, JSONObject, Merge, TypeDef} from "../jsonld.ts";
 import type {Registry} from '../registry.ts';
 import type {Scope} from "../scopes.ts";
 import {getActionContext} from "../utils/getActionContext.ts";
@@ -9,7 +9,7 @@ import {joinPaths} from "../utils/joinPaths.ts";
 import {AfterDefinition, BeforeDefinition, MiddlewareRefs, type ActionCore} from "./core.ts";
 import {Route} from './route.ts';
 import type {ActionSpec, ContextState} from "./spec.ts";
-import type {AuthMiddleware, AuthState, HandlerFn, HandlerMeta, HandlerObj, HandlerValue, HintArgs, ImplementedAction} from './types.ts';
+import type {AuthMiddleware, AuthState, HandlerFn, HandlerMeta, HandlerObj, HandlerValue, HintArgs, ImplementedAction, PostMiddlewareFn, PreMiddlewareFn} from './types.ts';
 import {type ResponseTypes} from './writer.ts';
 
 
@@ -417,17 +417,12 @@ export class FinalizedAction<
 
 }
 
-export interface Applicable<ActionType> {
-  use(): ActionType;
-}
-
 export class DefinedAction<
   State extends ContextState = ContextState,
   Auth extends AuthState = AuthState,
   Term extends string = string,
   Spec extends ActionSpec = ActionSpec,
 > implements
-  Applicable<DefinedAction<State, Auth, Term, Spec>>,
   Handleable<State, Auth, Spec>,
   ImplementedAction<State, Auth, Spec>
 {
@@ -571,8 +566,21 @@ export class DefinedAction<
     return this;
   }
 
-  use(): DefinedAction<State, Auth, Term, Spec> {
-    return this;
+  use<
+    HandlerState extends ContextState,
+    MergedState extends ContextState = Merge<State, HandlerState>,
+    MergedAction = DefinedAction<
+      MergedState,
+      Auth,
+      Term,
+      Spec
+    >,
+  >(
+    handler: PostMiddlewareFn<MergedState, Auth, Spec>,
+  ): MergedAction {
+    this.#core.postMiddleware.push(handler as PostMiddlewareFn);
+
+    return this as unknown as MergedAction;
   }
   
   handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
@@ -624,7 +632,6 @@ export class Action<
   State extends ContextState = ContextState,
   Auth extends AuthState = AuthState,
 > implements
-  Applicable<Action>,
   Handleable<State>,
   ImplementedAction<State>
 {
@@ -721,8 +728,19 @@ export class Action<
     return null;
   }
 
-  use(): Action<State> {
-    return this;
+  use<
+    HandlerState extends ContextState = ContextState,
+    MergedState extends ContextState = Merge<State, HandlerState>,
+    MergedAction = Action<
+      MergedState,
+      Auth
+    >,
+  >(
+    middleware: PreMiddlewareFn<MergedState, Auth>,
+  ): MergedAction {
+    this.#core.preMiddleware.push(middleware as PreMiddlewareFn);
+
+    return this as unknown as MergedAction;
   }
 
   define<
@@ -786,7 +804,6 @@ export class PreAction<
   State extends ContextState = ContextState,
   Auth extends AuthState = AuthState,
 > implements
-  Applicable<Action>,
   Handleable<State, Auth>
 {
   #core: ActionCore<State, Auth>;
@@ -796,11 +813,20 @@ export class PreAction<
   ) {
     this.#core = core;
   }
+  
+  use<
+    HandlerState extends ContextState = ContextState,
+    MergedState extends ContextState = Merge<State, HandlerState>,
+    MergedAction = Action<
+      MergedState,
+      Auth
+    >,
+  >(
+    handler: PreMiddlewareFn<MergedState, Auth>,
+  ): MergedAction {
+    this.#core.preMiddleware.push(handler as PreMiddlewareFn);
 
-  use() {
-    return new Action(
-      this.#core,
-    );
+    return this as unknown as MergedAction;
   }
 
   define<
@@ -831,7 +857,6 @@ export class Endpoint<
   State extends ContextState = ContextState,
   Auth extends AuthState = AuthState,
 > implements
-  Applicable<Action>,
   Handleable<State, Auth>
 {
   #core: ActionCore<State, Auth>;
@@ -862,8 +887,19 @@ export class Endpoint<
     return this;
   }
 
-  use(): Action<State, Auth> {
-    return new Action<State, Auth>(this.#core);
+  use<
+    HandlerState extends ContextState,
+    MergedState extends ContextState = Merge<State, HandlerState>,
+    MergedAction = Endpoint<
+      MergedState,
+      Auth
+    >,
+  >(
+    middleware: PreMiddlewareFn<MergedState, Auth>,
+  ): MergedAction {
+    this.#core.preMiddleware.push(middleware as PreMiddlewareFn);
+
+    return this as unknown as MergedAction;
   }
 
   define<

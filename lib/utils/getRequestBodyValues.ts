@@ -3,7 +3,7 @@ import type { JSONValue, JSONObject } from "../jsonld.ts";
 import type { ContextState, ActionSpec, PropertySpec } from "../actions/spec.ts";
 import type { ImplementedAction } from "../actions/types.ts";
 import { expand } from '@occultist/mini-jsonld';
-import jsonld, {ContextDefinition} from 'jsonld';
+import jsonld, {type ContextDefinition} from 'jsonld';
 
 // export type BodyValue = Record<string, FileInput | FileInput[] | JSONValue>;
 export type BodyValue = Record<string, JSONValue>;

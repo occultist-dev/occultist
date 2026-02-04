@@ -313,7 +313,8 @@ export class DefinedAction {
     meta() {
         return this;
     }
-    use() {
+    use(handler) {
+        this.#core.postMiddleware.push(handler);
         return this;
     }
     handle(arg1, arg2) {
@@ -407,7 +408,8 @@ export class Action {
     jsonldPartial() {
         return null;
     }
-    use() {
+    use(middleware) {
+        this.#core.preMiddleware.push(middleware);
         return this;
     }
     define(args) {
@@ -438,8 +440,9 @@ export class PreAction {
     constructor(core) {
         this.#core = core;
     }
-    use() {
-        return new Action(this.#core);
+    use(handler) {
+        this.#core.preMiddleware.push(handler);
+        return this;
     }
     define(args) {
         return new DefinedAction(args.typeDef, args.spec, this.#core);
@@ -467,8 +470,9 @@ export class Endpoint {
     etag() {
         return this;
     }
-    use() {
-        return new Action(this.#core);
+    use(middleware) {
+        this.#core.preMiddleware.push(middleware);
+        return this;
     }
     define(args) {
         return new DefinedAction(args.typeDef, args.spec, this.#core);

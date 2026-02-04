@@ -24,6 +24,7 @@ export type CacheOperation =
 ;
 
 export type CacheOperationResult =
+  | 'error'
   | 'not-found'
   | 'unsupported'
   | 'skipped'

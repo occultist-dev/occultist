@@ -3,7 +3,7 @@ import type { CacheContext } from "../mod.ts";
 export type CacheStrategyType = 'http' | 'etag' | 'store';
 export type CacheSemantics = 'options' | 'head' | 'get' | 'post' | 'put' | 'delete' | 'query';
 export type CacheOperation = 'prime' | 'refresh' | 'invalidate';
-export type CacheOperationResult = 'not-found' | 'unsupported' | 'skipped' | 'cached' | 'invalidated';
+export type CacheOperationResult = 'error' | 'not-found' | 'unsupported' | 'skipped' | 'cached' | 'invalidated';
 /**
  * A predicate function which takes the cache context
  * as an argument and returns true if the response

@@ -1,11 +1,11 @@
 import type { CacheInstanceArgs, CacheOperationResult } from '../cache/types.ts';
-import type { JSONLDContext, JSONObject, TypeDef } from "../jsonld.ts";
+import type { JSONLDContext, JSONObject, Merge, TypeDef } from "../jsonld.ts";
 import type { Registry } from '../registry.ts';
 import type { Scope } from "../scopes.ts";
 import { MiddlewareRefs, type ActionCore } from "./core.ts";
 import { Route } from './route.ts';
 import type { ActionSpec, ContextState } from "./spec.ts";
-import type { AuthMiddleware, AuthState, HandlerFn, HandlerMeta, HandlerObj, HandlerValue, HintArgs, ImplementedAction } from './types.ts';
+import type { AuthMiddleware, AuthState, HandlerFn, HandlerMeta, HandlerObj, HandlerValue, HintArgs, ImplementedAction, PostMiddlewareFn, PreMiddlewareFn } from './types.ts';
 import { type ResponseTypes } from './writer.ts';
 export type DefineArgs<Term extends string = string, Spec extends ActionSpec = ActionSpec> = {
     typeDef?: TypeDef<Term>;
@@ -74,10 +74,7 @@ export declare class FinalizedAction<State extends ContextState = ContextState, 
     refreshCache(refs: MiddlewareRefs<State, Auth, Spec>): Promise<CacheOperationResult>;
     invalidateCache(refs: MiddlewareRefs<State, Auth, Spec>): Promise<CacheOperationResult>;
 }
-export interface Applicable<ActionType> {
-    use(): ActionType;
-}
-export declare class DefinedAction<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Term extends string = string, Spec extends ActionSpec = ActionSpec> implements Applicable<DefinedAction<State, Auth, Term, Spec>>, Handleable<State, Auth, Spec>, ImplementedAction<State, Auth, Spec> {
+export declare class DefinedAction<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Term extends string = string, Spec extends ActionSpec = ActionSpec> implements Handleable<State, Auth, Spec>, ImplementedAction<State, Auth, Spec> {
     #private;
     constructor(typeDef: TypeDef | undefined, spec: Spec, core: ActionCore<State, Auth, Spec>);
     get public(): boolean;
@@ -116,7 +113,7 @@ export declare class DefinedAction<State extends ContextState = ContextState, Au
      */
     cache(args: CacheInstanceArgs): DefinedAction<State, Auth, Term, Spec>;
     meta(): DefinedAction<State, Auth, Term, Spec>;
-    use(): DefinedAction<State, Auth, Term, Spec>;
+    use<HandlerState extends ContextState, MergedState extends ContextState = Merge<State, HandlerState>, MergedAction = DefinedAction<MergedState, Auth, Term, Spec>>(handler: PostMiddlewareFn<MergedState, Auth, Spec>): MergedAction;
     handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
     handle(args: HandlerObj<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
     handleRequest(refs: MiddlewareRefs<State, Auth, Spec>): Promise<ResponseTypes>;
@@ -124,7 +121,7 @@ export declare class DefinedAction<State extends ContextState = ContextState, Au
     refreshCache(refs: MiddlewareRefs<State, Auth, Spec>): Promise<CacheOperationResult>;
     invalidateCache(refs: MiddlewareRefs<State, Auth, Spec>): Promise<CacheOperationResult>;
 }
-export declare class Action<State extends ContextState = ContextState, Auth extends AuthState = AuthState> implements Applicable<Action>, Handleable<State>, ImplementedAction<State> {
+export declare class Action<State extends ContextState = ContextState, Auth extends AuthState = AuthState> implements Handleable<State>, ImplementedAction<State> {
     #private;
     constructor(core: ActionCore<State>);
     get public(): boolean;
@@ -154,7 +151,7 @@ export declare class Action<State extends ContextState = ContextState, Auth exte
         '@type': string;
         '@id': string;
     } | null;
-    use(): Action<State>;
+    use<HandlerState extends ContextState = ContextState, MergedState extends ContextState = Merge<State, HandlerState>, MergedAction = Action<MergedState, Auth>>(middleware: PreMiddlewareFn<MergedState, Auth>): MergedAction;
     define<Auth extends AuthState = AuthState, Term extends string = string, Spec extends ActionSpec = ActionSpec>(args: DefineArgs<Term, Spec>): DefinedAction<State, Auth, Term, Spec>;
     handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State>): FinalizedAction<State>;
     handle(args: HandlerObj<State>): FinalizedAction<State>;
@@ -163,22 +160,22 @@ export declare class Action<State extends ContextState = ContextState, Auth exte
     refreshCache(refs: MiddlewareRefs<State, Auth, ActionSpec>): Promise<CacheOperationResult>;
     invalidateCache(refs: MiddlewareRefs<State, Auth, ActionSpec>): Promise<CacheOperationResult>;
 }
-export declare class PreAction<State extends ContextState = ContextState, Auth extends AuthState = AuthState> implements Applicable<Action>, Handleable<State, Auth> {
+export declare class PreAction<State extends ContextState = ContextState, Auth extends AuthState = AuthState> implements Handleable<State, Auth> {
     #private;
     constructor(core: ActionCore<State, Auth>);
-    use(): Action<State, AuthState>;
+    use<HandlerState extends ContextState = ContextState, MergedState extends ContextState = Merge<State, HandlerState>, MergedAction = Action<MergedState, Auth>>(handler: PreMiddlewareFn<MergedState, Auth>): MergedAction;
     define<Term extends string = string, Spec extends ActionSpec = ActionSpec>(args: DefineArgs<Term, Spec>): DefinedAction<State, Auth, Term, Spec>;
     handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Auth>): FinalizedAction<State, Auth>;
     handle(args: HandlerObj<State>): FinalizedAction<State, Auth>;
 }
-export declare class Endpoint<State extends ContextState = ContextState, Auth extends AuthState = AuthState> implements Applicable<Action>, Handleable<State, Auth> {
+export declare class Endpoint<State extends ContextState = ContextState, Auth extends AuthState = AuthState> implements Handleable<State, Auth> {
     #private;
     constructor(core: ActionCore<State, Auth>);
     hint(hints: HintArgs): Endpoint<State, Auth>;
     compress(): Endpoint<State, Auth>;
     cache(args: CacheInstanceArgs): Endpoint<State, Auth>;
     etag(): this;
-    use(): Action<State, Auth>;
+    use<HandlerState extends ContextState, MergedState extends ContextState = Merge<State, HandlerState>, MergedAction = Endpoint<MergedState, Auth>>(middleware: PreMiddlewareFn<MergedState, Auth>): MergedAction;
     define<Term extends string = string, Spec extends ActionSpec = ActionSpec>(args: DefineArgs<Term, Spec>): DefinedAction<State, Auth, Term, Spec>;
     handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State>): FinalizedAction<State, Auth>;
     handle(args: HandlerObj<State, Auth>): FinalizedAction<State, Auth>;

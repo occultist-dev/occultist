@@ -12,3 +12,6 @@ export declare class BadRequestError extends ProblemDetailsError {
 export declare class NotFoundError extends ProblemDetailsError {
     constructor(title: string);
 }
+export declare class InternalServerError extends ProblemDetailsError {
+    constructor(title: string);
+}

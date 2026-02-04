@@ -57,3 +57,8 @@ export class NotFoundError extends ProblemDetailsError {
         super(404, { title, type: 'not-found' });
     }
 }
+export class InternalServerError extends ProblemDetailsError {
+    constructor(title) {
+        super(500, { title, type: 'internal-server-error' });
+    }
+}

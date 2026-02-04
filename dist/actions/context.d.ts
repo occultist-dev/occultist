@@ -3,13 +3,14 @@ import type { Registry } from "../registry.ts";
 import type { ActionPayload, ActionSpec, ContextState, ParsedIRIValues } from "./spec.ts";
 import type { AuthState, ImplementedAction } from "./types.ts";
 import type { ResponseBody } from "./writer.ts";
-export type CacheContextArgs<Auth extends AuthState = AuthState> = {
+export type CacheContextArgs<State extends ContextState = ContextState, Auth extends AuthState = AuthState> = {
     req: Request;
     contentType: string;
     languageTag: string | undefined;
     public: boolean;
     authKey?: string;
     auth: Auth;
+    state: State;
     cacheOperation?: CacheOperation;
     handler: HandlerDefinition;
     params: ParsedIRIValues;
@@ -19,7 +20,7 @@ export type CacheContextArgs<Auth extends AuthState = AuthState> = {
 /**
  * Request context object.
  */
-export declare class CacheContext<Auth extends AuthState = AuthState> {
+export declare class CacheContext<State extends ContextState = ContextState, Auth extends AuthState = AuthState> {
     #private;
     req: Request;
     method: string;
@@ -29,6 +30,7 @@ export declare class CacheContext<Auth extends AuthState = AuthState> {
     public: boolean;
     authKey: string | null;
     auth: Auth;
+    state: State;
     cacheRun: boolean;
     cacheOperation: CacheOperation | null;
     action: ImplementedAction;
@@ -36,7 +38,7 @@ export declare class CacheContext<Auth extends AuthState = AuthState> {
     params: ParsedIRIValues;
     query: ParsedIRIValues;
     headers: Headers;
-    constructor(args: CacheContextArgs<Auth>);
+    constructor(args: CacheContextArgs<State, Auth>);
     get hit(): boolean;
     set hit(hit: boolean);
     get status(): undefined | number;
@@ -54,6 +56,7 @@ export type ContextArgs<State extends ContextState = ContextState, Auth extends 
     public: boolean;
     authKey?: string;
     auth: Auth;
+    state: State;
     cacheOperation: CacheOperation | null;
     handler: HandlerDefinition<State, Auth, Spec>;
     params: ParsedIRIValues;

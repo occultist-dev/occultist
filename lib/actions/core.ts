@@ -1,6 +1,6 @@
 import {CacheDescriptor, CacheMiddleware} from '../cache/cache.ts';
 import type {CacheInstanceArgs, CacheOperation, CacheOperationResult, CacheWhen} from '../cache/types.ts';
-import {ProblemDetailsError} from '../errors.ts';
+import {InternalServerError, ProblemDetailsError} from '../errors.ts';
 import type {JSONValue} from '../jsonld.ts';
 import {processAction, type ProcessActionResult} from '../processAction.ts';
 import type {Registry} from '../registry.ts';
@@ -10,7 +10,7 @@ import {HandlerDefinition} from './actions.ts';
 import {CacheContext, Context} from './context.ts';
 import {Route} from "./route.ts";
 import type {ActionSpec, ContextState, FileValue, NextFn, TransformerFn} from './spec.ts';
-import type {AuthMiddleware, AuthState, CacheHitHeader, HintArgs, ImplementedAction} from './types.ts';
+import type {AuthMiddleware, AuthState, CacheHitHeader, HintArgs, ImplementedAction, PostMiddlewareFn, PreMiddlewareFn} from './types.ts';
 import {type HTTPWriter, type ResponseTypes} from "./writer.ts";
 
 
@@ -113,6 +113,8 @@ export class ActionCore<
   cacheOccurrence: 0 | 1 = BeforeDefinition;
   auth?: AuthMiddleware<Auth>;
   cache: CacheInstanceArgs[] = [];
+  preMiddleware: PreMiddlewareFn[] = [];
+  postMiddleware: PostMiddlewareFn[] = [];
   autoLanguageTags: boolean;
   autoFileExtensions: boolean;
   recordServerTiming: boolean;
@@ -316,7 +318,7 @@ export class ActionCore<
    */
   async #writeResponse(refs: MiddlewareRefs<State, Auth, Spec>): Promise<void> {
     if (refs.cacheCtx == null && refs.handlerCtx == null) {
-      throw new Error('Unhandled');
+      throw new InternalServerError('Request was not handled by middleware');
     }
 
     if (refs.cacheCtx?.hit) {
@@ -341,6 +343,10 @@ export class ActionCore<
         await refs.writer.writeBody(refs.cacheCtx.body);
       }
     } else {
+      if (refs.handlerCtx == null) {
+        throw new InternalServerError('Request was not handled by middleware');
+      }
+
       refs.writer.writeHead(
         refs.handlerCtx.status ?? 200,
         refs.headers,
@@ -372,12 +378,19 @@ export class ActionCore<
    * provided in the action's define method if called.
    */
   #applyActionProcessing(refs: MiddlewareRefs<State, Auth, Spec>): void {
-    const downstream: NextFn = refs.next;
+    for (let i = this.postMiddleware.length - 1; i >= 0; i--) {
+      const middleware = this.postMiddleware[i];
+      const downstream = refs.next;
+      refs.next = async () => {
+        await middleware(refs.handlerCtx, downstream);
+      };
+    }
+
+    const downstream = refs.next;
     refs.next = async () => {
       let processed: ProcessActionResult<Spec>;
 
       if (refs.spec != null) {
-        try {
         processed = await processAction<State, Auth, Spec>({
           iri: refs.req.url,
           req: refs.req,
@@ -385,10 +398,6 @@ export class ActionCore<
           state: refs.state,
           action: this.action,
         });
-        } catch (err) {
-          console.log(err);
-          throw err;
-        }
       }
 
       refs.handlerCtx = new Context<State, Auth, Spec>({
@@ -398,11 +407,12 @@ export class ActionCore<
         public: this.public && refs.authKey == null,
         auth: refs.auth,
         authKey: refs.authKey,
+        state: refs.state,
         cacheOperation: refs.cacheOperation,
         handler: refs.handler,
-        params: processed.params ?? {},
-        query: processed.query ?? {},
-        payload: processed.payload ?? {} as ProcessActionResult<Spec>['payload'],
+        params: processed?.params ?? {},
+        query: processed?.query ?? {},
+        payload: processed?.payload ?? {} as ProcessActionResult<Spec>['payload'],
         headers: refs.headers,
       });
 
@@ -415,6 +425,14 @@ export class ActionCore<
       refs.recordServerTime('payload')
 
       await downstream();
+    }
+
+    for (let i = this.preMiddleware.length - 1; i >= 0; i--) {
+      const middleware = this.preMiddleware[i];
+      const downstream = refs.next;
+      refs.next = async () => {
+        await middleware(refs.cacheCtx, downstream);
+      };
     }
   }
 
@@ -437,6 +455,7 @@ export class ActionCore<
         cacheOperation: refs.cacheOperation,
         auth: refs.auth,
         authKey: refs.authKey,
+        state: refs.state,
         handler: refs.handler,
         params: {},
         query: {},

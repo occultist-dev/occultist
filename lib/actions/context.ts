@@ -15,6 +15,7 @@ class EditableContext {
 };
 
 export type CacheContextArgs<
+  State extends ContextState = ContextState,
   Auth extends AuthState = AuthState,
 > = {
   req: Request;
@@ -23,6 +24,7 @@ export type CacheContextArgs<
   public: boolean;
   authKey?: string;
   auth: Auth;
+  state: State;
   cacheOperation?: CacheOperation;
   handler: HandlerDefinition;
   params: ParsedIRIValues;
@@ -34,6 +36,7 @@ export type CacheContextArgs<
  * Request context object.
  */
 export class CacheContext<
+  State extends ContextState = ContextState,
   Auth extends AuthState = AuthState,
 > {
   #editable = new EditableContext();
@@ -45,6 +48,7 @@ export class CacheContext<
   public: boolean;
   authKey: string | null;
   auth: Auth;
+  state: State = {} as State;
   cacheRun: boolean;
   cacheOperation: CacheOperation | null;
   action: ImplementedAction;
@@ -53,7 +57,7 @@ export class CacheContext<
   query: ParsedIRIValues;
   headers: Headers;
 
-  constructor(args: CacheContextArgs<Auth>) {
+  constructor(args: CacheContextArgs<State, Auth>) {
     this.req = args.req;
     this.url = args.req.url;
     this.contentType = args.contentType;
@@ -61,6 +65,7 @@ export class CacheContext<
     this.public = args.public;
     this.authKey = args.authKey;
     this.auth = args.auth;
+    this.state = args.state;
     this.cacheRun = args.cacheOperation != null;
     this.cacheOperation = args.cacheOperation ?? null
     this.action = args.handler.action;
@@ -122,6 +127,7 @@ export type ContextArgs<
   public: boolean;
   authKey?: string;
   auth: Auth;
+  state: State;
   cacheOperation: CacheOperation | null;
   handler: HandlerDefinition<State, Auth, Spec>;
   params: ParsedIRIValues;
@@ -165,6 +171,7 @@ export class Context<
     this.public = args.public;
     this.authKey = args.authKey;
     this.auth = args.auth;
+    this.state = args.state;
     this.cacheOperation = args.cacheOperation ?? null;
     this.cacheRun = args.cacheOperation != null;
     this.action = args.handler.action;

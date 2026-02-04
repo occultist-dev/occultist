@@ -1,10 +1,10 @@
 import type { ServerResponse } from "node:http";
 import type { JSONObject, TypeDef } from "../jsonld.ts";
-import type { CacheOperationResult, HandlerDefinition, MiddlewareRefs, Route } from "../mod.ts";
+import type { CacheContext, CacheOperationResult, HandlerDefinition, MiddlewareRefs, Route } from "../mod.ts";
 import type { Registry } from '../registry.ts';
 import type { Scope } from "../scopes.ts";
 import type { Context } from "./context.ts";
-import type { ActionSpec, ContextState } from "./spec.ts";
+import type { ActionSpec, ContextState, NextFn } from "./spec.ts";
 import type { HTTPWriter } from "./writer.ts";
 export type CacheHitHeader = boolean | string | [header: string, value: string];
 export type AuthState = Record<string, unknown>;
@@ -50,7 +50,15 @@ export type HintObj = {
 export type HintFn = () => HintObj | HintLink | HintLink[];
 export type HintArgs = HintLink | HintLink[] | HintObj | HintFn;
 /**
- * An object of values that can be used to programically query actions
+ * Middleware that is executed before an action's spec defining middleware.
+ */
+export type PreMiddlewareFn<State extends ContextState = ContextState, Auth extends AuthState = AuthState> = (ctx: CacheContext<State, Auth>, next: NextFn) => void | Promise<void>;
+/**
+ * Middleware that is executed after an action's spec defining middleware.
+ */
+export type PostMiddlewareFn<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Spec extends ActionSpec = ActionSpec> = (ctx: Context<State, Auth, Spec>, next: NextFn) => void | Promise<void>;
+/**
+ * An object of values that can be used to programmatically query actions
  * by metadata defined on the action.
  */
 export type HandlerMeta = Record<symbol | string, unknown>;

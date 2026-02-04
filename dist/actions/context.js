@@ -20,6 +20,7 @@ export class CacheContext {
     public;
     authKey;
     auth;
+    state = {};
     cacheRun;
     cacheOperation;
     action;
@@ -35,6 +36,7 @@ export class CacheContext {
         this.public = args.public;
         this.authKey = args.authKey;
         this.auth = args.auth;
+        this.state = args.state;
         this.cacheRun = args.cacheOperation != null;
         this.cacheOperation = args.cacheOperation ?? null;
         this.action = args.handler.action;
@@ -103,6 +105,7 @@ export class Context {
         this.public = args.public;
         this.authKey = args.authKey;
         this.auth = args.auth;
+        this.state = args.state;
         this.cacheOperation = args.cacheOperation ?? null;
         this.cacheRun = args.cacheOperation != null;
         this.action = args.handler.action;
