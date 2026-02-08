@@ -81,6 +81,10 @@ export interface Handleable<
   Auth extends AuthState = AuthState,
   Spec extends ActionSpec = ActionSpec,
 > {
+
+  handle(
+    args: HandlerObj<State, Auth, Spec>,
+  ): FinalizedAction<State, Auth, Spec>;
   
   /**
    * Defines the final handler for this content type.
@@ -91,10 +95,6 @@ export interface Handleable<
   handle(
     contentType: string | string[],
     handler: HandlerValue | HandlerFn<State, Auth, Spec>,
-  ): FinalizedAction<State, Auth, Spec>;
-
-  handle(
-    args: HandlerObj<State, Auth, Spec>,
   ): FinalizedAction<State, Auth, Spec>;
 }
 
@@ -314,12 +314,12 @@ export class FinalizedAction<
   }
 
   handle(
-    contentType: string | string[],
-    handler: HandlerFn<State, Auth, Spec> | HandlerValue,
+    args: HandlerObj<State, Auth, Spec>,
   ): FinalizedAction<State, Auth, Spec>;
 
   handle(
-    args: HandlerObj<State, Auth, Spec>,
+    contentType: string | string[],
+    handler: HandlerFn<State, Auth, Spec> | HandlerValue,
   ): FinalizedAction<State, Auth, Spec>;
   
   handle(
@@ -582,9 +582,11 @@ export class DefinedAction<
 
     return this as unknown as MergedAction;
   }
+
+  handle(args: HandlerObj<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
   
   handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
-  handle(args: HandlerObj<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
+
   handle(arg1: unknown, arg2?: unknown): FinalizedAction<State, Auth, Spec> {
     return FinalizedAction.fromHandlers(
       this.#typeDef,
@@ -754,9 +756,11 @@ export class Action<
       this.#core as unknown as ActionCore<State, Auth, Spec>,
     );
   }
+
+  handle(args: HandlerObj<State>): FinalizedAction<State>;
   
   handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State>): FinalizedAction<State>;
-  handle(args: HandlerObj<State>): FinalizedAction<State>;
+
   handle(arg1: unknown, arg2?: unknown): FinalizedAction<State> {
     return FinalizedAction.fromHandlers(
       null,
@@ -839,9 +843,11 @@ export class PreAction<
       this.#core as unknown as ActionCore<State, Auth, Spec>,
     );
   }
+
+  handle(args: HandlerObj<State>): FinalizedAction<State, Auth>;
   
   handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Auth>): FinalizedAction<State, Auth>;
-  handle(args: HandlerObj<State>): FinalizedAction<State, Auth>;
+
   handle(arg1: unknown, arg2?: unknown): FinalizedAction<State, Auth> {
     return FinalizedAction.fromHandlers<State, Auth>(
       null,
@@ -913,8 +919,10 @@ export class Endpoint<
     );
   }
 
-  handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State>): FinalizedAction<State, Auth>;
   handle(args: HandlerObj<State, Auth>): FinalizedAction<State, Auth>;
+
+  handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State>): FinalizedAction<State, Auth>;
+
   handle(arg1: unknown, arg2?: unknown): FinalizedAction<State, Auth> {
     return FinalizedAction.fromHandlers(
       undefined,

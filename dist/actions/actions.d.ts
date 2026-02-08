@@ -26,6 +26,7 @@ export declare class HandlerDefinition<State extends ContextState = ContextState
     get [Symbol.toStringTag](): string;
 }
 export interface Handleable<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Spec extends ActionSpec = ActionSpec> {
+    handle(args: HandlerObj<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
     /**
      * Defines the final handler for this content type.
      *
@@ -33,7 +34,6 @@ export interface Handleable<State extends ContextState = ContextState, Auth exte
      * each for a different set of content types.
      */
     handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
-    handle(args: HandlerObj<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
 }
 export declare class FinalizedAction<State extends ContextState = ContextState, Auth extends AuthState = AuthState, Spec extends ActionSpec = ActionSpec> implements Handleable<State, Auth, Spec>, ImplementedAction<State, Auth, Spec> {
     #private;
@@ -67,8 +67,8 @@ export declare class FinalizedAction<State extends ContextState = ContextState, 
         '@type': string;
         '@id': string;
     } | null;
-    handle(contentType: string | string[], handler: HandlerFn<State, Auth, Spec> | HandlerValue): FinalizedAction<State, Auth, Spec>;
     handle(args: HandlerObj<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
+    handle(contentType: string | string[], handler: HandlerFn<State, Auth, Spec> | HandlerValue): FinalizedAction<State, Auth, Spec>;
     handleRequest(refs: MiddlewareRefs<State, Auth, Spec>): Promise<ResponseTypes>;
     primeCache(refs: MiddlewareRefs<State, Auth, Spec>): Promise<CacheOperationResult>;
     refreshCache(refs: MiddlewareRefs<State, Auth, Spec>): Promise<CacheOperationResult>;
@@ -114,8 +114,8 @@ export declare class DefinedAction<State extends ContextState = ContextState, Au
     cache(args: CacheInstanceArgs): DefinedAction<State, Auth, Term, Spec>;
     meta(): DefinedAction<State, Auth, Term, Spec>;
     use<HandlerState extends ContextState, MergedState extends ContextState = Merge<State, HandlerState>, MergedAction = DefinedAction<MergedState, Auth, Term, Spec>>(handler: PostMiddlewareFn<MergedState, Auth, Spec>): MergedAction;
-    handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
     handle(args: HandlerObj<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
+    handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Auth, Spec>): FinalizedAction<State, Auth, Spec>;
     handleRequest(refs: MiddlewareRefs<State, Auth, Spec>): Promise<ResponseTypes>;
     primeCache(refs: MiddlewareRefs<State, Auth, Spec>): Promise<CacheOperationResult>;
     refreshCache(refs: MiddlewareRefs<State, Auth, Spec>): Promise<CacheOperationResult>;
@@ -153,8 +153,8 @@ export declare class Action<State extends ContextState = ContextState, Auth exte
     } | null;
     use<HandlerState extends ContextState = ContextState, MergedState extends ContextState = Merge<State, HandlerState>, MergedAction = Action<MergedState, Auth>>(middleware: PreMiddlewareFn<MergedState, Auth>): MergedAction;
     define<Auth extends AuthState = AuthState, Term extends string = string, Spec extends ActionSpec = ActionSpec>(args: DefineArgs<Term, Spec>): DefinedAction<State, Auth, Term, Spec>;
-    handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State>): FinalizedAction<State>;
     handle(args: HandlerObj<State>): FinalizedAction<State>;
+    handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State>): FinalizedAction<State>;
     handleRequest(refs: MiddlewareRefs<State, Auth, ActionSpec>): Promise<ResponseTypes>;
     primeCache(refs: MiddlewareRefs<State, Auth, ActionSpec>): Promise<CacheOperationResult>;
     refreshCache(refs: MiddlewareRefs<State, Auth, ActionSpec>): Promise<CacheOperationResult>;
@@ -165,8 +165,8 @@ export declare class PreAction<State extends ContextState = ContextState, Auth e
     constructor(core: ActionCore<State, Auth>);
     use<HandlerState extends ContextState = ContextState, MergedState extends ContextState = Merge<State, HandlerState>, MergedAction = Action<MergedState, Auth>>(handler: PreMiddlewareFn<MergedState, Auth>): MergedAction;
     define<Term extends string = string, Spec extends ActionSpec = ActionSpec>(args: DefineArgs<Term, Spec>): DefinedAction<State, Auth, Term, Spec>;
-    handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Auth>): FinalizedAction<State, Auth>;
     handle(args: HandlerObj<State>): FinalizedAction<State, Auth>;
+    handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State, Auth>): FinalizedAction<State, Auth>;
 }
 export declare class Endpoint<State extends ContextState = ContextState, Auth extends AuthState = AuthState> implements Handleable<State, Auth> {
     #private;
@@ -177,8 +177,8 @@ export declare class Endpoint<State extends ContextState = ContextState, Auth ex
     etag(): this;
     use<HandlerState extends ContextState, MergedState extends ContextState = Merge<State, HandlerState>, MergedAction = Endpoint<MergedState, Auth>>(middleware: PreMiddlewareFn<MergedState, Auth>): MergedAction;
     define<Term extends string = string, Spec extends ActionSpec = ActionSpec>(args: DefineArgs<Term, Spec>): DefinedAction<State, Auth, Term, Spec>;
-    handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State>): FinalizedAction<State, Auth>;
     handle(args: HandlerObj<State, Auth>): FinalizedAction<State, Auth>;
+    handle(contentType: string | string[], handler: HandlerValue | HandlerFn<State>): FinalizedAction<State, Auth>;
 }
 export declare class ActionAuth<State extends ContextState = ContextState> {
     #private;
