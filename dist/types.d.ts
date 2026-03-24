@@ -47,8 +47,8 @@ export interface StaticAssetExtension {
     listAssets(): StaticAsset[];
 }
 export type ProblemDetailsParam = {
-    name: string;
-    reason: string;
+    title?: string;
+    detail?: string;
     pointer?: string;
 };
 export type ProblemDetails = {

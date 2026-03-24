@@ -5,7 +5,7 @@
   "homepage": "https://github.com/occultist-dev/occultist",
   "license": "MIT",
   "type": "module",
-  "main": "dist/mod.js",
+  "main": "lib/mod.ts",
   "types": "dist/mod.d.ts",
   "repository": {
     "type": "git",

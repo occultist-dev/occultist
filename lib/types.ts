@@ -62,8 +62,8 @@ export interface StaticAssetExtension {
 }
 
 export type ProblemDetailsParam = {
-  name: string;
-  reason: string;
+  title?: string;
+  detail?: string;
   pointer?: string;
 };
 

@@ -1,4 +1,5 @@
 import { ProblemDetailsError } from "../errors.js";
+import { escapeJSONPointerParts } from "./escapePointerParts.js";
 export function getRequestIRIValues({ iri, action, }) {
     const pathValues = Object.create(null);
     const queryValues = Object.create(null);
@@ -39,7 +40,7 @@ export function getRequestIRIValues({ iri, action, }) {
                 title: `Invalid request`,
                 errors: [{
                         name: term,
-                        pointer: `#${term}`,
+                        pointer: escapeJSONPointerParts(term),
                         reason: `Received array when expecting single value`,
                     }],
             });
@@ -60,28 +61,28 @@ export function getRequestIRIValues({ iri, action, }) {
             iriValues[term] = parseBoolean({
                 term,
                 value,
-                pointer: `#${term}`,
+                pointer: `${term}`,
             });
         }
         else if (specItem.dataType === 'boolean' && Array.isArray(value)) {
             iriValues[term] = value.map((value, index) => parseBoolean({
                 term,
                 value,
-                pointer: `#${term}[${index}]`,
+                pointer: `${term}[${index}]`,
             }));
         }
         else if (specItem.dataType === 'number' && typeof value === 'string') {
             iriValues[term] = parseNumber({
                 term,
                 value,
-                pointer: `#${term}`,
+                pointer: `${term}`,
             });
         }
         else if (specItem.dataType === 'number' && Array.isArray(value)) {
             iriValues[term] = value.map((value, index) => parseNumber({
                 term,
                 value,
-                pointer: `#${term}[${index}]`,
+                pointer: `${term}[${index}]`,
             }));
         }
         else {

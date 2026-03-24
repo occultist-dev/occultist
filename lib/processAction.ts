@@ -12,6 +12,7 @@ import { alwaysArray } from "./utils/alwaysArray.ts";
 import type { AuthState, ImplementedAction } from "./actions/types.ts";
 import type { ActionPayload, ActionSpec, ArraySpec, ContextState, ObjectArraySpec, ObjectSpec, ParsedIRIValues, PropertySpec, SpecValue, ValueSpec } from "./actions/spec.ts";
 import type {JSONValue} from "./jsonld.ts";
+import {escapeJSONPointerParts} from "./utils/escapePointerParts.ts";
 
 
 
@@ -229,9 +230,8 @@ export async function processAction<
       appendProblemDetailsParam({
         status: 400,
         param: {
-          name: paramName,
-          reason: `Value is not valid`,
-          pointer,
+          detail: `Value is not valid`,
+          pointer: '/' + escapeJSONPointerParts(specValue.typeDef.type),
         },
       });
 
@@ -604,7 +604,7 @@ export async function processAction<
         param: {
           name: paramName,
           reason: `Value required`,
-          pointer: `#/${paramName}`,
+          pointer: `/${paramName}`,
         },
         status: 400,
       });
@@ -621,7 +621,7 @@ export async function processAction<
             {
               name: paramName,
               reason: 'Unexpected value',
-              pointer: `#/${paramName}`,
+              pointer: `/${paramName}`,
             },
           ],
         },

@@ -1,6 +1,7 @@
 import type { ImplementedAction } from "../actions/types.ts";
 import { ProblemDetailsError } from "../errors.ts";
 import type { ActionSpec, ContextState, FileSingleSpec, FileMultiSpec, BooleanSingleSpec, BooleanMultiSpec, NumberSingleSpec, NumberMultiSpec, StringSingleSpec, StringMultiSpec, ParsedIRIValues, PropertySpec } from "../actions/spec.ts";
+import {escapeJSONPointerParts} from "./escapePointerParts.ts";
 
 
 export type IRIValue<
@@ -88,7 +89,7 @@ export function getRequestIRIValues<
         title: `Invalid request`,
         errors: [{
           name: term,
-          pointer: `#${term}`,
+          pointer: escapeJSONPointerParts(term),
           reason: `Received array when expecting single value`,
         }],
       });
@@ -110,25 +111,25 @@ export function getRequestIRIValues<
       iriValues[term] = parseBoolean({
         term,
         value,
-        pointer: `#${term}`,
+        pointer: `${term}`,
       });
     } else if (specItem.dataType === 'boolean' && Array.isArray(value)) {
       iriValues[term] = value.map((value, index) => parseBoolean({
         term,
         value,
-        pointer: `#${term}[${index}]`,
+        pointer: `${term}[${index}]`,
       }));
     } else if (specItem.dataType === 'number' && typeof value === 'string') {
       iriValues[term] = parseNumber({
         term,
         value,
-        pointer: `#${term}`,
+        pointer: `${term}`,
       });
     } else if (specItem.dataType === 'number' && Array.isArray(value)) {
       iriValues[term] = value.map((value, index) => parseNumber({
         term,
         value,
-        pointer: `#${term}[${index}]`,
+        pointer: `${term}[${index}]`,
       }));
     } else {
       // string values don't require parsing

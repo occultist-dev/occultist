@@ -9,6 +9,7 @@ import { makeAppendProblemDetails } from "./utils/makeAppendProblemDetails.js";
 import { failsRequiredRequirement, failsTypeRequirement, failsContentTypeRequirement, failsMaxValue, failsMinValue, failsValueMinLength, failsValueMaxLength, failsStepValue, failsPatternValue, failsValidator, isObjectArraySpec, isObjectSpec, isArraySpec } from "./validators.js";
 import { BadRequestError, ProblemDetailsError } from "./errors.js";
 import { alwaysArray } from "./utils/alwaysArray.js";
+import { escapeJSONPointerParts } from "./utils/escapePointerParts.js";
 export async function processAction({ iri, req, spec, state, action, }) {
     let httpStatus = null;
     const payload = Object.create(null);
@@ -164,9 +165,8 @@ export async function processAction({ iri, req, spec, state, action, }) {
             appendProblemDetailsParam({
                 status: 400,
                 param: {
-                    name: paramName,
-                    reason: `Value is not valid`,
-                    pointer,
+                    detail: `Value is not valid`,
+                    pointer: '/' + escapeJSONPointerParts(specValue.typeDef.type),
                 },
             });
             return null;
@@ -446,7 +446,7 @@ export async function processAction({ iri, req, spec, state, action, }) {
                 param: {
                     name: paramName,
                     reason: `Value required`,
-                    pointer: `#/${paramName}`,
+                    pointer: `/${paramName}`,
                 },
                 status: 400,
             });
@@ -460,7 +460,7 @@ export async function processAction({ iri, req, spec, state, action, }) {
                     {
                         name: paramName,
                         reason: 'Unexpected value',
-                        pointer: `#/${paramName}`,
+                        pointer: `/${paramName}`,
                     },
                 ],
             });
